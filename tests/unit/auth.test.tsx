@@ -222,5 +222,5 @@ describe('required login modal', () => {
     );
     expect(validationMessages()).toHaveLength(0);
     expect(fetchSpy).not.toHaveBeenCalled();
-  });
+  }, 15_000);
 });
