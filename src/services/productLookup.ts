@@ -108,7 +108,7 @@ export async function lookupProduct(
     `https://world.openfoodfacts.org/api/v3/product/${barcode}?${query}`,
     Platform.OS === 'web'
       ? undefined
-      : { headers: { 'User-Agent': 'BringScanner/1.0 (mobile companion app)' } },
+      : { headers: { 'User-Agent': 'ShoppingList/1.0 (mobile app)' } },
   );
   if (response.status === 404) return null;
   if (!response.ok) throw new Error('The product lookup service is unavailable. Please try again.');

@@ -63,7 +63,7 @@ test('disables adding until a list is selected and resumes scanning after cancel
   );
   await emitBarcodeBatch(page, [{ value: first }]);
   await expect(page.getByTestId('product-sheet')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add to Bring' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Add and Sync to Bring' })).toBeDisabled();
   await expect(
     page.getByText('Configure a shopping list in Settings before adding this item.', {
       exact: true,
@@ -115,7 +115,7 @@ test('uses the selected product language and generic Bring label', async ({ page
   await emitBarcodeBatch(page, [{ value: barcode }]);
   const sheet = page.getByTestId('product-sheet');
   await expect(sheet.getByText('Nettoyant lunaire, 750 ml', { exact: true })).toBeVisible();
-  await expect(sheet.getByLabel('Bring Label')).toHaveValue('Nettoyant ménager');
+  await expect(sheet.getByLabel('Item Label')).toHaveValue('Nettoyant ménager');
   await expect(sheet.getByText('Open Products Facts', { exact: true })).toBeVisible();
   expect(state.productRequests).toEqual([barcode]);
   expect(state.productRequestLanguages).toEqual(['fr']);
@@ -132,21 +132,21 @@ test('adds an edited item with quantity and never sends the barcode to Bring', a
 
   await emitBarcodeBatch(page, [{ value: barcode }]);
   await expect(page.getByTestId('product-sheet')).toBeVisible();
-  await page.getByLabel('Bring Label').fill('Party Cola');
+  await page.getByLabel('Item Label').fill('Party Cola');
   await page.getByRole('button', { name: 'Increase quantity' }).click();
   await page.getByRole('button', { name: 'Increase quantity' }).click();
   await expect(page.getByRole('textbox', { name: 'Quantity', exact: true })).toHaveValue('2');
-  await page.getByRole('button', { name: 'Add to Bring' }).click();
+  await page.getByRole('button', { name: 'Add and Sync to Bring' }).click();
 
   await expect(page.getByTestId('product-sheet')).toBeHidden();
   const status = page.getByTestId('scanner-status');
-  await expect(status).toContainText(`2× Party Cola added to ${FANTASY_LISTS[0].name}.`);
+  await expect(status).toContainText('Party Cola added locally and synced to Bring.');
   await expect(status).toHaveCSS('position', 'absolute');
   await expect(status).toHaveCSS('bottom', '12px');
   const cameraAfterAdd = await page.getByTestId('scanner-camera-wrap').boundingBox();
   expect(cameraAfterAdd).not.toBeNull();
   expect(cameraAfterAdd?.y).toBe(cameraBeforeAdd?.y);
-  await expect(page.getByText('Comet Cola, 330 ml', { exact: true })).toBeVisible();
+  await expect(page.getByText('2× Party Cola', { exact: true })).toBeVisible();
   expect(state.addedListUuids).toEqual([FANTASY_LISTS[0].listUuid]);
   expect(state.addedItems).toHaveLength(1);
   expect(state.addedItems[0].get('purchase')).toBe('Party Cola');
@@ -168,12 +168,12 @@ test('omits an unselected quantity and restores scan history after reload', asyn
   const sheet = page.getByTestId('product-sheet');
   await expect(sheet).toBeVisible();
   await expect(sheet.getByRole('textbox', { name: 'Quantity', exact: true })).toHaveValue('');
-  await sheet.getByLabel('Bring Label').fill('Single Bottle');
-  await sheet.getByRole('button', { name: 'Add to Bring' }).click();
+  await sheet.getByLabel('Item Label').fill('Single Bottle');
+  await sheet.getByRole('button', { name: 'Add and Sync to Bring' }).click();
 
   await expect(sheet).toBeHidden();
   await expect(page.getByTestId('scanner-status')).toContainText(
-    `Single Bottle added to ${FANTASY_LISTS[0].name}.`,
+    'Single Bottle added locally and synced to Bring.',
   );
   expect(state.addedItems).toHaveLength(1);
   expect(state.addedItems[0].get('purchase')).toBe('Single Bottle');
@@ -181,8 +181,8 @@ test('omits an unselected quantity and restores scan history after reload', asyn
 
   await page.reload();
   await expect(page.getByTestId('login-sheet')).toBeHidden();
-  await expect(page.getByText('RECENT SCANS', { exact: true })).toBeVisible();
-  await expect(page.getByText('Solo Soda, 330 ml', { exact: true })).toBeVisible();
+  await expect(page.getByText('Shopping List', { exact: true })).toBeVisible();
+  await expect(page.getByText('Single Bottle', { exact: true })).toBeVisible();
   await expect(page.getByText('Orbital Goods', { exact: true })).toBeVisible();
 });
 
@@ -255,12 +255,12 @@ test('keeps the product sheet open after a Bring error and allows retry', async 
   await signInAndSelectList(page);
 
   await emitBarcodeBatch(page, [{ value: barcode }]);
-  await page.getByRole('button', { name: 'Add to Bring' }).click();
+  await page.getByRole('button', { name: 'Add and Sync to Bring' }).click();
   await expect(page.getByTestId('product-status')).toContainText('Could not add the item.');
   await expect(page.getByTestId('product-sheet')).toBeVisible();
 
   state.addFailure = null;
-  await page.getByRole('button', { name: 'Add to Bring' }).click();
+  await page.getByRole('button', { name: 'Add and Sync to Bring' }).click();
   await expect(page.getByTestId('product-sheet')).toBeHidden();
   expect(state.addedItems).toHaveLength(2);
 });

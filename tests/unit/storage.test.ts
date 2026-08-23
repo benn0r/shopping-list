@@ -2,16 +2,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import {
   clearCredentials,
+  addShoppingListItem,
   clearSelectedList,
   DEFAULT_LOOKUP_PREFERENCES,
   loadAppLanguage,
+  loadBringSyncEnabled,
   loadCredentials,
   loadCustomBarcodes,
   loadLookupPreferences,
   loadScanHistory,
   loadSelectedList,
+  loadShoppingList,
+  removeShoppingListItem,
   recordScannedProduct,
   saveAppLanguage,
+  saveBringSyncEnabled,
   saveCredentials,
   saveCustomBarcodes,
   saveLookupPreferences,
@@ -112,6 +117,29 @@ describe('persistent settings', () => {
 
     await saveAppLanguage('pt-BR');
     await expect(loadAppLanguage()).resolves.toBe('pt-BR');
+  });
+
+  it('stores the Bring sync preference and defaults it to disabled', async () => {
+    await expect(loadBringSyncEnabled()).resolves.toBe(false);
+    await saveBringSyncEnabled(true);
+    await expect(loadBringSyncEnabled()).resolves.toBe(true);
+  });
+
+  it('adds, replaces, and removes local shopping-list items', async () => {
+    const product = {
+      barcode: '7611111111111',
+      label: 'Drink',
+      exactLabel: 'Comet Cola',
+      brand: 'Comet',
+      source: 'open-products-family' as const,
+    };
+    await addShoppingListItem(product, 'Cola', 2);
+    await addShoppingListItem(product, 'Party Cola', 3);
+    await expect(loadShoppingList()).resolves.toEqual([
+      expect.objectContaining({ barcode: product.barcode, label: 'Party Cola', quantity: 3 }),
+    ]);
+    await removeShoppingListItem(product.barcode);
+    await expect(loadShoppingList()).resolves.toEqual([]);
   });
 
   it('falls back to English for an unsupported stored app language', async () => {

@@ -10,6 +10,7 @@ import {
   loadCustomBarcodes,
   loadLookupPreferences,
   loadSelectedList,
+  saveBringSyncEnabled,
   saveSelectedList,
 } from '../../src/services/storage';
 import { PRODUCT_DATABASES } from '../../src/productDatabases';
@@ -43,6 +44,7 @@ async function renderAuthenticatedApp() {
 
 beforeEach(async () => {
   await AsyncStorage.clear();
+  await saveBringSyncEnabled(true);
   jest.clearAllMocks();
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue(null);
 });

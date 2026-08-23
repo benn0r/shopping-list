@@ -1,10 +1,10 @@
-# Bring Scanner
+# Shopping List
 
 > [!IMPORTANT]
 > **This entire repository, including the application, design, tests, documentation, and deployment setup was made with AI.**
 
-An unofficial React Native companion for iOS and Android that scans EAN/UPC barcodes, resolves
-product names, and adds them to a selected Bring shopping list.
+A local-first React Native shopping list for iOS and Android that scans EAN/UPC barcodes and
+resolves product names. Bring synchronization can be enabled optionally in Settings.
 
 ## Screenshots
 
@@ -25,10 +25,11 @@ product names, and adds them to a selected Bring shopping list.
 - Free product lookup through Open Food Facts
 - Household, beauty, and pet-product lookup through the Open Facts product family
 - Automatic or selected product language with localized-name fallback
-- Generic, exact, or ask-every-time Bring item labels
+- Generic, exact, or ask-every-time item labels
 - Custom barcode-to-label mappings that override online results
-- Required Bring sign-in with platform secure-storage-backed credentials
-- Shopping-list selection and explicit logout
+- Persistent local shopping list with tap-to-mark-purchased behavior
+- Optional Bring synchronization with platform secure-storage-backed credentials
+- Bring shopping-list selection and explicit logout when synchronization is enabled
 - Confirmation before an item is added, with an optional quantity
 
 ## Run locally
@@ -120,6 +121,9 @@ npm run fix
 ```
 
 ## Privacy and service notes
+
+See the [Privacy Policy](PRIVACY.md) for a complete description of on-device storage and network
+communication.
 
 In the native app, credentials are stored only in platform secure storage and are never written to
 source files or regular app storage. The test-only browser build enables an isolated session-only

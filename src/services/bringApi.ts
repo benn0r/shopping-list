@@ -8,7 +8,7 @@ function apiKey() {
   const value = process.env.EXPO_PUBLIC_BRING_API_KEY;
   if (!value)
     throw new Error(
-      'Bring Scanner is missing EXPO_PUBLIC_BRING_API_KEY. Add it to your local or build environment.',
+      'Shopping List is missing EXPO_PUBLIC_BRING_API_KEY. Add it to your local or build environment.',
     );
   return value;
 }

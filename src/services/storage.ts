@@ -8,6 +8,7 @@ import {
   LookupPreferences,
   Product,
   ScanHistoryItem,
+  ShoppingListItem,
 } from '../types';
 
 const CREDENTIALS_KEY = 'bring-credentials';
@@ -16,6 +17,8 @@ const BARCODES_KEY = 'custom-barcodes';
 const LOOKUP_PREFERENCES_KEY = 'lookup-preferences';
 const SCAN_HISTORY_KEY = 'scan-history';
 const APP_LANGUAGE_KEY = 'app-language';
+const SHOPPING_LIST_KEY = 'shopping-list';
+const BRING_SYNC_KEY = 'bring-sync-enabled';
 const MAX_SCAN_HISTORY = 8;
 const APP_LANGUAGES: AppLanguage[] = ['en', 'de', 'fr', 'it', 'pt', 'pt-BR'];
 export const DEFAULT_LOOKUP_PREFERENCES: LookupPreferences = {
@@ -90,4 +93,37 @@ export async function loadAppLanguage(): Promise<AppLanguage> {
 }
 export async function saveAppLanguage(language: AppLanguage) {
   await AsyncStorage.setItem(APP_LANGUAGE_KEY, language);
+}
+export async function loadBringSyncEnabled(): Promise<boolean> {
+  return (await AsyncStorage.getItem(BRING_SYNC_KEY)) === 'true';
+}
+export async function saveBringSyncEnabled(enabled: boolean) {
+  await AsyncStorage.setItem(BRING_SYNC_KEY, String(enabled));
+}
+export async function loadShoppingList(): Promise<ShoppingListItem[]> {
+  const value = await AsyncStorage.getItem(SHOPPING_LIST_KEY);
+  return value ? JSON.parse(value) : [];
+}
+export async function addShoppingListItem(
+  product: Product,
+  label: string,
+  quantity?: number,
+): Promise<ShoppingListItem[]> {
+  const items = await loadShoppingList();
+  const existing = items.find((item) => item.barcode === product.barcode);
+  const item: ShoppingListItem = {
+    barcode: product.barcode,
+    label,
+    brand: product.brand,
+    scannedAt: Date.now(),
+    quantity: quantity || existing?.quantity,
+  };
+  const next = [item, ...items.filter((entry) => entry.barcode !== product.barcode)];
+  await AsyncStorage.setItem(SHOPPING_LIST_KEY, JSON.stringify(next));
+  return next;
+}
+export async function removeShoppingListItem(barcode: string): Promise<ShoppingListItem[]> {
+  const next = (await loadShoppingList()).filter((item) => item.barcode !== barcode);
+  await AsyncStorage.setItem(SHOPPING_LIST_KEY, JSON.stringify(next));
+  return next;
 }

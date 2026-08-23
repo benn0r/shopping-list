@@ -184,6 +184,8 @@ export async function prepareApp(
   await installCameraHarness(page, permission);
   await mockExternalApis(page, state);
   await page.goto('/');
+  await page.getByTestId('tab-settings').click();
+  await page.getByTestId('bring-sync-switch').click();
   await expect(page.getByTestId('login-sheet')).toBeVisible();
 }
 
@@ -192,6 +194,7 @@ export async function signIn(page: Page) {
   await page.getByLabel('Password').fill(FANTASY_ACCOUNT.password);
   await page.getByRole('button', { name: 'Sign In' }).click();
   await expect(page.getByTestId('login-sheet')).toBeHidden();
+  await page.getByTestId('tab-scan').click();
 }
 
 export async function signInAndSelectList(page: Page) {

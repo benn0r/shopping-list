@@ -5,7 +5,7 @@ import { act, render, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { AuthProvider, LoginModal, useAuth } from '../../src/auth';
 import { I18nProvider } from '../../src/i18n';
-import { saveSelectedList } from '../../src/services/storage';
+import { saveBringSyncEnabled, saveSelectedList } from '../../src/services/storage';
 
 type AuthState = ReturnType<typeof useAuth>;
 let auth: AuthState;
@@ -68,6 +68,7 @@ describe('authentication state', () => {
   });
 
   it('restores credentials and a selected list, then refreshes available lists', async () => {
+    await saveBringSyncEnabled(true);
     const credentials = { email: 'pilot@moon.example', password: 'lunar-secret' };
     jest.mocked(SecureStore.getItemAsync).mockResolvedValue(JSON.stringify(credentials));
     await saveSelectedList({ listUuid: 'selected', name: 'Stored Supplies' });
@@ -87,6 +88,7 @@ describe('authentication state', () => {
   });
 
   it('keeps restored authentication usable when refreshing lists fails', async () => {
+    await saveBringSyncEnabled(true);
     const credentials = { email: 'pilot@moon.example', password: 'lunar-secret' };
     jest.mocked(SecureStore.getItemAsync).mockResolvedValue(JSON.stringify(credentials));
     jest.spyOn(global, 'fetch').mockRejectedValue(new Error('offline'));
@@ -170,6 +172,7 @@ describe('authentication state', () => {
 
 describe('required login modal', () => {
   it('validates missing fields without contacting Bring and clears the error while editing', async () => {
+    await saveBringSyncEnabled(true);
     const fetchSpy = jest.spyOn(global, 'fetch');
     const screen = await renderAuth(true);
     await waitUntilInitialized();

@@ -7,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -50,7 +51,15 @@ const LABEL_STYLES: { value: LabelStyle; title: string; detail: string }[] = [
 
 export function SettingsScreen() {
   const { language: appLanguage, setLanguage: setAppLanguage, t } = useI18n();
-  const { credentials, lists, selectedList: selected, logout, selectList } = useAuth();
+  const {
+    bringSyncEnabled,
+    credentials,
+    lists,
+    selectedList: selected,
+    logout,
+    selectList,
+    setBringSyncEnabled,
+  } = useAuth();
   const [barcode, setBarcode] = useState('');
   const [label, setLabel] = useState('');
   const [custom, setCustom] = useState<CustomBarcode[]>([]);
@@ -151,6 +160,18 @@ export function SettingsScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <Section footer={t('bringSyncFooter')}>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>{t('enableBringSync')}</Text>
+            <Switch
+              accessibilityLabel={t('enableBringSync')}
+              testID="bring-sync-switch"
+              value={bringSyncEnabled}
+              onValueChange={(enabled) => void setBringSyncEnabled(enabled)}
+              trackColor={{ true: colors.tint }}
+            />
+          </View>
+        </Section>
         <Section title={t('appLanguage')}>
           {APP_LANGUAGES.map((option, index) => (
             <View key={option.value}>
@@ -167,14 +188,14 @@ export function SettingsScreen() {
             </View>
           ))}
         </Section>
-        {credentials ? (
+        {bringSyncEnabled && credentials ? (
           <Section title={t('bringAccount')} footer={t('accountFooter')}>
             <ListRow title={t('email')} detail={credentials.email} />
             <Separator />
             <ActionButton title={t('logout')} onPress={signOut} destructive />
           </Section>
         ) : null}
-        {(lists.length > 0 || selected) && (
+        {bringSyncEnabled && (lists.length > 0 || selected) && (
           <Section title={t('shoppingList')} footer={t('listFooter')}>
             {selected && !lists.some((l) => l.listUuid === selected.listUuid) && (
               <ListRow title={selected.name} selected testID={`list-${selected.listUuid}`} />
@@ -375,6 +396,14 @@ export function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  switchRow: {
+    minHeight: 50,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  switchLabel: { color: colors.label, fontSize: 17 },
   statusSlot: { position: 'absolute', zIndex: 10, bottom: 12, left: 16, right: 16 },
   modalSafe: { flex: 1, backgroundColor: colors.systemGroupedBackground },
   modalHeader: {

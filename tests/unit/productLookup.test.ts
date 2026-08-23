@@ -144,7 +144,7 @@ describe('product lookup', () => {
     expect(String(fetchSpy.mock.calls[0][0])).toContain('lc=de');
     expect(String(fetchSpy.mock.calls[0][0])).toContain('cc=ch');
     expect(fetchSpy.mock.calls[0][1]).toEqual({
-      headers: { 'User-Agent': 'BringScanner/1.0 (mobile companion app)' },
+      headers: { 'User-Agent': 'ShoppingList/1.0 (mobile app)' },
     });
   });
 

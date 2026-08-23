@@ -16,3 +16,4 @@ export type Product = {
   productType?: 'food' | 'beauty' | 'petfood' | 'product';
 };
 export type ScanHistoryItem = { barcode: string; label: string; brand?: string; scannedAt: number };
+export type ShoppingListItem = ScanHistoryItem & { quantity?: number };

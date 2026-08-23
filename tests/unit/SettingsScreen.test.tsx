@@ -7,6 +7,8 @@ jest.mock('../../src/services/storage', () => ({
   loadSelectedList: jest.fn().mockResolvedValue(null),
   loadCustomBarcodes: jest.fn().mockResolvedValue([]),
   loadLookupPreferences: jest.fn().mockResolvedValue({ language: 'auto', labelStyle: 'generic' }),
+  loadBringSyncEnabled: jest.fn().mockResolvedValue(false),
+  saveBringSyncEnabled: jest.fn(),
   saveCredentials: jest.fn(),
   saveSelectedList: jest.fn(),
   saveCustomBarcodes: jest.fn(),

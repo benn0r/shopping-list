@@ -4,11 +4,13 @@ import { addItem } from '../../src/services/bringApi';
 import { lookupProduct } from '../../src/services/productLookup';
 import {
   loadCredentials,
+  addShoppingListItem,
+  loadBringSyncEnabled,
   loadCustomBarcodes,
   loadLookupPreferences,
-  loadScanHistory,
+  loadShoppingList,
   loadSelectedList,
-  recordScannedProduct,
+  removeShoppingListItem,
 } from '../../src/services/storage';
 import type { Product } from '../../src/types';
 
@@ -51,11 +53,13 @@ jest.mock('../../src/services/bringApi', () => ({ addItem: jest.fn() }));
 jest.mock('../../src/services/productLookup', () => ({ lookupProduct: jest.fn() }));
 jest.mock('../../src/services/storage', () => ({
   loadCredentials: jest.fn(),
+  addShoppingListItem: jest.fn(),
+  loadBringSyncEnabled: jest.fn(),
   loadCustomBarcodes: jest.fn(),
   loadLookupPreferences: jest.fn(),
-  loadScanHistory: jest.fn(),
+  loadShoppingList: jest.fn(),
   loadSelectedList: jest.fn(),
-  recordScannedProduct: jest.fn(),
+  removeShoppingListItem: jest.fn(),
 }));
 
 const credentials = { email: 'pilot@moon.example', password: 'lunar-secret' };
@@ -98,12 +102,13 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUseCameraPermissions.mockReturnValue([{ granted: true }, mockRequestPermission]);
   jest.mocked(loadCredentials).mockResolvedValue(credentials);
+  jest.mocked(loadBringSyncEnabled).mockResolvedValue(true);
   jest.mocked(loadSelectedList).mockResolvedValue(list);
   jest.mocked(loadCustomBarcodes).mockResolvedValue([]);
   jest.mocked(loadLookupPreferences).mockResolvedValue({ language: 'auto', labelStyle: 'generic' });
-  jest.mocked(loadScanHistory).mockResolvedValue([]);
+  jest.mocked(loadShoppingList).mockResolvedValue([]);
   jest
-    .mocked(recordScannedProduct)
+    .mocked(addShoppingListItem)
     .mockResolvedValue([
       { barcode: cola.barcode, label: cola.exactLabel, brand: cola.brand, scannedAt: 1 },
     ]);
@@ -137,14 +142,12 @@ describe('scanner setup and selection', () => {
   it('shows camera guidance, supported codes, configuration notice, and saved history', async () => {
     jest.mocked(loadCredentials).mockResolvedValue(null);
     jest.mocked(loadSelectedList).mockResolvedValue(null);
-    jest.mocked(loadScanHistory).mockResolvedValue([
+    jest.mocked(loadShoppingList).mockResolvedValue([
       { barcode: '11111111', label: 'Moon Milk', brand: 'Luna', scannedAt: 2 },
       { barcode: '22222222', label: 'Star Bread', scannedAt: 1 },
     ]);
     const screen = await render(<ScannerScreen />);
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await waitFor(() => expect(screen.getByText('Moon Milk')).toBeTruthy());
     // Keep this broad rendered-content assertion off the expensive RN accessibility traversal.
     const exactTextNodes = (text: string) =>
       screen.container.queryAll((instance) => instance.props.children === text);
@@ -152,9 +155,9 @@ describe('scanner setup and selection', () => {
     expect(exactTextNodes('Align the barcode inside the frame')).toHaveLength(1);
     expect(exactTextNodes('EAN-8, EAN-13, UPC-A and UPC-E are supported.')).toHaveLength(1);
     expect(exactTextNodes('Connect Bring and choose a shopping list in Settings.')).toHaveLength(1);
-    expect(exactTextNodes('Moon Milk')).toHaveLength(1);
-    expect(exactTextNodes('Luna')).toHaveLength(1);
-    expect(exactTextNodes('22222222')).toHaveLength(1);
+    expect(screen.getByText('Moon Milk')).toBeTruthy();
+    expect(screen.getByText('Luna')).toBeTruthy();
+    expect(screen.getByText('22222222')).toBeTruthy();
   });
 
   it('chooses the most centered in-frame barcode from a detection window', async () => {
@@ -232,18 +235,46 @@ describe('scanner setup and selection', () => {
   });
 
   it('survives local configuration and history read errors as an unconfigured scanner', async () => {
+    jest.mocked(loadBringSyncEnabled).mockResolvedValue(false);
     jest.mocked(loadCredentials).mockRejectedValue(new Error('keychain unavailable'));
-    jest.mocked(loadScanHistory).mockRejectedValue(new Error('storage unavailable'));
+    jest.mocked(loadShoppingList).mockRejectedValue(new Error('storage unavailable'));
     const screen = await render(<ScannerScreen />);
 
-    expect(
-      await screen.findByText('Connect Bring and choose a shopping list in Settings.'),
-    ).toBeTruthy();
+    expect(screen.queryByText('Connect Bring and choose a shopping list in Settings.')).toBeNull();
     expect(screen.queryByText('RECENT SCANS')).toBeNull();
   });
 });
 
 describe('scan-to-list flow', () => {
+  it('stores items locally without contacting Bring when sync is disabled', async () => {
+    jest.mocked(loadBringSyncEnabled).mockResolvedValue(false);
+    const screen = await render(<ScannerScreen />);
+    await emitScan(screen);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add to Shopping List' }));
+
+    await waitFor(() =>
+      expect(addShoppingListItem).toHaveBeenCalledWith(cola, 'Soft drink', undefined),
+    );
+    expect(addItem).not.toHaveBeenCalled();
+    expect(await screen.findByText('Soft drink added to your shopping list.')).toBeTruthy();
+  });
+
+  it('marks a local item as purchased when it is pressed', async () => {
+    jest
+      .mocked(loadShoppingList)
+      .mockResolvedValue([
+        { barcode: cola.barcode, label: 'Soft drink', brand: 'Comet', scannedAt: 1 },
+      ]);
+    jest.mocked(removeShoppingListItem).mockResolvedValue([]);
+    const screen = await render(<ScannerScreen />);
+
+    await fireEvent.press(await screen.findByTestId(`shopping-item-${cola.barcode}`));
+
+    expect(removeShoppingListItem).toHaveBeenCalledWith(cola.barcode);
+    await waitFor(() => expect(screen.queryByText('Soft drink')).toBeNull());
+  });
+
   it('opens the product sheet, records history, and shows all product details', async () => {
     const screen = await render(<ScannerScreen />);
 
@@ -254,13 +285,12 @@ describe('scan-to-list flow', () => {
       borderTopLeftRadius: 18,
       borderTopRightRadius: 18,
     });
-    expect(screen.getAllByText('Comet Cola, 330ml')).toHaveLength(2);
-    expect(screen.getAllByText('Comet')).toHaveLength(2);
+    expect(screen.getAllByText('Comet Cola, 330ml')).toHaveLength(1);
+    expect(screen.getAllByText('Comet')).toHaveLength(1);
     expect(screen.getByText(cola.barcode)).toBeTruthy();
     expect(screen.getByText('Open Food Facts')).toBeTruthy();
     expect(screen.getByTestId('product-image').props.source).toEqual({ uri: cola.imageUrl });
-    expect(recordScannedProduct).toHaveBeenCalledWith(cola);
-    expect(await screen.findByText('RECENT SCANS')).toBeTruthy();
+    expect(addShoppingListItem).not.toHaveBeenCalled();
   });
 
   it('edits the label and quantity, adds the item, and dismisses the confirmation', async () => {
@@ -274,17 +304,17 @@ describe('scan-to-list flow', () => {
     expect(screen.getByLabelText('Quantity').props.value).toBe('2');
     await fireEvent.press(screen.getByRole('button', { name: 'Decrease quantity' }));
     expect(screen.getByLabelText('Quantity').props.value).toBe('1');
-    await fireEvent.press(screen.getByRole('button', { name: 'Add to Bring' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add and Sync to Bring' }));
 
     await waitFor(() =>
       expect(addItem).toHaveBeenCalledWith(credentials, list.listUuid, 'Party Cola', 1),
     );
-    expect(await screen.findByText('1× Party Cola added to Weekend Supplies.')).toBeTruthy();
+    expect(await screen.findByText('Party Cola added locally and synced to Bring.')).toBeTruthy();
     expect(screen.queryByText('Add Item')).toBeNull();
     expect(screen.getByTestId('camera-view').props.cameraActive).toBe(true);
 
     await act(async () => jest.advanceTimersByTime(3000));
-    expect(screen.queryByText('1× Party Cola added to Weekend Supplies.')).toBeNull();
+    expect(screen.queryByText('Party Cola added locally and synced to Bring.')).toBeNull();
   });
 
   it('adds an item without a quantity when none is selected', async () => {
@@ -292,7 +322,7 @@ describe('scan-to-list flow', () => {
     await emitScan(screen);
     await screen.findByText('Add Item');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Add to Bring' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add and Sync to Bring' }));
 
     await waitFor(() =>
       expect(addItem).toHaveBeenCalledWith(credentials, list.listUuid, 'Soft drink', undefined),
@@ -308,13 +338,13 @@ describe('scan-to-list flow', () => {
     await emitScan(screen);
     await screen.findByText('Add Item');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Add to Bring' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add and Sync to Bring' }));
     expect(await screen.findByText('Could not add the item.')).toBeTruthy();
     expect(screen.getByText('Add Item')).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Add to Bring' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add and Sync to Bring' }));
     await waitFor(() => expect(addItem).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText('Soft drink added to Weekend Supplies.')).toBeTruthy();
+    expect(await screen.findByText('Soft drink added locally and synced to Bring.')).toBeTruthy();
   });
 
   it('shows the configuration error if credentials disappear before adding', async () => {
@@ -323,7 +353,7 @@ describe('scan-to-list flow', () => {
     await screen.findByText('Add Item');
     jest.mocked(loadCredentials).mockResolvedValue(null);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Add to Bring' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add and Sync to Bring' }));
 
     expect(
       await screen.findByText('Configure your Bring account and shopping list first.'),
@@ -366,7 +396,7 @@ describe('product sheet controls', () => {
 
     await fireEvent.changeText(quantity, '004');
     expect(quantity.props.value).toBe('4');
-    await fireEvent.press(screen.getByRole('button', { name: 'Add to Bring' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add to Shopping List' }));
     expect(onAdd).toHaveBeenCalledWith('Soft drink', 4);
   });
 
@@ -374,14 +404,14 @@ describe('product sheet controls', () => {
     const screen = await render(
       <ProductSheet product={cola} busy={false} configured onAdd={jest.fn()} onClose={jest.fn()} />,
     );
-    const add = screen.getByRole('button', { name: 'Add to Bring' });
+    const add = screen.getByRole('button', { name: 'Add to Shopping List' });
     await fireEvent.changeText(screen.getByDisplayValue('Soft drink'), '   ');
     expect(add).toBeDisabled();
 
     await screen.rerender(
       <ProductSheet product={cola} busy configured onAdd={jest.fn()} onClose={jest.fn()} />,
     );
-    expect(screen.getByRole('button', { name: 'Add to Bring' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add to Shopping List' })).toBeDisabled();
 
     await screen.rerender(
       <ProductSheet
@@ -392,7 +422,7 @@ describe('product sheet controls', () => {
         onClose={jest.fn()}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Add to Bring' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add to Shopping List' })).toBeDisabled();
     expect(
       screen.getByText('Configure a shopping list in Settings before adding this item.'),
     ).toBeTruthy();

@@ -27,13 +27,15 @@ import { addItem } from '../services/bringApi';
 import { lookupProduct } from '../services/productLookup';
 import {
   loadCredentials,
+  addShoppingListItem,
+  loadBringSyncEnabled,
   loadCustomBarcodes,
   loadLookupPreferences,
-  loadScanHistory,
+  loadShoppingList,
   loadSelectedList,
-  recordScannedProduct,
+  removeShoppingListItem,
 } from '../services/storage';
-import { Product, ScanHistoryItem } from '../types';
+import { Product, ShoppingListItem } from '../types';
 import { keepBestGeometry, selectInScanRegion } from '../services/barcodeSelection';
 import { useI18n } from '../i18n';
 
@@ -45,13 +47,14 @@ const FRAME_HEIGHT = 122;
 export function ScannerScreen() {
   const { t } = useI18n();
   const [permission, requestPermission] = useCameraPermissions();
-  const [configured, setConfigured] = useState(false);
+  const [bringSyncEnabled, setBringSyncEnabled] = useState(false);
+  const [bringConfigured, setBringConfigured] = useState(false);
   const [scanning, setScanning] = useState(true);
   const [busy, setBusy] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [history, setHistory] = useState<ScanHistoryItem[]>([]);
+  const [items, setItems] = useState<ShoppingListItem[]>([]);
   const candidates = useRef(new Map<string, BarcodeScanningResult>());
   const candidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanTarget = useRef({ x: 175, y: 215 });
@@ -66,17 +69,21 @@ export function ScannerScreen() {
   useFocusEffect(
     useCallback(() => {
       let live = true;
-      Promise.all([loadCredentials(), loadSelectedList()])
-        .then(([c, l]) => live && setConfigured(Boolean(c && l)))
-        .catch(() => live && setConfigured(false));
+      Promise.all([loadBringSyncEnabled(), loadCredentials(), loadSelectedList()])
+        .then(([enabled, credentials, list]) => {
+          if (!live) return;
+          setBringSyncEnabled(enabled);
+          setBringConfigured(Boolean(credentials && list));
+        })
+        .catch(() => live && setBringConfigured(false));
       return () => {
         live = false;
       };
     }, []),
   );
   useEffect(() => {
-    loadScanHistory()
-      .then(setHistory)
+    loadShoppingList()
+      .then(setItems)
       .catch(() => {});
   }, []);
   useEffect(() => {
@@ -125,7 +132,6 @@ export function ScannerScreen() {
       ]);
       const found = await lookupProduct(value, customBarcodes, preferences);
       if (!found) throw new Error(t('productNotFound'));
-      setHistory(await recordScannedProduct(found));
       setProduct(found);
     } catch (e) {
       scanLocked.current = false;
@@ -143,12 +149,13 @@ export function ScannerScreen() {
     setBusy(true);
     setError('');
     try {
-      const [credentials, list] = await Promise.all([loadCredentials(), loadSelectedList()]);
-      if (!credentials || !list) throw new Error(t('configureFirst'));
-      await addItem(credentials, list.listUuid, label, quantity);
-      setMessage(
-        t('addedTo', { quantity: quantity ? `${quantity}× ` : '', label, list: list.name }),
-      );
+      if (bringSyncEnabled) {
+        const [credentials, list] = await Promise.all([loadCredentials(), loadSelectedList()]);
+        if (!credentials || !list) throw new Error(t('configureFirst'));
+        await addItem(credentials, list.listUuid, label, quantity);
+      }
+      setItems(await addShoppingListItem(product, label, quantity));
+      setMessage(t(bringSyncEnabled ? 'addedLocallyAndSynced' : 'addedLocally', { label }));
       closeProduct();
     } catch (e) {
       setError(
@@ -209,31 +216,39 @@ export function ScannerScreen() {
         )}
         <Text style={styles.help}>{t('supportedCodes')}</Text>
         <View style={historyStyles.history}>
-          {history.length > 0 && (
+          {items.length > 0 && (
             <>
-              <Text style={historyStyles.title}>{t('recentScans')}</Text>
+              <Text style={historyStyles.title}>{t('shoppingList')}</Text>
               <ScrollView
                 horizontal
                 bounces={false}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={historyStyles.list}
               >
-                {history.map((item) => (
-                  <View key={item.barcode} style={historyStyles.card}>
+                {items.map((item) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('markPurchased', { label: item.label })}
+                    key={item.barcode}
+                    testID={`shopping-item-${item.barcode}`}
+                    onPress={() => removeShoppingListItem(item.barcode).then(setItems)}
+                    style={({ pressed }) => [historyStyles.card, pressed && historyStyles.pressed]}
+                  >
                     <Text numberOfLines={1} style={historyStyles.label}>
+                      {item.quantity ? `${item.quantity}× ` : ''}
                       {item.label}
                     </Text>
                     <Text numberOfLines={1} style={historyStyles.detail}>
                       {item.brand || item.barcode}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))}
               </ScrollView>
             </>
           )}
         </View>
       </View>
-      {!product && (error || message || !configured) && (
+      {!product && (error || message || (bringSyncEnabled && !bringConfigured)) && (
         <View pointerEvents="none" style={statusStyles.popover} testID="scanner-status">
           {error ? (
             <Notice>{error}</Notice>
@@ -248,7 +263,8 @@ export function ScannerScreen() {
         <ProductSheet
           product={product}
           busy={busy}
-          configured={configured}
+          configured={!bringSyncEnabled || bringConfigured}
+          bringSyncEnabled={bringSyncEnabled}
           error={error}
           onAdd={submit}
           onClose={closeProduct}
@@ -262,6 +278,7 @@ export function ProductSheet({
   product,
   busy,
   configured,
+  bringSyncEnabled = false,
   error = '',
   onAdd,
   onClose,
@@ -269,6 +286,7 @@ export function ProductSheet({
   product: Product;
   busy: boolean;
   configured: boolean;
+  bringSyncEnabled?: boolean;
   error?: string;
   onAdd: (label: string, quantity?: number) => void;
   onClose: () => void;
@@ -320,9 +338,9 @@ export function ProductSheet({
             {product.brand ? (
               <Text style={[ui.muted, productHeaderStyles.brand]}>{product.brand}</Text>
             ) : null}
-            <Section title={t('bringLabel')}>
+            <Section title={t('itemLabel')}>
               <TextInput
-                accessibilityLabel={t('bringLabel')}
+                accessibilityLabel={t('itemLabel')}
                 value={label}
                 onChangeText={setLabel}
                 style={styles.labelInput}
@@ -394,7 +412,7 @@ export function ProductSheet({
             <View style={styles.primaryWrap}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t('addToBring')}
+                accessibilityLabel={t(bringSyncEnabled ? 'addAndSync' : 'addToShoppingList')}
                 disabled={busy || !configured || !label.trim()}
                 onPress={() => onAdd(label.trim(), quantity ? Number(quantity) : undefined)}
                 style={({ pressed }) => [
@@ -405,7 +423,9 @@ export function ProductSheet({
                 {busy ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.primaryText}>{t('addToBring')}</Text>
+                  <Text style={styles.primaryText}>
+                    {t(bringSyncEnabled ? 'addAndSync' : 'addToShoppingList')}
+                  </Text>
                 )}
               </Pressable>
             </View>
@@ -451,6 +471,7 @@ const historyStyles = StyleSheet.create({
   },
   label: { color: colors.label, fontSize: 15, lineHeight: 19, fontWeight: '600' },
   detail: { color: colors.secondaryLabel, fontSize: 12, lineHeight: 16, marginTop: 2 },
+  pressed: { opacity: 0.55 },
 });
 const productHeaderStyles = StyleSheet.create({
   brand: { textAlign: 'center', marginTop: -10 },

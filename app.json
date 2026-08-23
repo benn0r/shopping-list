@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "Bring Scanner",
-    "slug": "bring-scanner",
+    "name": "Shopping List",
+    "slug": "shopping-list",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "ch.benn0r.bringscanner",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSCameraUsageDescription": "Scan product barcodes to add items to your shopping list.",
         "ITSAppUsesNonExemptEncryption": false

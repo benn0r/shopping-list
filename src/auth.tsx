@@ -17,8 +17,10 @@ import {
   clearCredentials,
   clearSelectedList,
   loadCredentials,
+  loadBringSyncEnabled,
   loadSelectedList,
   saveCredentials,
+  saveBringSyncEnabled,
   saveSelectedList,
 } from './services/storage';
 import { BringList, Credentials } from './types';
@@ -28,6 +30,8 @@ type AuthValue = {
   lists: BringList[];
   selectedList: BringList | null;
   initializing: boolean;
+  bringSyncEnabled: boolean;
+  setBringSyncEnabled: (enabled: boolean) => Promise<void>;
   login: (credentials: Credentials) => Promise<void>;
   logout: () => Promise<void>;
   selectList: (list: BringList) => Promise<void>;
@@ -38,6 +42,8 @@ const AuthContext = createContext<AuthValue>({
   lists: [],
   selectedList: null,
   initializing: true,
+  bringSyncEnabled: false,
+  setBringSyncEnabled: async () => {},
   login: async () => {},
   logout: async () => {},
   selectList: async () => {},
@@ -48,17 +54,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [lists, setLists] = useState<BringList[]>([]);
   const [selectedList, setSelectedList] = useState<BringList | null>(null);
   const [initializing, setInitializing] = useState(true);
+  const [bringSyncEnabled, setBringSyncEnabledState] = useState(false);
 
   useEffect(() => {
     let live = true;
-    Promise.all([loadCredentials(), loadSelectedList()])
-      .then(([stored, storedList]) => {
+    Promise.all([loadCredentials(), loadSelectedList(), loadBringSyncEnabled()])
+      .then(([stored, storedList, syncEnabled]) => {
         if (!live) return;
         setCredentials(stored);
         setSelectedList(stored ? storedList : null);
+        setBringSyncEnabledState(syncEnabled);
         setInitializing(false);
         if (!stored && storedList) clearSelectedList().catch(() => {});
-        if (stored) {
+        if (syncEnabled && stored) {
           loadLists(stored)
             .then((loadedLists) => live && setLists(loadedLists))
             .catch(() => {});
@@ -82,6 +90,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
       lists,
       selectedList,
       initializing,
+      bringSyncEnabled,
+      setBringSyncEnabled: async (enabled) => {
+        await saveBringSyncEnabled(enabled);
+        setBringSyncEnabledState(enabled);
+        if (!enabled) {
+          setLists([]);
+        } else if (credentials) {
+          setLists(await loadLists(credentials));
+        }
+      },
       login: async (next) => {
         const normalized = { email: next.email.trim(), password: next.password };
         const loadedLists = await loadLists(normalized);
@@ -102,7 +120,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setSelectedList(list);
       },
     }),
-    [credentials, initializing, lists, selectedList],
+    [bringSyncEnabled, credentials, initializing, lists, selectedList],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -113,7 +131,7 @@ export function useAuth() {
 }
 
 export function LoginModal() {
-  const { credentials, initializing, login } = useAuth();
+  const { bringSyncEnabled, credentials, initializing, login } = useAuth();
   const { language, t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -140,7 +158,7 @@ export function LoginModal() {
 
   return (
     <Modal
-      visible={!initializing && !credentials}
+      visible={!initializing && bringSyncEnabled && !credentials}
       animationType="slide"
       presentationStyle="overFullScreen"
       transparent
