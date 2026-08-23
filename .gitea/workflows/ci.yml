@@ -156,7 +156,7 @@ jobs:
             -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=768m" \
             -Dorg.gradle.parallel=false \
             -Pkotlin.compiler.execution.strategy=in-process \
-            -PreactNativeArchitectures=arm64-v8a,armeabi-v7a; do
+            -PreactNativeArchitectures=arm64-v8a; do
             if [ "$attempt" -ge 3 ]; then
               exit 1
             fi
