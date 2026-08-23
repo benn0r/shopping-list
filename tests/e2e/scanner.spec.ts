@@ -128,17 +128,11 @@ test('uses the selected product language and generic Bring label', async ({ page
   await signIn(page);
   await page.getByTestId('tab-settings').click();
   await selectProviderList(page);
-  await expect(page.getByTestId('settings-status')).toContainText(
-    `${FANTASY_LISTS[0].name} selected.`,
-  );
+  await expect(page.getByTestId('settings-status')).toBeHidden();
   await page.getByTestId('product-language-fr').click();
-  await expect(page.getByTestId('settings-status')).toContainText(
-    'Product language set to French.',
-  );
+  await expect(page.getByTestId('settings-status')).toBeHidden();
   await page.getByTestId('label-style-generic').click();
-  await expect(page.getByTestId('settings-status')).toContainText(
-    'Synced item label set to Generic.',
-  );
+  await expect(page.getByTestId('settings-status')).toBeHidden();
   await page.getByTestId('tab-scan').click();
 
   await emitBarcodeBatch(page, [{ value: barcode }]);
@@ -170,10 +164,7 @@ test('adds an edited item with quantity and sends interoperable barcode metadata
   await page.getByRole('button', { name: 'Add to Shopping List' }).click();
 
   await expect(page.getByTestId('product-sheet')).toBeHidden();
-  const status = page.getByTestId('scanner-status');
-  await expect(status).toContainText('Party Cola added locally and synced.');
-  await expect(status).toHaveCSS('position', 'absolute');
-  await expect(status).toHaveCSS('bottom', '12px');
+  await expect(page.getByTestId('scanner-status')).toBeHidden();
   await expect(page.getByTestId('scanner-camera-wrap')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Scan Product' })).toBeVisible();
   await expect(page.getByText('2× Party Cola', { exact: true })).toBeVisible();
@@ -184,7 +175,6 @@ test('adds an edited item with quantity and sends interoperable barcode metadata
   expect(state.addedItems[0].toString()).toContain(barcode);
   expect(state.addedItems[0].has('barcode')).toBe(false);
   expect(state.addedItems[0].has('ean')).toBe(false);
-  await expect(status).toBeHidden({ timeout: 5_000 });
 });
 
 test('omits an unselected quantity and restores scan history after reload', async ({ page }) => {
@@ -202,9 +192,7 @@ test('omits an unselected quantity and restores scan history after reload', asyn
   await sheet.getByRole('button', { name: 'Add to Shopping List' }).click();
 
   await expect(sheet).toBeHidden();
-  await expect(page.getByTestId('scanner-status')).toContainText(
-    'Single Bottle added locally and synced.',
-  );
+  await expect(page.getByTestId('scanner-status')).toBeHidden();
   expect(state.addedItems).toHaveLength(1);
   expect(state.addedItems[0].get('purchase')).toBe('Single Bottle');
   expect(state.addedItems[0].get('specification')).toBe(`EAN:${barcode}`);

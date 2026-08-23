@@ -37,13 +37,10 @@ test('selects every language and product-label preference in the browser', async
   expect(headingBeforeSave).not.toBeNull();
   await selectProviderList(page, 1);
   const status = page.getByTestId('settings-status');
-  await expect(status).toContainText(`${FANTASY_LISTS[1].name} selected.`);
-  await expect(status).toHaveCSS('position', 'absolute');
-  await expect(status).toHaveCSS('bottom', '12px');
+  await expect(status).toBeHidden();
   const headingAfterSave = await heading.boundingBox();
   expect(headingAfterSave).not.toBeNull();
   expect(headingAfterSave?.y).toBe(headingBeforeSave?.y);
-  await expect(status).toBeHidden({ timeout: 5_000 });
 
   for (const [value, title] of [
     ['auto', 'Automatic'],
@@ -131,7 +128,7 @@ test('validates, saves, replaces, and removes custom barcodes', async ({ page })
   await page.getByRole('button', { name: 'Save Custom Barcode' }).click();
   await expect(page.getByText('Moon Towels')).toBeHidden();
   await expect(page.getByText('Lunar Towels')).toHaveCount(1);
-  await expect(page.getByTestId('custom-status')).toContainText('Custom barcode saved.');
+  await expect(page.getByTestId('custom-status')).toBeHidden();
 
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByTestId('custom-barcodes-sheet')).toBeHidden();
@@ -147,7 +144,7 @@ test('validates, saves, replaces, and removes custom barcodes', async ({ page })
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByTestId('delete-custom-7612345678901').click();
   await expect(page.getByText('Lunar Towels')).toBeHidden();
-  await expect(page.getByTestId('custom-status')).toContainText('Custom barcode removed.');
+  await expect(page.getByTestId('custom-status')).toBeHidden();
 
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByTestId('custom-barcodes-sheet')).toBeHidden();

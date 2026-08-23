@@ -19,6 +19,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActionButton,
+  CameraIcon,
   ChevronIcon,
   colors,
   Notice,
@@ -65,7 +66,6 @@ export function ScannerScreen() {
   const [scanning, setScanning] = useState(true);
   const [busy, setBusy] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [items, setItems] = useState<ShoppingListItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -139,11 +139,6 @@ export function ScannerScreen() {
       clearInterval(timer);
     };
   }, [activeList.id, syncConfigured, syncEnabled]);
-  useEffect(() => {
-    if (!message) return;
-    const timer = setTimeout(() => setMessage(''), 3000);
-    return () => clearTimeout(timer);
-  }, [message]);
   useEffect(
     () => () => {
       if (candidateTimer.current) clearTimeout(candidateTimer.current);
@@ -186,7 +181,6 @@ export function ScannerScreen() {
     setScanning(false);
     setBusy(true);
     setError('');
-    setMessage('');
     try {
       const [customBarcodes, preferences] = await Promise.all([
         loadCustomBarcodes(),
@@ -214,16 +208,13 @@ export function ScannerScreen() {
     try {
       const localItems = await addShoppingListItem(product, label, quantity, activeList.id);
       setItems(localItems);
-      let synced = false;
       if (syncConfigured) {
         try {
           setItems(await syncShoppingList(activeList.id));
-          synced = true;
         } catch {
           // The item remains local and will be retried on the next foreground sync.
         }
       }
-      setMessage(t(synced ? 'addedLocallyAndSynced' : 'addedLocally', { label }));
       closeProduct();
     } catch (e) {
       setError(
@@ -245,7 +236,6 @@ export function ScannerScreen() {
     setError('');
     try {
       setItems(await syncShoppingList(activeList.id));
-      setMessage(t('syncComplete'));
     } catch {
       setError(t('syncFailed'));
     } finally {
@@ -269,16 +259,13 @@ export function ScannerScreen() {
       const localItems = await addShoppingListItem(manualProduct, label, undefined, activeList.id);
       setItems(localItems);
       setManualLabel('');
-      let synced = false;
       if (syncConfigured) {
         try {
           setItems(await syncShoppingList(activeList.id));
-          synced = true;
         } catch {
           // Keep the manual item locally for the next background sync attempt.
         }
       }
-      setMessage(t(synced ? 'addedLocallyAndSynced' : 'addedLocally', { label }));
     } catch {
       setError(t('addFailed'));
     } finally {
@@ -433,11 +420,7 @@ export function ScannerScreen() {
             onPress={() => setCameraOpen(true)}
             style={({ pressed }) => [styles.scanButton, pressed && styles.scanButtonPressed]}
           >
-            <Image
-              source={require('../../assets/icon.png')}
-              style={styles.scanButtonIcon}
-              testID="scan-button-icon"
-            />
+            <CameraIcon />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -541,15 +524,9 @@ export function ScannerScreen() {
         onClose={() => setSelectedItem(null)}
         onRemove={() => void removeSelectedItem()}
       />
-      {!product && (error || message || (syncEnabled && !syncConfigured)) && (
+      {!product && (error || (syncEnabled && !syncConfigured)) && (
         <View pointerEvents="none" style={statusStyles.popover} testID="scanner-status">
-          {error ? (
-            <Notice>{error}</Notice>
-          ) : message ? (
-            <Notice kind="success">{message}</Notice>
-          ) : (
-            <Notice>{t('connectNotice')}</Notice>
-          )}
+          {error ? <Notice>{error}</Notice> : <Notice>{t('connectNotice')}</Notice>}
         </View>
       )}
       {product && (
@@ -1012,17 +989,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 18,
-    backgroundColor: colors.secondaryGroupedBackground,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.separator,
-    shadowColor: '#000000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    paddingVertical: 4,
   },
   listTitleText: {
     flexShrink: 1,
@@ -1109,9 +1076,10 @@ const styles = StyleSheet.create({
   detailBrand: { color: colors.secondaryLabel, fontSize: 15, textAlign: 'center', marginTop: -8 },
   storeText: { color: colors.label, fontSize: 16, lineHeight: 21, padding: 13 },
   composer: {
-    flexShrink: 0,
-    marginHorizontal: 16,
-    marginBottom: 12,
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 12,
     minHeight: 68,
     padding: 6,
     paddingLeft: 10,
@@ -1146,7 +1114,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tint,
   },
   scanButtonPressed: { opacity: 0.72 },
-  scanButtonIcon: { width: 44, height: 44, borderRadius: 22 },
   drawer: {
     height: '76%',
     borderTopLeftRadius: 20,
@@ -1173,7 +1140,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   drawerSpacer: { width: 82 },
-  drawerContent: { flex: 1, padding: 16 },
+  drawerContent: { flex: 1, padding: 16, paddingBottom: 5 },
   cameraWrap: {
     flex: 1,
     minHeight: 300,
@@ -1218,7 +1185,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(7,52,48,0.56)',
   },
   loadingText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
-  help: { color: colors.secondaryLabel, fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  help: {
+    color: colors.secondaryLabel,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: -3,
+    paddingBottom: 5,
+  },
   sheetSafe: { flex: 1, backgroundColor: colors.systemGroupedBackground },
   sheetBar: {
     minHeight: 50,

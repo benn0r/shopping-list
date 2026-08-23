@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import {
   ActionButton,
+  CameraIcon,
   ChevronIcon,
   Field,
   LargeTitle,
@@ -25,6 +26,7 @@ describe('shared interface components', () => {
         </Section>
         <ChevronIcon />
         <ChevronIcon direction="down" size={12} color="#123456" />
+        <CameraIcon />
       </>,
     );
 
@@ -34,6 +36,7 @@ describe('shared interface components', () => {
     expect(screen.getByText('No optional heading')).toBeTruthy();
     expect(screen.getByTestId('chevron-right')).toBeTruthy();
     expect(screen.getByTestId('chevron-down')).toBeTruthy();
+    expect(screen.getByTestId('scan-button-icon')).toBeTruthy();
   });
 
   it('edits a labeled field and retains secure input properties', async () => {

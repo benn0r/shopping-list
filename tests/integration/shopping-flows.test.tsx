@@ -44,6 +44,8 @@ it('selects a store and list in drawers and uses the tile preference', async () 
     </I18nProvider>,
   );
   await waitFor(() => expect(screen.getByText('Migros')).toBeTruthy());
+  expect(screen.queryByText('New Shopping')).toBeNull();
+  expect(screen.queryByText('The currently selected shopping list is used by default.')).toBeNull();
   await fireEvent.press(screen.getByTestId('shopping-store-select'));
   await fireEvent(screen.getByTestId('shopping-picker-modal'), 'requestClose');
   await fireEvent.press(screen.getByTestId('shopping-store-select'));

@@ -102,7 +102,7 @@ export function SettingsScreen() {
   const [storeEditorId, setStoreEditorId] = useState<string | 'new' | null>(null);
   const [storeEditorName, setStoreEditorName] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [, setSuccess] = useState('');
   const [customBarcodesVisible, setCustomBarcodesVisible] = useState(false);
   useEffect(() => {
     const load = () => {
@@ -134,11 +134,6 @@ export function SettingsScreen() {
     load();
     return subscribeShoppingLists(load);
   }, []);
-  useEffect(() => {
-    if (!success) return;
-    const timer = setTimeout(() => setSuccess(''), 3000);
-    return () => clearTimeout(timer);
-  }, [success]);
   async function signOut() {
     await logout();
     setError('');
@@ -390,9 +385,9 @@ export function SettingsScreen() {
       <View style={ui.header}>
         <LargeTitle>{t('settings')}</LargeTitle>
       </View>
-      {!customBarcodesVisible && (error || success) && (
+      {!customBarcodesVisible && error && (
         <View pointerEvents="none" style={styles.statusSlot} testID="settings-status">
-          <Notice kind={error ? 'error' : 'success'}>{error || success}</Notice>
+          <Notice>{error}</Notice>
         </View>
       )}
       <ScrollView
@@ -728,7 +723,7 @@ export function SettingsScreen() {
         testID="list-editor-modal"
       >
         <View style={sheetModal.backdrop}>
-          <View style={[sheetModal.sheet, styles.listEditorSheet]}>
+          <View style={[sheetModal.sheet, styles.listEditorSheet]} testID="list-editor-sheet">
             <View style={styles.modalHeader}>
               <Pressable
                 accessibilityRole="button"
@@ -761,8 +756,8 @@ export function SettingsScreen() {
                   autoFocus
                   returnKeyType="done"
                 />
-                <Separator />
-                <Text style={styles.editorSectionLabel}>{t('syncWith')}</Text>
+              </Section>
+              <Section title={t('syncWith')}>
                 <ListRow
                   title={t('notSynced')}
                   selected={!listEditorProvider}
@@ -810,7 +805,8 @@ export function SettingsScreen() {
                       </View>
                     ))
                   : null}
-                <Separator />
+              </Section>
+              <Section>
                 <ActionButton
                   title={editedList ? t('save') : t('createList')}
                   disabled={
@@ -847,7 +843,7 @@ export function SettingsScreen() {
         testID="store-editor-modal"
       >
         <View style={sheetModal.backdrop}>
-          <View style={[sheetModal.sheet, styles.storeEditorSheet]}>
+          <View style={[sheetModal.sheet, styles.storeEditorSheet]} testID="store-editor-sheet">
             <View style={styles.modalHeader}>
               <Pressable
                 accessibilityRole="button"
@@ -878,7 +874,8 @@ export function SettingsScreen() {
                   autoFocus
                   returnKeyType="done"
                 />
-                <Separator />
+              </Section>
+              <Section>
                 <ActionButton
                   title={editedStore ? t('save') : t('createStore')}
                   disabled={!storeEditorName.trim() || storeEditorName.trim() === editedStore?.name}
@@ -976,9 +973,9 @@ export function SettingsScreen() {
                 </Section>
               )}
             </ScrollView>
-            {(error || success) && (
+            {error && (
               <View pointerEvents="none" style={styles.modalStatus} testID="custom-status">
-                {error ? <Notice>{error}</Notice> : <Notice kind="success">{success}</Notice>}
+                <Notice>{error}</Notice>
               </View>
             )}
           </SafeAreaView>
@@ -1006,25 +1003,17 @@ const styles = StyleSheet.create({
   statusSlot: { position: 'absolute', zIndex: 10, bottom: 12, left: 16, right: 16 },
   modalSafe: { flex: 1, backgroundColor: colors.systemGroupedBackground },
   listEditorSheet: {
-    height: '78%',
-    maxHeight: '78%',
-    minHeight: '52%',
+    height: '88%',
+    maxHeight: '88%',
+    minHeight: '72%',
     backgroundColor: colors.systemGroupedBackground,
   },
   storeEditorSheet: {
-    height: '52%',
-    minHeight: '52%',
+    height: '72%',
+    minHeight: '72%',
     backgroundColor: colors.systemGroupedBackground,
   },
-  listEditorContent: { padding: 16, paddingBottom: 32 },
-  editorSectionLabel: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    fontWeight: '600',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 6,
-  },
+  listEditorContent: { padding: 16, paddingBottom: 32, gap: 18 },
   modalHeader: {
     minHeight: 52,
     flexDirection: 'row',

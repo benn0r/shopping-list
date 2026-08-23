@@ -84,10 +84,47 @@ export function ChevronIcon({
     />
   );
 }
+export function CameraIcon({
+  size = 27,
+  color = '#FFFFFF',
+}: {
+  size?: number;
+  color?: ColorValue;
+}) {
+  const lensSize = Math.round(size * 0.38);
+  return (
+    <View
+      accessible={false}
+      pointerEvents="none"
+      style={[
+        styles.cameraIconBody,
+        { width: size, height: Math.round(size * 0.7), borderColor: color },
+      ]}
+      testID="scan-button-icon"
+    >
+      <View style={[styles.cameraIconTop, { borderBottomColor: color }]} />
+      <View
+        style={[
+          styles.cameraIconLens,
+          { width: lensSize, height: lensSize, borderRadius: lensSize / 2, borderColor: color },
+        ]}
+      />
+    </View>
+  );
+}
 export function Field({ label, ...props }: TextInputProps & { label?: string }) {
   return (
     <View style={styles.fieldRow}>
-      {label ? <Text style={styles.fieldLabel}>{label}</Text> : null}
+      {label ? (
+        <Text
+          adjustsFontSizeToFit
+          minimumFontScale={0.72}
+          numberOfLines={1}
+          style={styles.fieldLabel}
+        >
+          {label}
+        </Text>
+      ) : null}
       <TextInput
         {...props}
         accessibilityLabel={props.accessibilityLabel ?? label ?? props.placeholder}
@@ -210,6 +247,24 @@ export const sheetModal = StyleSheet.create({
   },
 });
 const styles = StyleSheet.create({
+  cameraIconBody: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.4,
+    borderRadius: 5,
+  },
+  cameraIconTop: {
+    position: 'absolute',
+    top: -6,
+    width: 11,
+    height: 6,
+    borderLeftWidth: 3,
+    borderRightWidth: 3,
+    borderBottomWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
+  cameraIconLens: { borderWidth: 2 },
   largeTitle: {
     color: colors.label,
     fontSize: 34,

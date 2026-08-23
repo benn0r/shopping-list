@@ -225,11 +225,12 @@ describe('scanner setup and selection', () => {
       height: 56,
       borderRadius: 28,
     });
-    expect(screen.getByTestId('scan-button-icon')).toHaveStyle({ width: 44, height: 44 });
+    expect(screen.getByTestId('scan-button-icon')).toHaveStyle({ width: 27 });
     expect(screen.getByTestId('item-composer')).toHaveStyle({
-      marginHorizontal: 16,
-      marginBottom: 12,
-      flexShrink: 0,
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      bottom: 12,
     });
 
     await fireEvent.press(screen.getByTestId('open-scanner'));
@@ -515,7 +516,7 @@ describe('scan-to-list flow', () => {
       expect(addShoppingListItem).toHaveBeenCalledWith(cola, 'Soft drink', undefined, 'groceries'),
     );
     expect(addItem).not.toHaveBeenCalled();
-    expect(await screen.findByText('Soft drink added to your shopping list.')).toBeTruthy();
+    expect(screen.queryByText('Soft drink added to your shopping list.')).toBeNull();
   });
 
   it('opens item details and removes a local item only from the drawer button', async () => {
@@ -668,7 +669,7 @@ describe('scan-to-list flow', () => {
     expect(addShoppingListItem).not.toHaveBeenCalled();
   });
 
-  it('edits the label and quantity, adds the item, and dismisses the confirmation', async () => {
+  it('edits the label and quantity and adds the item without a confirmation popup', async () => {
     const screen = await render(<ScannerScreen />);
     await emitScan(screen);
     await screen.findByText('Add Item');
@@ -683,13 +684,10 @@ describe('scan-to-list flow', () => {
 
     await waitFor(() => expect(syncShoppingList).toHaveBeenCalled());
     expect(addShoppingListItem).toHaveBeenCalledWith(cola, 'Party Cola', 1, 'groceries');
-    expect(await screen.findByText('Party Cola added locally and synced.')).toBeTruthy();
+    expect(screen.queryByText('Party Cola added locally and synced.')).toBeNull();
     expect(screen.queryByText('Add Item')).toBeNull();
     expect(screen.queryByTestId('camera-view')).toBeNull();
     expect(screen.getByTestId('open-scanner')).toBeTruthy();
-
-    await act(async () => jest.advanceTimersByTime(3000));
-    expect(screen.queryByText('Party Cola added locally and synced.')).toBeNull();
   });
 
   it('adds an item without a quantity when none is selected', async () => {
@@ -710,7 +708,7 @@ describe('scan-to-list flow', () => {
     await screen.findByText('Add Item');
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add to Shopping List' }));
-    expect(await screen.findByText('Soft drink added to your shopping list.')).toBeTruthy();
+    expect(screen.queryByText('Soft drink added to your shopping list.')).toBeNull();
     expect(addShoppingListItem).toHaveBeenCalled();
     expect(screen.queryByText('Add Item')).toBeNull();
   });
@@ -724,7 +722,7 @@ describe('scan-to-list flow', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add to Shopping List' }));
 
-    expect(await screen.findByText('Soft drink added to your shopping list.')).toBeTruthy();
+    expect(screen.queryByText('Soft drink added to your shopping list.')).toBeNull();
     expect(addShoppingListItem).toHaveBeenCalled();
   });
 

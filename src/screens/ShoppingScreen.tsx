@@ -328,10 +328,7 @@ export function ShoppingScreen() {
             <ActionButton title={t('finishShopping')} onPress={() => void finishShopping()} />
           </>
         ) : (
-          <Section
-            title={t('newShopping')}
-            footer={!stores.length ? t('createStoreFirst') : t('shoppingSelectionFooter')}
-          >
+          <Section footer={!stores.length ? t('createStoreFirst') : undefined}>
             <ListRow
               title={t('store')}
               detail={selectedStore?.name || t('chooseStore')}

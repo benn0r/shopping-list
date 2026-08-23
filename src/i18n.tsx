@@ -23,9 +23,11 @@ const en = {
   connectBring: 'Connect Bring',
   disconnectBring: 'Disconnect Bring',
   bringConnected: 'Bring connected.',
-  bringSyncFooter: 'When enabled, each local list syncs with its mapped Bring list.',
+  bringSyncFooter:
+    'When enabled, each local list syncs with its mapped Bring list. Shopping List is independent and is not affiliated with Bring! Labs AG.',
   enableMealieSync: 'Enable Mealie Sync',
-  mealieSyncFooter: 'Connect a self-hosted Mealie server as an additional sync provider.',
+  mealieSyncFooter:
+    'Connect a self-hosted Mealie server as an additional sync provider. Shopping List is independent and is not affiliated with the Mealie project.',
   mealieServerUrl: 'Mealie server URL',
   mealieApiToken: 'API token',
   connectMealie: 'Connect Mealie',
@@ -75,14 +77,12 @@ const en = {
   connectedChoose: 'Connected. Choose a shopping list below.',
   shoppingList: 'Shopping List',
   shopping: 'Shopping',
-  newShopping: 'New Shopping',
   store: 'Store',
   storesSettings: 'Stores',
   chooseStore: 'Choose Store',
   startShopping: 'Start Shopping',
   finishShopping: 'Finish Shopping',
   shoppingHistory: 'Shopping History',
-  shoppingSelectionFooter: 'The currently selected shopping list is used by default.',
   createStoreFirst: 'Create a store in Settings before starting a shopping.',
   noItemsForStore: 'No matching items remain for this store.',
   noShoppingHistory: 'No previous shoppings yet.',
@@ -177,7 +177,7 @@ const en = {
   beautyDb: 'Cosmetics, hygiene and personal-care products',
   petDb: 'Pet food, treats and nutritional information',
   disclaimer:
-    'Shopping List is not affiliated with Bring! Labs AG. Product data © Open Food Facts contributors (ODbL).',
+    'Shopping List is not affiliated with Bring! Labs AG or the Mealie project. Product data © Open Food Facts contributors (ODbL).',
   iconCredit: 'Food icons by Food Icon Pack · CC BY 4.0',
 };
 type Key = keyof typeof en;
@@ -691,7 +691,7 @@ const refinements: Partial<Record<AppLanguage, Partial<Record<Key, string>>>> = 
     productsDb: 'Haushaltsartikel und andere Non-Food-Produkte des täglichen Bedarfs',
     petDb: 'Tierfutter, Leckerlis und Nährwertinformationen',
     disclaimer:
-      'Diese App steht in keiner Verbindung zu Bring! Labs AG. Produktdaten © Mitwirkende an Open Food Facts (ODbL).',
+      'Diese App steht weder mit Bring! Labs AG noch mit dem Mealie-Projekt in Verbindung. Produktdaten © Mitwirkende an Open Food Facts (ODbL).',
   },
   fr: {
     languageSaved: 'Langue de l’app : {language}.',
@@ -738,7 +738,7 @@ const refinements: Partial<Record<AppLanguage, Partial<Record<Key, string>>>> = 
     beautyDb: 'Cosmétiques, produits d’hygiène et soins corporels',
     petDb: 'Aliments et friandises pour animaux : informations nutritionnelles',
     disclaimer:
-      'Cette application n’est pas affiliée à Bring! Labs AG. Données sur les produits © contributeurs d’Open Food Facts (ODbL).',
+      'Cette application n’est affiliée ni à Bring! Labs AG ni au projet Mealie. Données sur les produits © contributeurs d’Open Food Facts (ODbL).',
   },
   it: {
     allowCamera: 'Consenti l’accesso alla fotocamera',
@@ -779,7 +779,7 @@ const refinements: Partial<Record<AppLanguage, Partial<Record<Key, string>>>> = 
     productsDb: 'Prodotti per la casa e altri articoli non alimentari di uso quotidiano',
     beautyDb: 'Cosmetici, prodotti per l’igiene e la cura della persona',
     disclaimer:
-      'Questa app non è affiliata a Bring! Labs AG. Dati sui prodotti © collaboratori di Open Food Facts (ODbL).',
+      'Questa app non è affiliata né a Bring! Labs AG né al progetto Mealie. Dati sui prodotti © collaboratori di Open Food Facts (ODbL).',
   },
   pt: {
     scan: 'Ler código',
@@ -829,7 +829,7 @@ const refinements: Partial<Record<AppLanguage, Partial<Record<Key, string>>>> = 
     productsDb: 'Produtos para o lar e outros artigos não alimentares do dia a dia',
     petDb: 'Alimentos, guloseimas e informação nutricional para animais de estimação',
     disclaimer:
-      'Esta aplicação não está associada à Bring! Labs AG. Dados dos produtos © colaboradores do Open Food Facts (ODbL).',
+      'Esta aplicação não está associada à Bring! Labs AG nem ao projeto Mealie. Dados dos produtos © colaboradores do Open Food Facts (ODbL).',
   },
   'pt-BR': {
     appLanguage: 'Idioma do app',
@@ -871,11 +871,15 @@ const refinements: Partial<Record<AppLanguage, Partial<Record<Key, string>>>> = 
     productsDb: 'Produtos para casa e outros itens não alimentícios do dia a dia',
     petDb: 'Rações, petiscos e informações nutricionais para animais de estimação',
     disclaimer:
-      'Este app não tem vínculo com a Bring! Labs AG. Dados dos produtos © colaboradores do Open Food Facts (ODbL).',
+      'Este app não tem vínculo com a Bring! Labs AG nem com o projeto Mealie. Dados dos produtos © colaboradores do Open Food Facts (ODbL).',
   },
 };
 const providerNeutralLabels: Partial<Record<AppLanguage, Partial<Record<Key, string>>>> = {
   de: {
+    bringSyncFooter:
+      'Wenn aktiviert, wird jede lokale Liste mit der zugeordneten Bring-Liste synchronisiert. Shopping List ist unabhängig und steht nicht mit Bring! Labs AG in Verbindung.',
+    mealieSyncFooter:
+      'Verbinde einen selbst gehosteten Mealie-Server als zusätzlichen Anbieter. Shopping List ist unabhängig und steht nicht mit dem Mealie-Projekt in Verbindung.',
     addAndSync: 'Hinzufügen und synchronisieren',
     addedLocallyAndSynced: '{label} wurde lokal hinzugefügt und synchronisiert.',
     syncFailed: 'Synchronisierung fehlgeschlagen. Zum Wiederholen nach unten ziehen.',
@@ -901,14 +905,12 @@ const providerNeutralLabels: Partial<Record<AppLanguage, Partial<Record<Key, str
     deleteListTitle: 'Einkaufsliste löschen?',
     deleteListBody: '„{name}“ und alle lokalen Artikel löschen?',
     shopping: 'Einkaufen',
-    newShopping: 'Neuer Einkauf',
     store: 'Geschäft',
     storesSettings: 'Geschäfte',
     chooseStore: 'Geschäft wählen',
     startShopping: 'Einkauf starten',
     finishShopping: 'Einkauf beenden',
     shoppingHistory: 'Einkaufsverlauf',
-    shoppingSelectionFooter: 'Standardmäßig wird die aktuell gewählte Einkaufsliste verwendet.',
     createStoreFirst: 'Erstelle zuerst ein Geschäft in den Einstellungen.',
     noItemsForStore: 'Für dieses Geschäft sind keine passenden Artikel mehr übrig.',
     noShoppingHistory: 'Noch keine früheren Einkäufe.',
@@ -934,6 +936,10 @@ const providerNeutralLabels: Partial<Record<AppLanguage, Partial<Record<Key, str
     deleteStoreBody: '„{name}“ löschen? Frühere Einkäufe behalten den Namen.',
   },
   fr: {
+    bringSyncFooter:
+      'Si activé, chaque liste locale se synchronise avec la liste Bring associée. Shopping List est indépendante et n’est pas affiliée à Bring! Labs AG.',
+    mealieSyncFooter:
+      'Connectez un serveur Mealie auto-hébergé comme fournisseur supplémentaire. Shopping List est indépendante et n’est pas affiliée au projet Mealie.',
     addAndSync: 'Ajouter et synchroniser',
     addedLocallyAndSynced: '{label} ajouté localement et synchronisé.',
     syncFailed: 'Échec de la synchronisation. Tirez vers le bas pour réessayer.',
@@ -959,14 +965,12 @@ const providerNeutralLabels: Partial<Record<AppLanguage, Partial<Record<Key, str
     deleteListTitle: 'Supprimer la liste ?',
     deleteListBody: 'Supprimer {name} et tous ses articles locaux ?',
     shopping: 'Achats',
-    newShopping: 'Nouvel achat',
     store: 'Magasin',
     storesSettings: 'Magasins',
     chooseStore: 'Choisir un magasin',
     startShopping: 'Commencer les achats',
     finishShopping: 'Terminer les achats',
     shoppingHistory: 'Historique des achats',
-    shoppingSelectionFooter: 'La liste actuellement sélectionnée est utilisée par défaut.',
     createStoreFirst: 'Créez d’abord un magasin dans Réglages.',
     noItemsForStore: 'Aucun article correspondant ne reste pour ce magasin.',
     noShoppingHistory: 'Aucun achat précédent.',
@@ -992,6 +996,10 @@ const providerNeutralLabels: Partial<Record<AppLanguage, Partial<Record<Key, str
     deleteStoreBody: 'Supprimer {name} ? Les achats précédents conserveront ce nom.',
   },
   it: {
+    bringSyncFooter:
+      'Se attivo, ogni elenco locale si sincronizza con l’elenco Bring associato. Shopping List è indipendente e non è affiliata a Bring! Labs AG.',
+    mealieSyncFooter:
+      'Collega un server Mealie self-hosted come provider aggiuntivo. Shopping List è indipendente e non è affiliata al progetto Mealie.',
     addAndSync: 'Aggiungi e sincronizza',
     addedLocallyAndSynced: '{label} aggiunto localmente e sincronizzato.',
     syncFailed: 'Sincronizzazione non riuscita. Trascina in basso per riprovare.',
@@ -1017,14 +1025,12 @@ const providerNeutralLabels: Partial<Record<AppLanguage, Partial<Record<Key, str
     deleteListTitle: 'Eliminare la lista?',
     deleteListBody: 'Eliminare {name} e tutti gli articoli locali?',
     shopping: 'Spesa',
-    newShopping: 'Nuova spesa',
     store: 'Negozio',
     storesSettings: 'Negozi',
     chooseStore: 'Scegli negozio',
     startShopping: 'Inizia la spesa',
     finishShopping: 'Termina la spesa',
     shoppingHistory: 'Cronologia spese',
-    shoppingSelectionFooter: 'Per impostazione predefinita viene usata la lista selezionata.',
     createStoreFirst: 'Crea prima un negozio nelle impostazioni.',
     noItemsForStore: 'Non restano articoli adatti a questo negozio.',
     noShoppingHistory: 'Nessuna spesa precedente.',
@@ -1050,6 +1056,10 @@ const providerNeutralLabels: Partial<Record<AppLanguage, Partial<Record<Key, str
     deleteStoreBody: 'Eliminare {name}? Le spese precedenti manterranno il nome.',
   },
   pt: {
+    bringSyncFooter:
+      'Quando ativada, cada lista local é sincronizada com a lista Bring associada. A Shopping List é independente e não está associada à Bring! Labs AG.',
+    mealieSyncFooter:
+      'Ligue um servidor Mealie alojado por si como fornecedor adicional. A Shopping List é independente e não está associada ao projeto Mealie.',
     addAndSync: 'Adicionar e sincronizar',
     addedLocallyAndSynced: '{label} adicionado localmente e sincronizado.',
     syncFailed: 'Falha na sincronização. Puxe para baixo para tentar novamente.',
@@ -1075,14 +1085,12 @@ const providerNeutralLabels: Partial<Record<AppLanguage, Partial<Record<Key, str
     deleteListTitle: 'Eliminar lista?',
     deleteListBody: 'Eliminar {name} e todos os artigos locais?',
     shopping: 'Compras',
-    newShopping: 'Nova compra',
     store: 'Loja',
     storesSettings: 'Lojas',
     chooseStore: 'Escolher loja',
     startShopping: 'Iniciar compra',
     finishShopping: 'Terminar compra',
     shoppingHistory: 'Histórico de compras',
-    shoppingSelectionFooter: 'Por predefinição, é usada a lista atualmente selecionada.',
     createStoreFirst: 'Crie primeiro uma loja nas definições.',
     noItemsForStore: 'Não restam artigos correspondentes para esta loja.',
     noShoppingHistory: 'Ainda não existem compras anteriores.',
@@ -1108,6 +1116,10 @@ const providerNeutralLabels: Partial<Record<AppLanguage, Partial<Record<Key, str
     deleteStoreBody: 'Eliminar {name}? As compras anteriores mantêm o nome.',
   },
   'pt-BR': {
+    bringSyncFooter:
+      'Quando ativada, cada lista local é sincronizada com a lista Bring associada. O Shopping List é independente e não tem vínculo com a Bring! Labs AG.',
+    mealieSyncFooter:
+      'Conecte um servidor Mealie auto-hospedado como provedor adicional. O Shopping List é independente e não tem vínculo com o projeto Mealie.',
     addAndSync: 'Adicionar e sincronizar',
     addedLocallyAndSynced: '{label} adicionado localmente e sincronizado.',
     syncFailed: 'Falha na sincronização. Puxe para baixo para tentar novamente.',
@@ -1133,14 +1145,12 @@ const providerNeutralLabels: Partial<Record<AppLanguage, Partial<Record<Key, str
     deleteListTitle: 'Excluir lista?',
     deleteListBody: 'Excluir {name} e todos os itens locais?',
     shopping: 'Compras',
-    newShopping: 'Nova compra',
     store: 'Loja',
     storesSettings: 'Lojas',
     chooseStore: 'Escolher loja',
     startShopping: 'Iniciar compra',
     finishShopping: 'Finalizar compra',
     shoppingHistory: 'Histórico de compras',
-    shoppingSelectionFooter: 'A lista selecionada atualmente é usada por padrão.',
     createStoreFirst: 'Crie primeiro uma loja nos Ajustes.',
     noItemsForStore: 'Não há mais itens compatíveis com esta loja.',
     noShoppingHistory: 'Ainda não há compras anteriores.',

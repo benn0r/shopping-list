@@ -99,7 +99,8 @@ describe('settings flows', () => {
     await fireEvent.changeText(screen.getByLabelText('API token'), 'meal-token');
     await fireEvent.press(screen.getByRole('button', { name: 'Connect Mealie' }));
 
-    await waitFor(() => expect(screen.getByText('Mealie connected.')).toBeTruthy());
+    await waitFor(() => expect(loadMealieSyncEnabled()).resolves.toBe(true));
+    expect(screen.queryByText('Mealie connected.')).toBeNull();
     await expect(loadMealieSyncEnabled()).resolves.toBe(true);
     await expect(loadBringSyncEnabled()).resolves.toBe(true);
     expect(fetchSpy).toHaveBeenCalledWith(
@@ -119,7 +120,7 @@ describe('settings flows', () => {
     );
     await fireEvent.changeText(screen.getByLabelText('API token'), 'meal-token');
     await fireEvent.press(screen.getByRole('button', { name: 'Connect Mealie' }));
-    await waitFor(() => expect(screen.getByText('Mealie connected.')).toBeTruthy());
+    await waitFor(() => expect(loadMealieSyncEnabled()).resolves.toBe(true));
 
     await fireEvent(screen.getByTestId('mealie-sync-switch'), 'valueChange', false);
     await expect(loadMealieSyncEnabled()).resolves.toBe(false);
@@ -290,6 +291,10 @@ describe('settings flows', () => {
     const screen = await renderSettings();
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Add List' }));
+    expect(screen.getByTestId('list-editor-sheet')).toHaveStyle({
+      height: '88%',
+      minHeight: '72%',
+    });
     await fireEvent.changeText(screen.getByLabelText('List name'), 'Weekend');
     await fireEvent.press(screen.getByRole('button', { name: 'Create List' }));
     const created = (await loadShoppingLists()).find((list) => list.name === 'Weekend')!;
@@ -345,6 +350,14 @@ describe('settings flows', () => {
     const screen = await renderSettings();
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Add Store' }));
+    expect(screen.getByTestId('store-editor-sheet')).toHaveStyle({
+      height: '72%',
+      minHeight: '72%',
+    });
+    expect(screen.getByText('Store name').props).toMatchObject({
+      numberOfLines: 1,
+      adjustsFontSizeToFit: true,
+    });
     await fireEvent.changeText(screen.getByLabelText('Store name'), 'Migros');
     await fireEvent.press(screen.getByRole('button', { name: 'Create Store' }));
     const created = (await loadStores())[0];
@@ -417,7 +430,7 @@ describe('settings flows', () => {
     });
   });
 
-  it('supports every product-language setting and confirms each save', async () => {
+  it('supports every product-language setting without confirmation popups', async () => {
     const screen = await renderSettings();
     const options = [
       ['auto', 'Automatic'],
@@ -433,7 +446,7 @@ describe('settings flows', () => {
       expect(screen.getByTestId(`product-language-${language}`).props.accessibilityState).toEqual({
         selected: true,
       });
-      expect(screen.getByText(`Product language set to ${title}.`)).toBeTruthy();
+      expect(screen.queryByText(`Product language set to ${title}.`)).toBeNull();
     }
   });
 
@@ -462,7 +475,7 @@ describe('settings flows', () => {
       expect(screen.getByTestId(`label-style-${style}`).props.accessibilityState).toEqual({
         selected: true,
       });
-      expect(screen.getByText(`Synced item label set to ${title}.`)).toBeTruthy();
+      expect(screen.queryByText(`Synced item label set to ${title}.`)).toBeNull();
     }
   });
 
@@ -474,7 +487,7 @@ describe('settings flows', () => {
     await fireEvent.press(screen.getByText('Save Custom Barcode'));
 
     await waitFor(() => expect(screen.getByText('Moon Crackers')).toBeTruthy());
-    expect(screen.getByText('Custom barcode saved.')).toBeTruthy();
+    expect(screen.queryByText('Custom barcode saved.')).toBeNull();
     expect(screen.getByPlaceholderText('7612345678901').props.value).toBe('');
     expect(screen.getByPlaceholderText('Product name').props.value).toBe('');
     await expect(loadCustomBarcodes()).resolves.toEqual([
@@ -491,7 +504,7 @@ describe('settings flows', () => {
 
     await waitFor(() => expect(screen.queryByText('Moon Crackers')).toBeNull());
     await expect(loadCustomBarcodes()).resolves.toEqual([]);
-    expect(screen.getByText('Custom barcode removed.')).toBeTruthy();
+    expect(screen.queryByText('Custom barcode removed.')).toBeNull();
   });
 
   it.each([
@@ -553,23 +566,28 @@ describe('settings flows', () => {
     expect(screen.getByText('Food and drinks: ingredients, nutrition and allergens')).toBeTruthy();
     expect(
       screen.getByText(
-        'Shopping List is not affiliated with Bring! Labs AG. Product data © Open Food Facts contributors (ODbL).',
+        'Shopping List is not affiliated with Bring! Labs AG or the Mealie project. Product data © Open Food Facts contributors (ODbL).',
       ),
     ).toBeTruthy();
   });
 
-  it('anchors confirmation over content and removes it after three seconds', async () => {
-    jest.useFakeTimers();
+  it('discloses that sync-provider integrations are independent', async () => {
+    const screen = await renderSettings();
+
+    expect(
+      screen.getByText(/Shopping List is independent and is not affiliated with Bring!/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Shopping List is independent and is not affiliated with the Mealie project/,
+      ),
+    ).toBeTruthy();
+  });
+
+  it('does not show a confirmation popup after changing a preference', async () => {
     const screen = await renderSettings();
 
     await fireEvent.press(screen.getByTestId('product-language-de'));
-    await waitFor(() => expect(screen.getByText('Product language set to German.')).toBeTruthy());
-    expect(screen.getByText('Product language set to German.').parent).toHaveStyle({
-      position: 'absolute',
-      bottom: 12,
-    });
-
-    await act(async () => jest.advanceTimersByTime(3000));
     expect(screen.queryByText('Product language set to German.')).toBeNull();
   });
 });

@@ -88,3 +88,90 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run test:coverage
+
+  build-android-apk:
+    needs: [test, test-integration, test-e2e, coverage]
+    if: ${{ gitea.event_name == 'push' && gitea.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container:
+      image: reactnativecommunity/react-native-android:v20.1
+    env:
+      CI: 'true'
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Validate Android build configuration
+        env:
+          EXPO_PUBLIC_BRING_API_KEY: ${{ secrets.EXPO_PUBLIC_BRING_API_KEY }}
+        run: test -n "$EXPO_PUBLIC_BRING_API_KEY"
+      - name: Generate the Expo Android project
+        run: npm run prebuild:android
+      - name: Install Android build dependencies
+        run: |
+          attempt=1
+          until "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-36' \
+            'build-tools;36.0.0' \
+            'cmake;3.22.1' \
+            'ndk;27.1.12297006'; do
+            if [ "$attempt" -ge 3 ]; then
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            echo "Android SDK install failed; retrying (attempt $attempt of 3)."
+            sleep 10
+          done
+      - name: Warm Gradle configuration
+        working-directory: android
+        run: |
+          attempt=1
+          until ./gradlew help \
+            --no-daemon --stacktrace \
+            --max-workers=1 \
+            -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=512m" \
+            -Dorg.gradle.parallel=false \
+            -Pkotlin.compiler.execution.strategy=in-process; do
+            if [ "$attempt" -ge 3 ]; then
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            echo "Gradle warm-up failed; retrying (attempt $attempt of 3)."
+            sleep 10
+          done
+      - name: Build standalone Android APK
+        working-directory: android
+        env:
+          EXPO_PUBLIC_BRING_API_KEY: ${{ secrets.EXPO_PUBLIC_BRING_API_KEY }}
+          NODE_OPTIONS: --max-old-space-size=384
+        run: |
+          attempt=1
+          until ./gradlew :app:assembleRelease \
+            --no-daemon --stacktrace \
+            --max-workers=1 \
+            -Dorg.gradle.jvmargs="-Xmx1024m -XX:MaxMetaspaceSize=768m" \
+            -Dorg.gradle.parallel=false \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            -PreactNativeArchitectures=arm64-v8a; do
+            if [ "$attempt" -ge 3 ]; then
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            echo "Android APK build failed; retrying (attempt $attempt of 3)."
+            sleep 10
+          done
+      - name: Verify APK signature
+        run: >-
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs
+          android/app/build/outputs/apk/release/app-release.apk
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: shopping-list-android-preview-${{ gitea.sha }}
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
