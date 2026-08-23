@@ -169,7 +169,7 @@ export async function installCameraHarness(page: Page, permission: PermissionSta
       configurable: true,
       value: TestBarcodeDetector,
     });
-    Object.defineProperty(globalThis, '__BRING_SCANNER_E2E__', {
+    Object.defineProperty(globalThis, '__SHOPPING_LIST_E2E__', {
       configurable: true,
       value: harness,
     });
@@ -259,9 +259,9 @@ export async function emitBarcodeBatch(
     });
     const browserHarness = (
       globalThis as typeof globalThis & {
-        __BRING_SCANNER_E2E__: { batches: (typeof batch)[] };
+        __SHOPPING_LIST_E2E__: { batches: (typeof batch)[] };
       }
-    ).__BRING_SCANNER_E2E__;
+    ).__SHOPPING_LIST_E2E__;
     browserHarness.batches.push(batch);
   }, barcodes);
 }

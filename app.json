@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "ch.benn0r.bringscanner",
+      "bundleIdentifier": "ch.benn0r.shoppinglist",
       "buildNumber": "2",
       "infoPlist": {
         "NSCameraUsageDescription": "Scan product barcodes to add items to your shopping list.",
@@ -16,7 +16,7 @@
       }
     },
     "android": {
-      "package": "app.bringscanner.companion",
+      "package": "ch.benn0r.shoppinglist",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#56B5AA",

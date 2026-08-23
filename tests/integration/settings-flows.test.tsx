@@ -359,7 +359,7 @@ describe('settings flows', () => {
     expect(screen.getByText('Food and drinks: ingredients, nutrition and allergens')).toBeTruthy();
     expect(
       screen.getByText(
-        'This companion is not affiliated with Bring! Labs AG. Product data © Open Food Facts contributors (ODbL).',
+        'Shopping List is not affiliated with Bring! Labs AG. Product data © Open Food Facts contributors (ODbL).',
       ),
     ).toBeTruthy();
   });

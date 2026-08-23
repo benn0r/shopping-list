@@ -1,4 +1,4 @@
-const PREFIX = 'bring-scanner-e2e-secure:';
+const PREFIX = 'shopping-list-e2e-secure:';
 
 function browserTestStorage() {
   const loopbackHosts = new Set(['127.0.0.1', 'localhost', '::1']);

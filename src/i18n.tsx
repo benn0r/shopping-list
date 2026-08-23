@@ -97,7 +97,7 @@ const en = {
   beautyDb: 'Cosmetics, hygiene and personal-care products',
   petDb: 'Pet food, treats and nutritional information',
   disclaimer:
-    'This companion is not affiliated with Bring! Labs AG. Product data © Open Food Facts contributors (ODbL).',
+    'Shopping List is not affiliated with Bring! Labs AG. Product data © Open Food Facts contributors (ODbL).',
 };
 type Key = keyof typeof en;
 const translations: Record<AppLanguage, Record<Key, string>> = {

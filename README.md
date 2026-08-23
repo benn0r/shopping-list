@@ -77,7 +77,7 @@ a standalone Android APK and keeps it as a workflow artifact for 30 days. Config
 `EXPO_PUBLIC_BRING_API_KEY` repository secret before running the job. The workflow generates the
 native Android project with Expo Prebuild, so it does not use EAS or require an Expo account.
 
-The artifact is named `bring-scanner-android-preview-<commit>` and can be sideloaded on an Android
+The artifact is named `shopping-list-android-preview-<commit>` and can be sideloaded on an Android
 device. It is a preview build signed with Expo's generated debug identity, not a production signing
 identity for an app store. A future store release needs a private, backed-up Android keystore.
 
