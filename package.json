@@ -38,6 +38,7 @@
     "start": "expo start",
     "dev:tunnel": "expo start --dev-client --tunnel",
     "android": "expo run:android",
+    "android:device": "expo run:android --device",
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
     "ios:release": "expo run:ios --device --configuration Release",
@@ -55,6 +56,8 @@
     "test:e2e:local": "npm run build:web:e2e && npm run test:e2e",
     "test:e2e:ui": "npm run build:web:e2e && playwright test --ui",
     "test:coverage": "jest --runInBand tests/unit tests/integration --coverage",
+    "prebuild:android": "expo prebuild --platform android --no-install",
+    "build:android:apk": "npm run prebuild:android && cd android && ./gradlew :app:assembleRelease --no-daemon",
     "build:ios": "expo export --platform ios --output-dir dist/ios --max-workers 1",
     "build:web:e2e": "cross-env EXPO_PUBLIC_E2E=1 expo export --platform web --output-dir dist/web --max-workers 1",
     "build": "npm run build:ios"

@@ -3,7 +3,8 @@
 > [!IMPORTANT]
 > **This entire repository, including the application, design, tests, documentation, and deployment setup was made with AI.**
 
-An unofficial React Native iOS companion that scans EAN/UPC barcodes, resolves product names, and adds them to a selected Bring shopping list.
+An unofficial React Native companion for iOS and Android that scans EAN/UPC barcodes, resolves
+product names, and adds them to a selected Bring shopping list.
 
 ## Screenshots
 
@@ -26,13 +27,14 @@ An unofficial React Native iOS companion that scans EAN/UPC barcodes, resolves p
 - Automatic or selected product language with localized-name fallback
 - Generic, exact, or ask-every-time Bring item labels
 - Custom barcode-to-label mappings that override online results
-- Required Bring sign-in with Keychain-backed credential storage
+- Required Bring sign-in with platform secure-storage-backed credentials
 - Shopping-list selection and explicit logout
 - Confirmation before an item is added, with an optional quantity
 
 ## Run locally
 
-Requirements: Node.js 22, npm, Xcode, and an iPhone or iOS simulator. A physical device is needed for camera scanning.
+Requirements: Node.js 22 and npm. Building for iOS also requires Xcode; building for Android
+locally requires JDK 17 and Android SDK 36. A physical device is needed for camera scanning.
 
 ```sh
 npm ci
@@ -45,14 +47,18 @@ Before running the app, create an ignored `.env` file:
 cp .env.example .env
 ```
 
-Set `EXPO_PUBLIC_BRING_API_KEY` in that file. For EAS builds, configure the same variable in the Expo project environment. Expo public environment variables are embedded in the compiled app, so this keeps the value out of Git but does not make a mobile client key cryptographically secret.
+Set `EXPO_PUBLIC_BRING_API_KEY` in that file. Expo public environment variables are embedded in the
+compiled app, so this keeps the value out of Git but does not make a mobile client key
+cryptographically secret.
 
 Useful device shortcuts:
 
 ```sh
 npm run ios:device   # Debug build on a connected iPhone
 npm run ios:release  # Standalone Release build on a connected iPhone
-npm run dev:tunnel   # Metro dev server reachable through an Expo tunnel
+npm run android:device    # Debug build on a connected Android device
+npm run build:android:apk # Standalone Android APK
+npm run dev:tunnel        # Metro dev server reachable through an Expo tunnel
 ```
 
 `ios:device` opens Expo's eligible-device picker. To target a device directly without the picker, pass its name locally:
@@ -62,6 +68,17 @@ npm run ios:device -- "Your iPhone Name"
 ```
 
 Do not commit a personal device name or UDID to the repository.
+
+## Android CI artifact
+
+After the quality, build, unit, integration, browser, and coverage jobs pass on `main`, Gitea builds
+a standalone Android APK and keeps it as a workflow artifact for 30 days. Configure the
+`EXPO_PUBLIC_BRING_API_KEY` repository secret before running the job. The workflow generates the
+native Android project with Expo Prebuild, so it does not use EAS or require an Expo account.
+
+The artifact is named `bring-scanner-android-preview-<commit>` and can be sideloaded on an Android
+device. It is a preview build signed with Expo's generated debug identity, not a production signing
+identity for an app store. A future store release needs a private, backed-up Android keystore.
 
 Run verification with:
 
@@ -90,8 +107,8 @@ The browser suite uses Chromium, a synthetic camera, mocked external services, a
 bundle cannot send credentials to Bring. It covers sign-in and logout, persisted settings, every
 language and label option, custom barcodes, centered-barcode selection, product lookup failures, and
 Bring add/retry behavior without contacting live services. The test-only web export is not uploaded
-as a build artifact, is not a deployable version of this iOS app, and does not replace real-device
-checks for AVFoundation, the iOS Keychain, or native safe areas.
+as a build artifact, is not a deployable version of the native app, and does not replace real-device
+checks for camera APIs, platform secure storage, or native safe areas.
 
 The coverage command runs the complete unit and integration suite and enforces minimum global
 coverage thresholds.
@@ -104,10 +121,10 @@ npm run fix
 
 ## Privacy and service notes
 
-In the iOS app, credentials are stored only in secure device storage and are never written to source
-files or regular app storage. The test-only browser build enables an isolated session-only adapter
-for fantasy test credentials. Shopping-list selection and custom barcode mappings remain on the
-device.
+In the native app, credentials are stored only in platform secure storage and are never written to
+source files or regular app storage. The test-only browser build enables an isolated session-only
+adapter for fantasy test credentials. Shopping-list selection and custom barcode mappings remain on
+the device.
 
 Product information comes from these community-contributed Open Facts databases:
 
