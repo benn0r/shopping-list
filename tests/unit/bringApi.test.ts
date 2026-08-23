@@ -1,4 +1,11 @@
-import { addItem, loadItems, loadLists, login, removeItem } from '../../src/services/bringApi';
+import {
+  addItem,
+  loadItems,
+  loadLists,
+  login,
+  removeItem,
+  restoreItem,
+} from '../../src/services/bringApi';
 
 function response(body: unknown, ok = true) {
   return { ok, json: async () => body } as Response;
@@ -197,6 +204,63 @@ describe('Bring adapter', () => {
     await expect(
       addItem({ email: 'pilot@example.com', password: 'secret' }, 'list-id', 'Moon Milk'),
     ).rejects.toThrow('Bring did not accept the item');
+  });
+
+  it('restores a purchased item from Bring recently used with its original UUID', async () => {
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(response({ uuid: 'user-id', access_token: 'token' }))
+      .mockResolvedValueOnce(response({}));
+
+    await restoreItem({ email: 'pilot@example.com', password: 'secret' }, 'list/id', {
+      uuid: 'item-1',
+      label: 'Moon Milk',
+      specification: 'EAN:7612345678901',
+    });
+
+    expect(fetchSpy.mock.calls[1][0]).toContain('bringlists/list%2Fid/items');
+    expect(JSON.parse(String((fetchSpy.mock.calls[1][1] as RequestInit).body))).toMatchObject({
+      changes: [
+        {
+          uuid: 'item-1',
+          itemId: 'Moon Milk',
+          operation: 'TO_PURCHASE',
+          spec: 'EAN:7612345678901',
+        },
+      ],
+    });
+  });
+
+  it('reports when Bring rejects restoring a recently used item', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(response({ uuid: 'user-id', access_token: 'token' }))
+      .mockResolvedValueOnce(response({}, false));
+
+    await expect(
+      restoreItem({ email: 'pilot@example.com', password: 'secret' }, 'list-id', {
+        uuid: 'item-1',
+        label: 'Moon Milk',
+      }),
+    ).rejects.toThrow('Bring did not restore');
+  });
+
+  it('restores from Bring recently used by label when the UUID is unavailable', async () => {
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(response({ uuid: 'user-id', access_token: 'token' }))
+      .mockResolvedValueOnce(response({}));
+
+    await restoreItem({ email: 'pilot@example.com', password: 'secret' }, 'list-id', {
+      label: 'Moon Milk',
+      specification: '2×',
+    });
+
+    const body = JSON.parse(String((fetchSpy.mock.calls[1][1] as RequestInit).body));
+    expect(body).toMatchObject({
+      changes: [{ itemId: 'Moon Milk', operation: 'TO_PURCHASE', spec: '2×' }],
+    });
+    expect(body.changes[0]).not.toHaveProperty('uuid');
   });
 
   it('loads active Bring items with their stable IDs and specifications', async () => {

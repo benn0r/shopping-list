@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import {
   ActionButton,
+  ChevronIcon,
   Field,
   LargeTitle,
   ListRow,
@@ -22,6 +23,8 @@ describe('shared interface components', () => {
         <Section>
           <Text>No optional heading</Text>
         </Section>
+        <ChevronIcon />
+        <ChevronIcon direction="down" size={12} color="#123456" />
       </>,
     );
 
@@ -29,6 +32,8 @@ describe('shared interface components', () => {
     expect(screen.getByText('Products')).toBeTruthy();
     expect(screen.getByText('Choose one')).toBeTruthy();
     expect(screen.getByText('No optional heading')).toBeTruthy();
+    expect(screen.getByTestId('chevron-right')).toBeTruthy();
+    expect(screen.getByTestId('chevron-down')).toBeTruthy();
   });
 
   it('edits a labeled field and retains secure input properties', async () => {
@@ -47,6 +52,21 @@ describe('shared interface components', () => {
     expect(input.props.secureTextEntry).toBe(true);
     fireEvent.changeText(input, 'next-secret');
     expect(onChangeText).toHaveBeenCalledWith('next-secret');
+  });
+
+  it('uses placeholders as labels for compact unlabeled fields', async () => {
+    const screen = await render(
+      <>
+        <Field placeholder="Server URL" />
+        <Field accessibilityLabel="Token" placeholder="API token" style={{ opacity: 0.9 }} />
+        <Field testID="anonymous-field" />
+      </>,
+    );
+
+    expect(screen.getByLabelText('Server URL')).toBeTruthy();
+    expect(screen.getByLabelText('Token')).toBeTruthy();
+    expect(screen.getByTestId('anonymous-field')).toBeTruthy();
+    expect(screen.queryByText('Server URL')).toBeNull();
   });
 
   it('runs enabled actions and blocks disabled or loading actions', async () => {

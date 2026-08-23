@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Alert, Linking } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { AuthProvider, LoginModal } from '../../src/auth';
+import { AuthProvider } from '../../src/auth';
 import { I18nProvider } from '../../src/i18n';
 import { SettingsScreen } from '../../src/screens/SettingsScreen';
 import {
@@ -11,10 +11,13 @@ import {
   loadCustomBarcodes,
   loadLookupPreferences,
   loadListViewMode,
+  loadMealieSyncEnabled,
   loadSelectedList,
   loadShoppingLists,
+  loadStores,
   saveBringSyncEnabled,
   saveSelectedList,
+  setShoppingListSyncTarget,
 } from '../../src/services/storage';
 import { PRODUCT_DATABASES } from '../../src/productDatabases';
 
@@ -39,7 +42,6 @@ async function renderAuthenticatedApp() {
     <I18nProvider>
       <AuthProvider>
         <SettingsScreen />
-        <LoginModal />
       </AuthProvider>
     </I18nProvider>,
   );
@@ -59,18 +61,115 @@ afterEach(() => {
 });
 
 describe('settings flows', () => {
-  it('disables Bring Sync when sign-in is cancelled', async () => {
+  it('hides inline Bring settings when sync is disabled', async () => {
     const screen = await renderAuthenticatedApp();
 
-    await waitFor(() => expect(screen.getByText('Sign In to Bring')).toBeTruthy());
-    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.getByLabelText('Email')).toBeTruthy());
+    await fireEvent(screen.getByTestId('bring-sync-switch'), 'valueChange', false);
 
-    await waitFor(() => expect(screen.queryByText('Sign In to Bring')).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText('Email')).toBeNull());
     await expect(loadBringSyncEnabled()).resolves.toBe(false);
     expect(screen.getByTestId('bring-sync-switch').props.value).toBe(false);
   });
 
-  it('requires login, signs in to Bring, selects a list, and logs out', async () => {
+  it('validates empty inline Bring credentials without contacting the provider', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch');
+    const screen = await renderAuthenticatedApp();
+    await waitFor(() => expect(screen.getByLabelText('Email')).toBeTruthy());
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Connect Bring' }));
+
+    expect(await screen.findByText('Enter your Bring email and password.')).toBeTruthy();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('connects Mealie alongside Bring and maps one local list to a Mealie list', async () => {
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(
+        jsonResponse({ items: [{ id: 'mealie-groceries', name: 'Household Groceries' }] }),
+      );
+    const screen = await renderSettings();
+
+    await fireEvent(screen.getByTestId('mealie-sync-switch'), 'valueChange', true);
+    await fireEvent.changeText(
+      screen.getByLabelText('Mealie server URL'),
+      'https://mealie.example.test/',
+    );
+    await fireEvent.changeText(screen.getByLabelText('API token'), 'meal-token');
+    await fireEvent.press(screen.getByRole('button', { name: 'Connect Mealie' }));
+
+    await waitFor(() => expect(screen.getByText('Mealie connected.')).toBeTruthy());
+    await expect(loadMealieSyncEnabled()).resolves.toBe(true);
+    await expect(loadBringSyncEnabled()).resolves.toBe(true);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://mealie.example.test/api/households/shopping/lists?perPage=-1',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer meal-token' }),
+      }),
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Disconnect Mealie' }));
+    await expect(loadMealieSyncEnabled()).resolves.toBe(false);
+    expect(screen.getByTestId('mealie-sync-switch').props.value).toBe(false);
+
+    await fireEvent(screen.getByTestId('mealie-sync-switch'), 'valueChange', true);
+    await fireEvent.changeText(
+      screen.getByLabelText('Mealie server URL'),
+      'https://mealie.example.test/',
+    );
+    await fireEvent.changeText(screen.getByLabelText('API token'), 'meal-token');
+    await fireEvent.press(screen.getByRole('button', { name: 'Connect Mealie' }));
+    await waitFor(() => expect(screen.getByText('Mealie connected.')).toBeTruthy());
+
+    await fireEvent(screen.getByTestId('mealie-sync-switch'), 'valueChange', false);
+    await expect(loadMealieSyncEnabled()).resolves.toBe(false);
+    await fireEvent(screen.getByTestId('mealie-sync-switch'), 'valueChange', true);
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3));
+
+    await fireEvent.press(screen.getByTestId('edit-list-groceries'));
+    await fireEvent.press(screen.getByTestId('list-editor-sync-mealie-mealie-groceries'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await expect(loadShoppingLists()).resolves.toEqual([
+      expect.objectContaining({
+        id: 'groceries',
+        syncTarget: {
+          provider: 'mealie',
+          remoteListId: 'mealie-groceries',
+          remoteListName: 'Household Groceries',
+        },
+      }),
+    ]);
+  });
+
+  it('rejects invalid Mealie connection settings', async () => {
+    const screen = await renderSettings();
+    await fireEvent(screen.getByTestId('mealie-sync-switch'), 'valueChange', true);
+    await fireEvent.changeText(screen.getByLabelText('Mealie server URL'), 'file:///private');
+    await fireEvent.changeText(screen.getByLabelText('API token'), 'token');
+    await fireEvent.press(screen.getByRole('button', { name: 'Connect Mealie' }));
+    expect(
+      await screen.findByText('Could not connect to Mealie. Check the URL and API token.'),
+    ).toBeTruthy();
+  });
+
+  it('restores a previously enabled Mealie connection on launch', async () => {
+    await AsyncStorage.setItem('mealie-sync-enabled', 'true');
+    jest
+      .mocked(SecureStore.getItemAsync)
+      .mockResolvedValueOnce(
+        JSON.stringify({ baseUrl: 'https://mealie.example.test', token: 'stored-token' }),
+      );
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(jsonResponse({ items: [{ id: 'stored-list', name: 'Stored List' }] }));
+    const screen = await renderSettings();
+    await waitFor(() => expect(screen.getByTestId('mealie-sync-switch').props.value).toBe(true));
+    await fireEvent.press(screen.getByTestId('edit-list-groceries'));
+    expect(await screen.findByTestId('list-editor-sync-mealie-stored-list')).toBeTruthy();
+    await fireEvent(screen.getByTestId('list-editor-modal'), 'requestClose');
+  });
+
+  it('connects Bring inline, selects a list, and disconnects', async () => {
     const fetchSpy = jest
       .spyOn(global, 'fetch')
       .mockResolvedValueOnce(jsonResponse({ uuid: 'moon-user', access_token: 'moon-token' }))
@@ -84,25 +183,13 @@ describe('settings flows', () => {
       );
     const screen = await renderAuthenticatedApp();
 
-    await waitFor(() => expect(screen.getByText('Sign In to Bring')).toBeTruthy());
-    expect(screen.getByTestId('login-sheet')).toHaveStyle({
-      borderTopLeftRadius: 18,
-      borderTopRightRadius: 18,
-    });
-    await fireEvent(screen.getByTestId('login-modal'), 'requestClose');
-    expect(screen.getByText('Sign In to Bring')).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText('Email')).toBeTruthy());
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'pilot@moon.example');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'lunar-secret');
+    await fireEvent.press(screen.getByText('Connect Bring'));
 
-    await fireEvent.changeText(
-      screen.getByPlaceholderText('you@example.com'),
-      'pilot@moon.example',
-    );
-    await fireEvent.changeText(screen.getByPlaceholderText('Required'), 'lunar-secret');
-    await fireEvent.press(screen.getByText('Sign In'));
-
-    await waitFor(() => expect(screen.getByText('Weekend Supplies')).toBeTruthy());
-    expect(screen.getByText('pilot@moon.example')).toBeTruthy();
-    expect(screen.queryByPlaceholderText('you@example.com')).toBeNull();
-    expect(screen.queryByPlaceholderText('Required')).toBeNull();
+    await waitFor(() => expect(screen.getByText('Disconnect Bring')).toBeTruthy());
+    expect(screen.getByLabelText('Email').props.value).toBe('pilot@moon.example');
     expect(String((fetchSpy.mock.calls[0][1] as RequestInit).body)).toContain(
       'email=pilot%40moon.example',
     );
@@ -111,29 +198,30 @@ describe('settings flows', () => {
       JSON.stringify({ email: 'pilot@moon.example', password: 'lunar-secret' }),
     );
 
-    await fireEvent.press(screen.getByTestId('bring-map-groceries-weekend-list'));
+    await fireEvent.press(screen.getByTestId('edit-list-groceries'));
+    await fireEvent.press(screen.getByTestId('list-editor-sync-weekend-list'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
     await expect(loadShoppingLists()).resolves.toEqual([
       expect.objectContaining({
         id: 'groceries',
-        bringList: { listUuid: 'weekend-list', name: 'Weekend Supplies' },
+        syncTarget: {
+          provider: 'bring',
+          remoteListId: 'weekend-list',
+          remoteListName: 'Weekend Supplies',
+        },
       }),
     ]);
-    expect(screen.getByTestId('bring-map-groceries-weekend-list').props.accessibilityState).toEqual(
-      {
-        selected: true,
-      },
-    );
-    expect(screen.getByText('Weekend Supplies selected.')).toBeTruthy();
+    expect(screen.getByTestId('list-editor-groceries')).toBeTruthy();
 
-    await fireEvent.press(screen.getByText('Log Out'));
+    await fireEvent.press(screen.getByText('Disconnect Bring'));
 
-    await waitFor(() => expect(screen.getByText('Sign In to Bring')).toBeTruthy());
+    await waitFor(() => expect(screen.queryByLabelText('Email')).toBeNull());
     await expect(loadSelectedList()).resolves.toBeNull();
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('bring-credentials');
   });
 
-  it('keeps the required login modal open after invalid credentials', async () => {
+  it('keeps inline Bring settings available after invalid credentials', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValueOnce(
       jsonResponse(
         { message: 'Invalid credentials' },
@@ -145,39 +233,33 @@ describe('settings flows', () => {
     );
     const screen = await renderAuthenticatedApp();
 
-    await waitFor(() => expect(screen.getByText('Sign In to Bring')).toBeTruthy());
-    await fireEvent.changeText(
-      screen.getByPlaceholderText('you@example.com'),
-      'pilot@moon.example',
-    );
-    await fireEvent.changeText(screen.getByPlaceholderText('Required'), 'wrong-secret');
-    await fireEvent.press(screen.getByText('Sign In'));
+    await waitFor(() => expect(screen.getByLabelText('Email')).toBeTruthy());
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'pilot@moon.example');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'wrong-secret');
+    await fireEvent.press(screen.getByText('Connect Bring'));
 
     expect(
       await screen.findByText('Could not connect to Bring. Check your credentials and try again.'),
     ).toBeTruthy();
-    expect(screen.getByText('Sign In to Bring')).toBeTruthy();
+    expect(screen.getByLabelText('Email')).toBeTruthy();
   });
 
   it.each([
     ['server error', () => Promise.resolve(jsonResponse({}, { ok: false, status: 503 }))],
     ['network error', () => Promise.reject(new Error('offline'))],
-  ])('keeps the required login modal open after a %s', async (_case, result) => {
+  ])('keeps inline Bring settings available after a %s', async (_case, result) => {
     jest.spyOn(global, 'fetch').mockImplementationOnce(result);
     const screen = await renderAuthenticatedApp();
-    await waitFor(() => expect(screen.getByText('Sign In to Bring')).toBeTruthy());
-    await fireEvent.changeText(
-      screen.getByPlaceholderText('you@example.com'),
-      'pilot@moon.example',
-    );
-    await fireEvent.changeText(screen.getByPlaceholderText('Required'), 'lunar-secret');
+    await waitFor(() => expect(screen.getByLabelText('Email')).toBeTruthy());
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'pilot@moon.example');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'lunar-secret');
 
-    await fireEvent.press(screen.getByText('Sign In'));
+    await fireEvent.press(screen.getByText('Connect Bring'));
 
     expect(
       await screen.findByText('Could not connect to Bring. Check your credentials and try again.'),
     ).toBeTruthy();
-    expect(screen.getByText('Sign In to Bring')).toBeTruthy();
+    expect(screen.getByLabelText('Email')).toBeTruthy();
   });
 
   it('restores a cached selected list even when it is absent from the refreshed lists', async () => {
@@ -194,12 +276,90 @@ describe('settings flows', () => {
 
     const screen = await renderAuthenticatedApp();
 
-    expect(await screen.findByText('Mapped to Bring: Cached Supplies')).toBeTruthy();
+    expect(await screen.findByText('Bring · Cached Supplies')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('edit-list-groceries'));
     expect(await screen.findByText('Fresh Supplies')).toBeTruthy();
-    expect(screen.getByTestId('bring-map-groceries-fresh-list').props.accessibilityState).toEqual({
+    expect(screen.getByTestId('list-editor-sync-fresh-list').props.accessibilityState).toEqual({
       selected: false,
     });
-    expect(screen.queryByText('Sign In to Bring')).toBeNull();
+    expect(screen.getByText('Disconnect Bring')).toBeTruthy();
+  });
+
+  it('creates, renames, and deletes local shopping lists in Settings', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const screen = await renderSettings();
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Add List' }));
+    await fireEvent.changeText(screen.getByLabelText('List name'), 'Weekend');
+    await fireEvent.press(screen.getByRole('button', { name: 'Create List' }));
+    const created = (await loadShoppingLists()).find((list) => list.name === 'Weekend')!;
+    expect(created).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId(`edit-list-${created.id}`));
+    await fireEvent.changeText(screen.getByLabelText('List name'), 'Errands');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await expect(loadShoppingLists()).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: created.id, name: 'Errands' })]),
+    );
+
+    await fireEvent.press(screen.getByTestId(`edit-list-${created.id}`));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete List' }));
+    const destructive = alert.mock.calls[0][2]?.find((button) => button.style === 'destructive');
+    await act(async () => destructive?.onPress?.());
+    await expect(loadShoppingLists()).resolves.not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: created.id })]),
+    );
+  });
+
+  it('cancels list editing and can remove its single provider mapping', async () => {
+    await setShoppingListSyncTarget('groceries', {
+      provider: 'mealie',
+      remoteListId: 'old-list',
+      remoteListName: 'Old Mealie List',
+    });
+    const screen = await renderSettings();
+    await fireEvent.press(await screen.findByTestId('edit-list-groceries'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByTestId('list-editor-sync-none')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('edit-list-groceries'));
+    await fireEvent.press(screen.getByTestId('list-editor-sync-none'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    const [unmapped] = await loadShoppingLists();
+    expect(unmapped).toMatchObject({ id: 'groceries', name: 'Groceries' });
+    expect(unmapped).not.toHaveProperty('syncTarget');
+  });
+
+  it('keeps the final shopping list and shows an error', async () => {
+    const screen = await renderSettings();
+
+    await fireEvent.press(await screen.findByTestId('edit-list-groceries'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete List' }));
+
+    expect(screen.getByText('At least one shopping list is required.')).toBeTruthy();
+    await expect(loadShoppingLists()).resolves.toHaveLength(1);
+  });
+
+  it('creates, renames, and deletes stores in a drawer', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const screen = await renderSettings();
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Add Store' }));
+    await fireEvent.changeText(screen.getByLabelText('Store name'), 'Migros');
+    await fireEvent.press(screen.getByRole('button', { name: 'Create Store' }));
+    const created = (await loadStores())[0];
+    expect(created.name).toBe('Migros');
+
+    await fireEvent.press(screen.getByTestId(`edit-store-${created.id}`));
+    await fireEvent.changeText(screen.getByLabelText('Store name'), 'Coop');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await expect(loadStores()).resolves.toEqual([expect.objectContaining({ name: 'Coop' })]);
+
+    await fireEvent.press(screen.getByTestId(`edit-store-${created.id}`));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete Store' }));
+    const destructive = alert.mock.calls[0][2]?.find((button) => button.style === 'destructive');
+    await act(async () => destructive?.onPress?.());
+    await expect(loadStores()).resolves.toEqual([]);
   });
 
   it('changes the app language', async () => {
@@ -277,7 +437,7 @@ describe('settings flows', () => {
     }
   });
 
-  it('selects the Bring item label style', async () => {
+  it('selects the synced item label style', async () => {
     const screen = await renderSettings();
 
     await fireEvent.press(screen.getByText('Exact Product'));
@@ -288,7 +448,7 @@ describe('settings flows', () => {
     });
   });
 
-  it('supports every Bring label style and confirms each save', async () => {
+  it('supports every synced label style and confirms each save', async () => {
     const screen = await renderSettings();
     const options = [
       ['generic', 'Generic'],
@@ -302,7 +462,7 @@ describe('settings flows', () => {
       expect(screen.getByTestId(`label-style-${style}`).props.accessibilityState).toEqual({
         selected: true,
       });
-      expect(screen.getByText(`Bring item label set to ${title}.`)).toBeTruthy();
+      expect(screen.getByText(`Synced item label set to ${title}.`)).toBeTruthy();
     }
   });
 
@@ -325,7 +485,7 @@ describe('settings flows', () => {
     jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
       confirmRemoval = buttons?.find((button) => button.style === 'destructive')?.onPress;
     });
-    await fireEvent.press(screen.getByText('Delete'));
+    await fireEvent.press(screen.getByTestId('delete-custom-7611111111111'));
     expect(confirmRemoval).toBeDefined();
     await act(async () => confirmRemoval?.());
 
@@ -374,7 +534,7 @@ describe('settings flows', () => {
       expect(message).toBe('The online lookup will be used the next time this barcode is scanned.');
       cancelRemoval = buttons?.find((button) => button.style === 'cancel')?.onPress;
     });
-    await fireEvent.press(screen.getByText('Delete'));
+    await fireEvent.press(screen.getByTestId('delete-custom-7611111111111'));
     await act(async () => cancelRemoval?.());
 
     expect(alertSpy).toHaveBeenCalledTimes(1);

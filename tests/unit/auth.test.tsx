@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { act, render, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
-import { AuthProvider, LoginModal, useAuth } from '../../src/auth';
+import { AuthProvider, useAuth } from '../../src/auth';
 import { I18nProvider } from '../../src/i18n';
 import { saveBringSyncEnabled, saveSelectedList } from '../../src/services/storage';
 
@@ -31,12 +31,11 @@ function response(body: unknown, ok = true) {
   return { ok, status: ok ? 200 : 500, json: async () => body } as Response;
 }
 
-function renderAuth(includeModal = false) {
+function renderAuth() {
   return render(
     <I18nProvider>
       <AuthProvider>
         <Probe />
-        {includeModal ? <LoginModal /> : null}
       </AuthProvider>
     </I18nProvider>,
   );
@@ -168,59 +167,4 @@ describe('authentication state', () => {
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('bring-credentials');
     expect(AsyncStorage.removeItem).toHaveBeenCalledWith('selected-list');
   });
-});
-
-describe('required login modal', () => {
-  it('validates missing fields without contacting Bring and clears the error while editing', async () => {
-    await saveBringSyncEnabled(true);
-    const fetchSpy = jest.spyOn(global, 'fetch');
-    const screen = await renderAuth(true);
-    await waitUntilInitialized();
-    const root = screen.container;
-    const validationMessage = 'Enter your Bring email and password.';
-    // Exact host-prop queries avoid the accessibility tree traversal that makes RN Modal
-    // validation disproportionately expensive on constrained CI runners.
-    const nodesWithProps = (expected: Record<string, unknown>) =>
-      root.queryAll((instance) =>
-        Object.entries(expected).every(([name, value]) => instance.props[name] === value),
-      );
-    const nodeWithProps = (expected: Record<string, unknown>) => {
-      const matches = nodesWithProps(expected);
-      expect(matches).toHaveLength(1);
-      return matches[0];
-    };
-    const invoke = (
-      node: ReturnType<typeof nodeWithProps>,
-      handler: 'onClick' | 'onChangeText',
-      ...args: unknown[]
-    ) => {
-      let target: typeof node | null = node;
-      while (target && typeof target.props[handler] !== 'function') target = target.parent;
-      if (!target) throw new Error(`Could not find ${handler} handler.`);
-      return target.props[handler](...args);
-    };
-    const validationMessages = () => nodesWithProps({ children: validationMessage });
-
-    await act(async () => invoke(nodeWithProps({ accessibilityLabel: 'Sign In' }), 'onClick'));
-    expect(validationMessages()).toHaveLength(1);
-    expect(fetchSpy).not.toHaveBeenCalled();
-
-    await act(async () =>
-      invoke(
-        nodeWithProps({ placeholder: 'you@example.com' }),
-        'onChangeText',
-        'pilot@moon.example',
-      ),
-    );
-    expect(validationMessages()).toHaveLength(0);
-
-    await act(async () => invoke(nodeWithProps({ accessibilityLabel: 'Sign In' }), 'onClick'));
-    expect(validationMessages()).toHaveLength(1);
-    expect(fetchSpy).not.toHaveBeenCalled();
-    await act(async () =>
-      invoke(nodeWithProps({ placeholder: 'Required' }), 'onChangeText', 'secret'),
-    );
-    expect(validationMessages()).toHaveLength(0);
-    expect(fetchSpy).not.toHaveBeenCalled();
-  }, 15_000);
 });

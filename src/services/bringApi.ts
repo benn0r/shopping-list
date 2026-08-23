@@ -3,6 +3,8 @@ import {
   createItemBody,
   createLoginBody,
   createRemoveBody,
+  createRestoreByLabelBody,
+  createRestoreBody,
   normalizeItems,
   normalizeLists,
 } from './bringPayloads';
@@ -86,6 +88,22 @@ export async function addItem(
     body: body.toString(),
   });
   if (!response.ok) throw new Error('Bring did not accept the item. Please try again.');
+}
+
+export async function restoreItem(
+  credentials: Credentials,
+  listUuid: string,
+  item: Omit<BringItem, 'uuid'> & { uuid?: string },
+) {
+  const session = await login(credentials);
+  const response = await fetch(`${API_URL}bringlists/${encodeURIComponent(listUuid)}/items`, {
+    method: 'PUT',
+    headers: { ...headers(session), 'Content-Type': 'application/json' },
+    body: JSON.stringify(
+      item.uuid ? createRestoreBody(item as BringItem) : createRestoreByLabelBody(item),
+    ),
+  });
+  if (!response.ok) throw new Error('Bring did not restore the item. Please try again.');
 }
 
 export async function loadItems(credentials: Credentials, listUuid: string): Promise<BringItem[]> {

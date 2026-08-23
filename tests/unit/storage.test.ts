@@ -11,16 +11,30 @@ import {
   loadCustomBarcodes,
   loadLookupPreferences,
   loadListViewMode,
+  loadMealieConfig,
+  loadMealieSyncEnabled,
   loadScanHistory,
   loadSelectedList,
   loadShoppingList,
   loadShoppingLists,
+  loadShoppingSessions,
+  loadStores,
   loadActiveShoppingList,
   createShoppingList,
+  createShoppingSession,
+  createStore,
+  deleteShoppingList,
+  deleteShoppingSession,
+  deleteStore,
   selectActiveShoppingList,
-  setShoppingListBringMapping,
+  setShoppingListSyncTarget,
   subscribeShoppingLists,
   removeShoppingListItem,
+  renameShoppingList,
+  renameStore,
+  recordShoppingPurchase,
+  restoreShoppingPurchase,
+  completeShoppingSession,
   recordScannedProduct,
   saveAppLanguage,
   saveBringSyncEnabled,
@@ -28,6 +42,9 @@ import {
   saveCustomBarcodes,
   saveLookupPreferences,
   saveListViewMode,
+  saveMealieConfig,
+  saveMealieSyncEnabled,
+  clearMealieConfig,
   saveSelectedList,
 } from '../../src/services/storage';
 
@@ -176,7 +193,11 @@ describe('persistent settings', () => {
       {
         id: 'groceries',
         name: 'Groceries',
-        bringList: { listUuid: 'bring-groceries', name: 'Shared Groceries' },
+        syncTarget: {
+          provider: 'bring',
+          remoteListId: 'bring-groceries',
+          remoteListName: 'Shared Groceries',
+        },
       },
     ]);
     await expect(loadShoppingList('groceries')).resolves.toEqual([
@@ -184,11 +205,61 @@ describe('persistent settings', () => {
     ]);
   });
 
+  it('migrates existing Bring-specific list and item fields to generic sync metadata', async () => {
+    await AsyncStorage.setItem(
+      'shopping-lists-v2',
+      JSON.stringify([
+        {
+          id: 'groceries',
+          name: 'Groceries',
+          bringList: { listUuid: 'remote-list', name: 'Shared List' },
+        },
+      ]),
+    );
+    await AsyncStorage.setItem('active-shopping-list-v2', 'groceries');
+    await AsyncStorage.setItem(
+      'shopping-list-items-v2',
+      JSON.stringify({
+        groceries: [
+          {
+            barcode: '123',
+            label: 'Milk',
+            scannedAt: 1,
+            bringUuid: 'remote-item',
+            bringSpecification: '2×',
+          },
+        ],
+      }),
+    );
+
+    await expect(loadShoppingLists()).resolves.toEqual([
+      {
+        id: 'groceries',
+        name: 'Groceries',
+        syncTarget: {
+          provider: 'bring',
+          remoteListId: 'remote-list',
+          remoteListName: 'Shared List',
+        },
+      },
+    ]);
+    await expect(loadShoppingList('groceries')).resolves.toEqual([
+      {
+        barcode: '123',
+        label: 'Milk',
+        scannedAt: 1,
+        remoteItemId: 'remote-item',
+        remoteSpecification: '2×',
+      },
+    ]);
+  });
+
   it('keeps items and Bring mappings separate for every local list', async () => {
     const second = await createShoppingList('Hardware');
-    await setShoppingListBringMapping(second.id, {
-      listUuid: 'bring-hardware',
-      name: 'Shared Hardware',
+    await setShoppingListSyncTarget(second.id, {
+      provider: 'bring',
+      remoteListId: 'bring-hardware',
+      remoteListName: 'Shared Hardware',
     });
     await selectActiveShoppingList(second.id);
     await addShoppingListItem(
@@ -200,7 +271,7 @@ describe('persistent settings', () => {
 
     await expect(loadActiveShoppingList()).resolves.toMatchObject({
       id: second.id,
-      bringList: { listUuid: 'bring-hardware' },
+      syncTarget: { provider: 'bring', remoteListId: 'bring-hardware' },
     });
     await expect(loadShoppingList(second.id)).resolves.toHaveLength(1);
     await expect(loadShoppingList('groceries')).resolves.toEqual([]);
@@ -215,14 +286,166 @@ describe('persistent settings', () => {
 
     const second = await createShoppingList('  Pharmacy  ');
     expect(second.name).toBe('Pharmacy');
-    await setShoppingListBringMapping(second.id, { listUuid: 'remote', name: 'Remote' });
-    const lists = await setShoppingListBringMapping(second.id, null);
+    await setShoppingListSyncTarget(second.id, {
+      provider: 'bring',
+      remoteListId: 'remote',
+      remoteListName: 'Remote',
+    });
+    const lists = await setShoppingListSyncTarget(second.id, null);
 
-    expect(lists.find((entry) => entry.id === second.id)?.bringList).toBeUndefined();
+    expect(lists.find((entry) => entry.id === second.id)?.syncTarget).toBeUndefined();
     expect(listener).toHaveBeenCalledTimes(3);
     unsubscribe();
     await createShoppingList('After unsubscribe');
     expect(listener).toHaveBeenCalledTimes(3);
+  });
+
+  it('renames and deletes lists while preserving a valid active list', async () => {
+    const second = await createShoppingList('Weekend');
+    await selectActiveShoppingList(second.id);
+    await addShoppingListItem(
+      { barcode: 'manual:1', label: 'Tent', exactLabel: 'Tent', source: 'custom' },
+      'Tent',
+      undefined,
+      second.id,
+    );
+
+    await renameShoppingList(second.id, ' Camping ');
+    await expect(loadActiveShoppingList()).resolves.toMatchObject({
+      id: second.id,
+      name: 'Camping',
+    });
+    await deleteShoppingList(second.id);
+    await expect(loadActiveShoppingList()).resolves.toMatchObject({ id: 'groceries' });
+    await expect(loadShoppingList(second.id)).resolves.toEqual([]);
+  });
+
+  it('rejects invalid list updates and deleting the final list', async () => {
+    await expect(renameShoppingList('groceries', ' ')).rejects.toThrow(
+      'Shopping-list name is required.',
+    );
+    await expect(renameShoppingList('missing', 'Name')).rejects.toThrow('Unknown shopping list.');
+    await expect(deleteShoppingList('missing')).rejects.toThrow('Unknown shopping list.');
+    await expect(deleteShoppingList('groceries')).rejects.toThrow(
+      'At least one shopping list is required.',
+    );
+  });
+
+  it('creates, renames, and deletes stores', async () => {
+    const stores = await createStore(' Migros ');
+    expect(stores).toHaveLength(1);
+    expect(stores[0]).toMatchObject({ name: 'Migros' });
+
+    await expect(renameStore(stores[0].id, 'Coop')).resolves.toEqual([
+      expect.objectContaining({ id: stores[0].id, name: 'Coop' }),
+    ]);
+    await expect(deleteStore(stores[0].id)).resolves.toEqual([]);
+    await expect(loadStores()).resolves.toEqual([]);
+    await expect(createStore(' ')).rejects.toThrow('Store name is required.');
+    await expect(renameStore('missing', 'Name')).rejects.toThrow('Unknown store.');
+    await expect(renameStore('missing', ' ')).rejects.toThrow('Store name is required.');
+    await expect(deleteStore('missing')).rejects.toThrow('Unknown store.');
+  });
+
+  it('persists a shopping session and purchased-item timestamps', async () => {
+    const store = (await createStore('Moon Market'))[0];
+    const list = (await loadShoppingLists())[0];
+    const item = {
+      barcode: '7611111111111',
+      label: 'Moon Milk',
+      scannedAt: 1,
+      remoteItemId: 'remote-milk',
+      remoteSpecification: 'barcode:7611111111111',
+    };
+    const session = await createShoppingSession(store, list, 100);
+    await expect(createShoppingSession(store, [], 99)).rejects.toThrow(
+      'At least one shopping list is required.',
+    );
+    await expect(restoreShoppingPurchase(session.id, 'missing')).rejects.toThrow(
+      'Unknown purchased item.',
+    );
+
+    const purchased = await recordShoppingPurchase(session.id, item, 200);
+    expect(purchased.purchasedItems).toEqual([
+      {
+        ...item,
+        purchasedAt: 200,
+        sourceListId: list.id,
+        sourceListName: list.name,
+      },
+    ]);
+    const restored = await restoreShoppingPurchase(session.id, item.barcode);
+    expect(restored.purchasedItems).toEqual([]);
+    await expect(loadShoppingList(list.id)).resolves.toEqual([
+      { barcode: item.barcode, label: item.label, scannedAt: item.scannedAt },
+    ]);
+    await recordShoppingPurchase(session.id, item, 250);
+    await expect(deleteShoppingSession(session.id)).rejects.toThrow('Unknown completed shopping.');
+    const completed = await completeShoppingSession(session.id, 300);
+    expect(completed.completedAt).toBe(300);
+    await expect(loadShoppingSessions()).resolves.toEqual([
+      expect.objectContaining({ id: session.id, completedAt: 300 }),
+    ]);
+    await expect(recordShoppingPurchase(session.id, item, 400)).rejects.toThrow(
+      'No active shopping found.',
+    );
+    await expect(completeShoppingSession('missing', 500)).rejects.toThrow('Unknown shopping.');
+    await expect(restoreShoppingPurchase('missing', item.barcode)).rejects.toThrow(
+      'No active shopping found.',
+    );
+    await expect(deleteShoppingSession('missing')).rejects.toThrow('Unknown completed shopping.');
+    await expect(deleteShoppingSession(session.id)).resolves.toEqual([]);
+    await expect(loadShoppingSessions()).resolves.toEqual([]);
+  });
+
+  it('restores duplicate barcodes to the selected source list in a multi-list session', async () => {
+    const store = (await createStore('Shared Market'))[0];
+    const groceries = (await loadShoppingLists())[0];
+    const errands = await createShoppingList('Errands');
+    const item = { barcode: 'manual:shared', label: 'Shared', scannedAt: 1 };
+    const session = await createShoppingSession(store, [groceries, errands], 100);
+    await recordShoppingPurchase(session.id, item, 200, groceries);
+    await recordShoppingPurchase(session.id, item, 300, errands);
+
+    const restored = await restoreShoppingPurchase(session.id, item.barcode, groceries.id);
+
+    await expect(loadShoppingList(groceries.id)).resolves.toEqual([item]);
+    await expect(loadShoppingList(errands.id)).resolves.toEqual([]);
+    expect(restored.purchasedItems).toEqual([
+      expect.objectContaining({ sourceListId: errands.id, purchasedAt: 300 }),
+    ]);
+    await expect(restoreShoppingPurchase(session.id, item.barcode, 'missing')).rejects.toThrow(
+      'Unknown purchased item.',
+    );
+  });
+
+  it('restores purchased items from legacy single-list sessions', async () => {
+    const legacyItem = {
+      barcode: 'manual:legacy',
+      label: 'Legacy',
+      scannedAt: 1,
+      purchasedAt: 2,
+    };
+    await AsyncStorage.setItem(
+      'shopping-sessions-v1',
+      JSON.stringify([
+        {
+          id: 'legacy-session',
+          storeId: 'store',
+          storeName: 'Store',
+          listId: 'groceries',
+          listName: 'Groceries',
+          startedAt: 1,
+          purchasedItems: [legacyItem],
+        },
+      ]),
+    );
+
+    await restoreShoppingPurchase('legacy-session', legacyItem.barcode, 'groceries');
+
+    await expect(loadShoppingList('groceries')).resolves.toEqual([
+      { barcode: 'manual:legacy', label: 'Legacy', scannedAt: 1 },
+    ]);
   });
 
   it('falls back to English for an unsupported stored app language', async () => {
@@ -248,6 +471,18 @@ describe('persistent settings', () => {
   it('rejects corrupted credential JSON', async () => {
     jest.mocked(SecureStore.getItemAsync).mockResolvedValue('{not-json');
     await expect(loadCredentials()).rejects.toBeInstanceOf(SyntaxError);
+  });
+
+  it('stores Mealie configuration securely and enables it independently', async () => {
+    const config = { baseUrl: 'https://mealie.example.test', token: 'secret-token' };
+    await saveMealieConfig(config);
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('mealie-config', JSON.stringify(config));
+    jest.mocked(SecureStore.getItemAsync).mockResolvedValueOnce(JSON.stringify(config));
+    await expect(loadMealieConfig()).resolves.toEqual(config);
+    await saveMealieSyncEnabled(true);
+    await expect(loadMealieSyncEnabled()).resolves.toBe(true);
+    await clearMealieConfig();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('mealie-config');
   });
 
   it('propagates failed secure writes and deletes', async () => {

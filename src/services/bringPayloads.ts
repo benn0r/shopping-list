@@ -64,13 +64,28 @@ export function normalizeItems(body: {
 }
 
 export function createRemoveBody(item: BringItem) {
+  return createItemChangeBody(item, 'TO_RECENTLY');
+}
+
+export function createRestoreBody(item: BringItem) {
+  return createItemChangeBody(item, 'TO_PURCHASE');
+}
+
+export function createRestoreByLabelBody(item: Omit<BringItem, 'uuid'> & { uuid?: string }) {
+  return createItemChangeBody(item, 'TO_PURCHASE');
+}
+
+function createItemChangeBody(
+  item: Omit<BringItem, 'uuid'> & { uuid?: string },
+  operation: 'TO_PURCHASE' | 'TO_RECENTLY',
+) {
   return {
     changes: [
       {
         itemId: item.label,
-        uuid: item.uuid,
+        ...(item.uuid ? { uuid: item.uuid } : {}),
         spec: item.specification || '',
-        operation: 'TO_RECENTLY',
+        operation,
         accuracy: '0.0',
         altitude: '0.0',
         latitude: '0.0',

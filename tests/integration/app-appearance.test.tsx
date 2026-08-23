@@ -86,6 +86,7 @@ jest.mock('../../src/auth', () => ({
 }));
 
 jest.mock('../../src/screens/ScannerScreen', () => ({ ScannerScreen: () => null }));
+jest.mock('../../src/screens/ShoppingScreen', () => ({ ShoppingScreen: () => null }));
 jest.mock('../../src/screens/SettingsScreen', () => ({ SettingsScreen: () => null }));
 
 describe('application appearance wiring', () => {
@@ -133,6 +134,9 @@ describe('application appearance wiring', () => {
       expect(options.tabBarStyle).toMatchObject({ height: 84, paddingBottom: 34 });
       expect(screen.getByTestId('status-bar').props.statusBarStyle).toBe('auto');
       expect(screen.getByTestId('screen-Scan').props.options.tabBarButtonTestID).toBe('tab-scan');
+      expect(screen.getByTestId('screen-Shopping').props.options.tabBarButtonTestID).toBe(
+        'tab-shopping',
+      );
       expect(screen.getByTestId('screen-Settings').props.options.tabBarButtonTestID).toBe(
         'tab-settings',
       );
@@ -141,6 +145,10 @@ describe('application appearance wiring', () => {
         screen.getByTestId('screen-Scan').props.options.tabBarIcon({ color: expected.active }),
       );
       expect(scanIcon.getByText('▦')).toHaveStyle({ color: expected.active });
+      const shoppingIcon = await render(
+        screen.getByTestId('screen-Shopping').props.options.tabBarIcon({ color: expected.active }),
+      );
+      expect(shoppingIcon.getByText('✓')).toHaveStyle({ color: expected.active });
       const settingsIcon = await render(
         screen.getByTestId('screen-Settings').props.options.tabBarIcon({
           color: expected.inactive,

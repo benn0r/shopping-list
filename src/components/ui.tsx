@@ -11,6 +11,7 @@ import {
   TextInputProps,
   View,
 } from 'react-native';
+import type { ColorValue } from 'react-native';
 
 const adaptive = (light: string, dark: string) =>
   Platform.OS === 'ios' ? DynamicColorIOS({ light, dark }) : light;
@@ -58,14 +59,39 @@ export function Section({
 export function Separator() {
   return <View style={styles.separator} />;
 }
-export function Field({ label, ...props }: TextInputProps & { label: string }) {
+export function ChevronIcon({
+  direction = 'right',
+  size = 9,
+  color = colors.tertiaryLabel,
+}: {
+  direction?: 'right' | 'down';
+  size?: number;
+  color?: ColorValue;
+}) {
+  return (
+    <View
+      accessible={false}
+      pointerEvents="none"
+      style={{
+        width: size,
+        height: size,
+        borderRightWidth: 2,
+        borderBottomWidth: 2,
+        borderColor: color,
+        transform: [{ rotate: direction === 'down' ? '45deg' : '-45deg' }],
+      }}
+      testID={`chevron-${direction}`}
+    />
+  );
+}
+export function Field({ label, ...props }: TextInputProps & { label?: string }) {
   return (
     <View style={styles.fieldRow}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      {label ? <Text style={styles.fieldLabel}>{label}</Text> : null}
       <TextInput
         {...props}
-        accessibilityLabel={props.accessibilityLabel ?? label}
-        style={styles.input}
+        accessibilityLabel={props.accessibilityLabel ?? label ?? props.placeholder}
+        style={[styles.input, !label && styles.placeholderInput, props.style]}
         placeholderTextColor={colors.tertiaryLabel}
         selectionColor={colors.tint}
       />
@@ -219,6 +245,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: { color: colors.label, fontSize: 17, width: 82 },
   input: { flex: 1, color: colors.label, fontSize: 17, paddingVertical: 11, textAlign: 'right' },
+  placeholderInput: { textAlign: 'left' },
   action: { minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   actionText: { fontSize: 17, fontWeight: '400' },
   dim: { opacity: 0.42 },

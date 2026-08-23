@@ -5,9 +5,10 @@ import { Text, useColorScheme } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScannerScreen } from './src/screens/ScannerScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { ShoppingScreen } from './src/screens/ShoppingScreen';
 import { colors } from './src/components/ui';
 import { I18nProvider, useI18n } from './src/i18n';
-import { AuthProvider, LoginModal } from './src/auth';
+import { AuthProvider } from './src/auth';
 import { createNavigationTheme } from './src/theme';
 
 const Tab = createBottomTabNavigator();
@@ -39,9 +40,18 @@ function AppTabs({ dark }: { dark: boolean }) {
         name="Scan"
         component={ScannerScreen}
         options={{
-          tabBarLabel: t('scan'),
+          tabBarLabel: t('shoppingList'),
           tabBarButtonTestID: 'tab-scan',
           tabBarIcon: ({ color }) => <TabIcon symbol="▦" color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Shopping"
+        component={ShoppingScreen}
+        options={{
+          tabBarLabel: t('shopping'),
+          tabBarButtonTestID: 'tab-shopping',
+          tabBarIcon: ({ color }) => <TabIcon symbol="✓" color={color} />,
         }}
       />
       <Tab.Screen
@@ -68,7 +78,6 @@ export default function App() {
             <StatusBar style="auto" />
             <AppTabs dark={scheme === 'dark'} />
           </NavigationContainer>
-          <LoginModal />
         </AuthProvider>
       </I18nProvider>
     </SafeAreaProvider>

@@ -5,6 +5,7 @@ import {
   FANTASY_LISTS,
   prepareApp,
   product,
+  selectProviderList,
   signIn,
   signInAndSelectList,
 } from './support';
@@ -14,10 +15,16 @@ test('creates and switches lists and removes an item from its detail drawer', as
   await prepareApp(page, state);
   await signIn(page);
 
-  await expect(page.getByRole('heading', { name: 'Groceries', exact: true })).toBeVisible();
-  await page.getByTestId('active-list-title').click();
+  await page.getByTestId('tab-settings').click();
+  await page.getByRole('button', { name: 'Add List' }).click();
   await page.getByLabel('List name').fill('Hardware');
   await page.getByRole('button', { name: 'Create List' }).click();
+  await page.getByTestId('tab-scan').click();
+  await page.getByTestId('active-list-title').click();
+  await page
+    .getByTestId(/^local-list-/)
+    .filter({ hasText: 'Hardware' })
+    .click();
   await expect(page.getByTestId('list-picker-modal')).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
 
@@ -86,7 +93,7 @@ test('allows local adding without a selected Bring list and resumes scanning aft
   await signIn(page);
 
   await expect(page.getByTestId('scanner-status')).toContainText(
-    'Connect Bring and choose a shopping list in Settings.',
+    'Connect a sync provider and map this list in Settings.',
   );
   await emitBarcodeBatch(page, [{ value: first }]);
   await expect(page.getByTestId('product-sheet')).toBeVisible();
@@ -120,7 +127,7 @@ test('uses the selected product language and generic Bring label', async ({ page
   await prepareApp(page, state);
   await signIn(page);
   await page.getByTestId('tab-settings').click();
-  await page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[0].listUuid}`).click();
+  await selectProviderList(page);
   await expect(page.getByTestId('settings-status')).toContainText(
     `${FANTASY_LISTS[0].name} selected.`,
   );
@@ -130,7 +137,7 @@ test('uses the selected product language and generic Bring label', async ({ page
   );
   await page.getByTestId('label-style-generic').click();
   await expect(page.getByTestId('settings-status')).toContainText(
-    'Bring item label set to Generic.',
+    'Synced item label set to Generic.',
   );
   await page.getByTestId('tab-scan').click();
 
@@ -164,7 +171,7 @@ test('adds an edited item with quantity and sends interoperable barcode metadata
 
   await expect(page.getByTestId('product-sheet')).toBeHidden();
   const status = page.getByTestId('scanner-status');
-  await expect(status).toContainText('Party Cola added locally and synced to Bring.');
+  await expect(status).toContainText('Party Cola added locally and synced.');
   await expect(status).toHaveCSS('position', 'absolute');
   await expect(status).toHaveCSS('bottom', '12px');
   await expect(page.getByTestId('scanner-camera-wrap')).toBeHidden();
@@ -196,14 +203,13 @@ test('omits an unselected quantity and restores scan history after reload', asyn
 
   await expect(sheet).toBeHidden();
   await expect(page.getByTestId('scanner-status')).toContainText(
-    'Single Bottle added locally and synced to Bring.',
+    'Single Bottle added locally and synced.',
   );
   expect(state.addedItems).toHaveLength(1);
   expect(state.addedItems[0].get('purchase')).toBe('Single Bottle');
   expect(state.addedItems[0].get('specification')).toBe(`EAN:${barcode}`);
 
   await page.reload();
-  await expect(page.getByTestId('login-sheet')).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Groceries', exact: true })).toBeVisible();
   await expect(page.getByText('Single Bottle', { exact: true })).toBeVisible();
   await expect(page.getByText('Orbital Goods', { exact: true })).toBeVisible();
@@ -215,10 +221,10 @@ test('uses a custom barcode without contacting an online product database', asyn
   await prepareApp(page, state);
   await signIn(page);
   await page.getByTestId('tab-settings').click();
-  await page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[0].listUuid}`).click();
+  await selectProviderList(page);
   await page.getByTestId('custom-barcodes-open').click();
   await page.getByLabel('Barcode', { exact: true }).fill(barcode);
-  await page.getByLabel('Bring Label').fill('Orbit Tissue');
+  await page.getByLabel('Item Label').fill('Orbit Tissue');
   await page.getByRole('button', { name: 'Save Custom Barcode' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByTestId('tab-scan').click();
@@ -304,7 +310,7 @@ test('keeps the scanner drawer visible while scrolling and follows system appear
   expect(await page.evaluate(() => globalThis.scrollY)).toBe(0);
   await expect(camera).toBeVisible();
 
-  const scanLabel = page.getByTestId('tab-scan').getByText('Scan', { exact: true });
+  const scanLabel = page.getByTestId('tab-scan').getByText('Shopping List', { exact: true });
   await page.emulateMedia({ colorScheme: 'light' });
   await expect(scanLabel).toHaveCSS('color', 'rgb(35, 127, 120)');
   await page.emulateMedia({ colorScheme: 'dark' });

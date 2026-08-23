@@ -27,6 +27,8 @@ export type ApiState = {
   addedItems: URLSearchParams[];
   addedListUuids: string[];
   bringItems: { uuid: string; itemId: string; specification: string }[];
+  bringRecently: { uuid: string; itemId: string; specification: string }[];
+  restoredItemUuids: string[];
   productRequests: string[];
   productRequestLanguages: string[];
   products: Record<string, ProductReply>;
@@ -41,6 +43,8 @@ export function createApiState(): ApiState {
     addedItems: [],
     addedListUuids: [],
     bringItems: [],
+    bringRecently: [],
+    restoredItemUuids: [],
     productRequests: [],
     productRequestLanguages: [],
     products: {},
@@ -97,16 +101,36 @@ export async function mockExternalApis(page: Page, state: ApiState) {
       return;
     }
     if (url.pathname.includes('/__e2e__/bring/lists/') && request.method() === 'GET') {
-      await json(route, 200, { items: { purchase: state.bringItems, recently: [] } });
+      await json(route, 200, {
+        items: { purchase: state.bringItems, recently: state.bringRecently },
+      });
       return;
     }
     if (url.pathname.endsWith('/items') && request.method() === 'PUT') {
       const body = JSON.parse(request.postData() || '{}') as {
-        changes?: { uuid: string; operation: string }[];
+        changes?: { uuid: string; itemId: string; spec?: string; operation: string }[];
       };
       for (const change of body.changes || []) {
-        if (change.operation === 'REMOVE' || change.operation === 'TO_RECENTLY') {
+        if (change.operation === 'REMOVE') {
           state.bringItems = state.bringItems.filter((item) => item.uuid !== change.uuid);
+          state.bringRecently = state.bringRecently.filter((item) => item.uuid !== change.uuid);
+        } else if (change.operation === 'TO_RECENTLY') {
+          const existing = state.bringItems.find((item) => item.uuid === change.uuid);
+          if (existing) state.bringRecently.push(existing);
+          state.bringItems = state.bringItems.filter((item) => item.uuid !== change.uuid);
+        } else if (change.operation === 'TO_PURCHASE') {
+          const existing = state.bringRecently.find(
+            (item) =>
+              (change.uuid && item.uuid === change.uuid) ||
+              (!change.uuid && item.itemId === change.itemId),
+          ) || {
+            uuid: change.uuid || `fantasy-item-${state.bringItems.length + 1}`,
+            itemId: change.itemId,
+            specification: change.spec || '',
+          };
+          state.bringRecently = state.bringRecently.filter((item) => item.uuid !== existing.uuid);
+          state.bringItems.push(existing);
+          state.restoredItemUuids.push(existing.uuid);
         }
       }
       await route.fulfill({ status: 204, headers: corsHeaders });
@@ -214,27 +238,34 @@ export async function prepareApp(
   await page.goto('/');
   await page.getByTestId('tab-settings').click();
   await page.getByTestId('bring-sync-switch').click();
-  await expect(page.getByTestId('login-sheet')).toBeVisible();
+  await expect(page.getByLabel('Email')).toBeVisible();
 }
 
 export async function signIn(page: Page) {
+  await page.getByTestId('tab-settings').click();
   await page.getByLabel('Email').fill(`  ${FANTASY_ACCOUNT.email}  `);
   await page.getByLabel('Password').fill(FANTASY_ACCOUNT.password);
-  await page.getByRole('button', { name: 'Sign In' }).click();
-  await expect(page.getByTestId('login-sheet')).toBeHidden();
+  await page.getByRole('button', { name: 'Connect Bring' }).click();
+  await expect(page.getByRole('button', { name: 'Disconnect Bring' })).toBeVisible();
   await page.getByTestId('tab-scan').click();
 }
 
 export async function signInAndSelectList(page: Page) {
   await signIn(page);
   await page.getByTestId('tab-settings').click();
-  await page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[0].listUuid}`).click();
-  await expect(
-    page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[0].listUuid}`),
-  ).toHaveAttribute('aria-selected', 'true');
+  await selectProviderList(page);
   await page.getByTestId('tab-scan').click();
   await page.getByRole('button', { name: 'Scan Product' }).click();
   await expect(page.getByTestId('scanner-camera-wrap')).toBeVisible();
+}
+
+export async function selectProviderList(page: Page, index = 0) {
+  await page.getByTestId('edit-list-groceries').click();
+  await page.getByTestId(`list-editor-sync-${FANTASY_LISTS[index].listUuid}`).click();
+  await expect(
+    page.getByTestId(`list-editor-sync-${FANTASY_LISTS[index].listUuid}`),
+  ).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('button', { name: 'Save' }).click();
 }
 
 type BarcodePosition = 'center' | 'top' | 'left';

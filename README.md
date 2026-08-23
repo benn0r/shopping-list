@@ -11,7 +11,7 @@ resolves product names. Bring synchronization can be enabled optionally in Setti
 <table>
   <tr>
     <td align="center"><img src="docs/screenshot.svg" alt="Centered barcode scanner" width="260"><br><sub>Centered barcode scanner and recent history</sub></td>
-    <td align="center"><img src="docs/screenshots/product-sheet.svg" alt="Product confirmation sheet" width="260"><br><sub>Edit the Bring label and quantity before adding</sub></td>
+    <td align="center"><img src="docs/screenshots/product-sheet.svg" alt="Product confirmation sheet" width="260"><br><sub>Edit the synced label and quantity before adding</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/settings.svg" alt="Apple-style settings" width="260"><br><sub>Language, account, and shopping-list settings</sub></td>
@@ -28,12 +28,26 @@ resolves product names. Bring synchronization can be enabled optionally in Setti
 - Generic, exact, or ask-every-time item labels
 - Custom barcode-to-label mappings that override online results
 - Multiple persistent local shopping lists with item-detail drawers and explicit removal
-- Independent Bring-list mapping for every local shopping list
+- Store management and persistent shopping sessions with purchased-item history
+- Store-aware item filtering, reversible purchases, and matching list/tile layouts
+- Independent external-list mapping for every local shopping list
 - Multilingual grocery-icon fallback for items without a product image
 - Optional Bring synchronization with platform secure-storage-backed credentials
 - Cross-device barcode metadata enrichment through Bring
 - Bring shopping-list selection and explicit logout when synchronization is enabled
 - Confirmation before an item is added, with an optional quantity
+
+## Sync adapter architecture
+
+The list UI and synchronization service use the provider-neutral `ShoppingListSyncAdapter`
+contract. An adapter supplies provider status plus load, add, and remove operations using generic
+remote-list and remote-item identifiers. Bring-specific credentials, API payloads, and identifiers
+are isolated in `src/services/sync/bringSyncAdapter.ts`.
+
+To add another backend such as Mealie, implement the same adapter contract, register its provider,
+and expose its account and list-mapping controls in Settings. The scanner, local-list persistence,
+reconciliation, metadata enrichment, pull-to-refresh, and item-removal flows do not need
+provider-specific changes.
 
 ## Run locally
 

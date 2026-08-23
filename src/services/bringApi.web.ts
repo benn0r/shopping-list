@@ -3,6 +3,8 @@ import {
   createItemBody,
   createLoginBody,
   createRemoveBody,
+  createRestoreByLabelBody,
+  createRestoreBody,
   normalizeItems,
   normalizeLists,
 } from './bringPayloads';
@@ -80,6 +82,22 @@ export async function loadItems(credentials: Credentials, listUuid: string): Pro
     headers: headers(session),
   });
   return normalizeItems(await checkedJson(response, 'Could not load browser test items.'));
+}
+
+export async function restoreItem(
+  credentials: Credentials,
+  listUuid: string,
+  item: Omit<BringItem, 'uuid'> & { uuid?: string },
+) {
+  const session = await login(credentials);
+  const response = await fetch(`${API_URL}lists/${encodeURIComponent(listUuid)}/items`, {
+    method: 'PUT',
+    headers: { ...headers(session), 'Content-Type': 'application/json' },
+    body: JSON.stringify(
+      item.uuid ? createRestoreBody(item as BringItem) : createRestoreByLabelBody(item),
+    ),
+  });
+  if (!response.ok) throw new Error('Browser test list restore failed.');
 }
 
 export async function removeItem(

@@ -19,39 +19,33 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActionButton,
+  ChevronIcon,
   colors,
-  LargeTitle,
   Notice,
   Section,
   Separator,
   sheetModal,
   ui,
 } from '../components/ui';
-import { loadItems, removeItem as removeBringItem } from '../services/bringApi';
-import { syncShoppingListWithBring } from '../services/bringSync';
 import { groceryIconForLabel } from '../services/groceryIcons';
 import { lookupProduct } from '../services/productLookup';
 import {
-  loadCredentials,
+  getListSyncState,
+  removeFromSyncedList,
+  syncShoppingList,
+} from '../services/shoppingListSync';
+import {
   addShoppingListItem,
-  loadBringSyncEnabled,
   loadCustomBarcodes,
   loadLookupPreferences,
   loadListViewMode,
   loadActiveShoppingList,
   loadShoppingList,
   loadShoppingLists,
-  createShoppingList,
   selectActiveShoppingList,
   removeShoppingListItem,
 } from '../services/storage';
-import {
-  BringItem,
-  ListViewMode,
-  Product,
-  ShoppingListDefinition,
-  ShoppingListItem,
-} from '../types';
+import { ListViewMode, Product, ShoppingListDefinition, ShoppingListItem } from '../types';
 import { keepBestGeometry, selectInScanRegion } from '../services/barcodeSelection';
 import { useI18n } from '../i18n';
 
@@ -59,14 +53,14 @@ const CANDIDATE_WINDOW_MS = 650;
 const FRAME_SIDE = 28;
 const FRAME_TOP = 154;
 const FRAME_HEIGHT = 122;
-const BRING_REFRESH_MS = 30_000;
+const SYNC_REFRESH_MS = 30_000;
 
 export function ScannerScreen() {
   const { t } = useI18n();
   const [permission, requestPermission] = useCameraPermissions();
-  const [bringSyncEnabled, setBringSyncEnabled] = useState(false);
+  const [syncEnabled, setSyncEnabled] = useState(false);
   const [syncLoaded, setSyncLoaded] = useState(false);
-  const [bringConfigured, setBringConfigured] = useState(false);
+  const [syncConfigured, setSyncConfigured] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [scanning, setScanning] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -84,7 +78,6 @@ export function ScannerScreen() {
     name: 'Groceries',
   });
   const [listPickerOpen, setListPickerOpen] = useState(false);
-  const [newListName, setNewListName] = useState('');
   const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null);
   const candidates = useRef(new Map<string, BarcodeScanningResult>());
   const candidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,33 +93,30 @@ export function ScannerScreen() {
   useFocusEffect(
     useCallback(() => {
       let live = true;
-      Promise.all([
-        loadBringSyncEnabled(),
-        loadCredentials(),
-        loadActiveShoppingList(),
-        loadShoppingLists(),
-        loadListViewMode(),
-      ])
-        .then(async ([enabled, credentials, list, storedLists, viewMode]) => {
+      Promise.all([loadActiveShoppingList(), loadShoppingLists(), loadListViewMode()])
+        .then(async ([list, storedLists, viewMode]) => {
           if (!live) return;
-          const localItems = await loadShoppingList(list.id);
-          setBringSyncEnabled(enabled);
+          const [localItems, syncState] = await Promise.all([
+            loadShoppingList(list.id),
+            getListSyncState(list),
+          ]);
+          setSyncEnabled(syncState.enabled);
           setCameraOpen(false);
-          setBringConfigured(Boolean(credentials && list.bringList));
+          setSyncConfigured(syncState.configured);
           setActiveList(list);
           setLists(storedLists);
           setItems(localItems);
           setListViewMode(viewMode);
-          if (enabled && credentials && list.bringList) {
+          if (syncState.configured) {
             try {
-              const next = await syncShoppingListWithBring(list.id);
+              const next = await syncShoppingList(list.id);
               if (live) setItems(next);
             } catch {
-              // Keep the already loaded local list available while Bring is unreachable.
+              // Keep the already loaded local list available while its provider is unreachable.
             }
           }
         })
-        .catch(() => live && setBringConfigured(false))
+        .catch(() => live && setSyncConfigured(false))
         .finally(() => live && setSyncLoaded(true));
       return () => {
         live = false;
@@ -135,20 +125,20 @@ export function ScannerScreen() {
   );
   useEffect(() => {
     const refresh = () => {
-      if (!bringSyncEnabled || !bringConfigured) return;
-      syncShoppingListWithBring(activeList.id)
+      if (!syncEnabled || !syncConfigured) return;
+      syncShoppingList(activeList.id)
         .then(setItems)
         .catch(() => {});
     };
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') refresh();
     });
-    const timer = setInterval(refresh, BRING_REFRESH_MS);
+    const timer = setInterval(refresh, SYNC_REFRESH_MS);
     return () => {
       subscription.remove();
       clearInterval(timer);
     };
-  }, [activeList.id, bringConfigured, bringSyncEnabled]);
+  }, [activeList.id, syncConfigured, syncEnabled]);
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(''), 3000);
@@ -225,9 +215,9 @@ export function ScannerScreen() {
       const localItems = await addShoppingListItem(product, label, quantity, activeList.id);
       setItems(localItems);
       let synced = false;
-      if (bringSyncEnabled && activeList.bringList) {
+      if (syncConfigured) {
         try {
-          setItems(await syncShoppingListWithBring(activeList.id));
+          setItems(await syncShoppingList(activeList.id));
           synced = true;
         } catch {
           // The item remains local and will be retried on the next foreground sync.
@@ -245,30 +235,16 @@ export function ScannerScreen() {
   }
 
   async function removeItem(item: ShoppingListItem): Promise<ShoppingListItem[]> {
-    if (bringSyncEnabled && activeList.bringList) {
-      const credentials = await loadCredentials();
-      if (!credentials) throw new Error(t('configureFirst'));
-      const list = activeList.bringList;
-      let remote: BringItem | undefined = item.bringUuid
-        ? { uuid: item.bringUuid, label: item.label, specification: item.bringSpecification }
-        : undefined;
-      if (!remote) {
-        const remoteItems = await loadItems(credentials, list.listUuid);
-        remote = remoteItems.find(
-          (candidate) => candidate.label.trim().toLowerCase() === item.label.trim().toLowerCase(),
-        );
-      }
-      if (remote) await removeBringItem(credentials, list.listUuid, remote);
-    }
+    if (syncConfigured) await removeFromSyncedList(activeList, item);
     return removeShoppingListItem(item.barcode, activeList.id);
   }
 
-  async function refreshFromBring() {
-    if (!bringSyncEnabled || !bringConfigured || refreshing) return;
+  async function refreshFromProvider() {
+    if (!syncEnabled || !syncConfigured || refreshing) return;
     setRefreshing(true);
     setError('');
     try {
-      setItems(await syncShoppingListWithBring(activeList.id));
+      setItems(await syncShoppingList(activeList.id));
       setMessage(t('syncComplete'));
     } catch {
       setError(t('syncFailed'));
@@ -294,9 +270,9 @@ export function ScannerScreen() {
       setItems(localItems);
       setManualLabel('');
       let synced = false;
-      if (bringSyncEnabled && activeList.bringList) {
+      if (syncConfigured) {
         try {
-          setItems(await syncShoppingListWithBring(activeList.id));
+          setItems(await syncShoppingList(activeList.id));
           synced = true;
         } catch {
           // Keep the manual item locally for the next background sync attempt.
@@ -313,25 +289,19 @@ export function ScannerScreen() {
   async function switchList(list: ShoppingListDefinition) {
     await selectActiveShoppingList(list.id);
     setActiveList(list);
-    setBringConfigured(Boolean((await loadCredentials()) && list.bringList));
+    const syncState = await getListSyncState(list);
+    setSyncEnabled(syncState.enabled);
+    setSyncConfigured(syncState.configured);
     setItems(await loadShoppingList(list.id));
     setListPickerOpen(false);
     setSelectedItem(null);
-    if (bringSyncEnabled && list.bringList) {
+    if (syncState.configured) {
       try {
-        setItems(await syncShoppingListWithBring(list.id));
+        setItems(await syncShoppingList(list.id));
       } catch {
         // The local list remains available while Bring is unreachable.
       }
     }
-  }
-
-  async function addList() {
-    if (!newListName.trim()) return;
-    const list = await createShoppingList(newListName);
-    setLists((current) => [...current, list]);
-    setNewListName('');
-    await switchList(list);
   }
 
   async function removeSelectedItem() {
@@ -344,7 +314,7 @@ export function ScannerScreen() {
     }
   }
 
-  if (!syncLoaded || (bringSyncEnabled && !permission)) {
+  if (!syncLoaded || (syncEnabled && !permission)) {
     return <SafeAreaView edges={['top']} style={ui.safe} />;
   }
   const cameraPanel = !permission ? null : !permission.granted ? (
@@ -403,25 +373,28 @@ export function ScannerScreen() {
             onPress={() => setListPickerOpen(true)}
             style={({ pressed }) => [styles.listTitleButton, pressed && styles.scanButtonPressed]}
           >
-            <LargeTitle>{activeList.name}</LargeTitle>
-            <Text style={styles.listTitleChevron}>⌄</Text>
+            <Text accessibilityRole="header" numberOfLines={2} style={styles.listTitleText}>
+              {activeList.name}
+            </Text>
+            <View style={styles.listTitleChevronBadge}>
+              <ChevronIcon direction="down" size={9} color={colors.tint} />
+            </View>
           </Pressable>
         </View>
         <View style={[ui.screen, ui.content, styles.scannerContent]}>
           <View style={historyStyles.history}>
-            {items.length > 0 && <Text style={historyStyles.title}>{t('shoppingList')}</Text>}
             <ScrollView
-              bounces={bringSyncEnabled}
+              bounces={syncEnabled}
               contentContainerStyle={[
                 historyStyles.list,
                 listViewMode === 'tiles' && historyStyles.tiles,
               ]}
               testID="shopping-list-scroll"
               refreshControl={
-                bringSyncEnabled ? (
+                syncEnabled ? (
                   <RefreshControl
                     refreshing={refreshing}
-                    onRefresh={() => void refreshFromBring()}
+                    onRefresh={() => void refreshFromProvider()}
                     tintColor={colors.tint}
                     colors={[colors.tint]}
                     testID="bring-refresh-control"
@@ -525,49 +498,40 @@ export function ScannerScreen() {
               <View style={styles.drawerSpacer} />
             </View>
             <ScrollView contentContainerStyle={styles.pickerContent}>
-              <Section>
-                {lists.map((list, index) => (
-                  <View key={list.id}>
-                    {index > 0 ? <Separator /> : null}
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: list.id === activeList.id }}
-                      testID={`local-list-${list.id}`}
-                      onPress={() => void switchList(list)}
-                      style={styles.pickerRow}
+              {lists.map((list) => {
+                const selected = list.id === activeList.id;
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    testID={`local-list-${list.id}`}
+                    key={list.id}
+                    onPress={() => void switchList(list)}
+                    style={({ pressed }) => [
+                      styles.pickerRow,
+                      selected && styles.pickerRowSelected,
+                      pressed && styles.pickerRowPressed,
+                    ]}
+                  >
+                    <View style={[styles.pickerIcon, selected && styles.pickerIconSelected]}>
+                      <Text
+                        style={[styles.pickerIconGlyph, selected && styles.pickerIconGlyphSelected]}
+                      >
+                        ≡
+                      </Text>
+                    </View>
+                    <Text style={styles.pickerTitle} numberOfLines={2}>
+                      {list.name}
+                    </Text>
+                    <View
+                      style={[styles.pickerRadio, selected && styles.pickerRadioSelected]}
+                      testID={`local-list-radio-${list.id}`}
                     >
-                      <View style={styles.pickerRowText}>
-                        <Text style={styles.pickerTitle}>{list.name}</Text>
-                        {list.bringList ? (
-                          <Text style={styles.pickerDetail}>
-                            {t('mappedToBring', { name: list.bringList.name })}
-                          </Text>
-                        ) : null}
-                      </View>
-                      {list.id === activeList.id ? <Text style={styles.pickerCheck}>✓</Text> : null}
-                    </Pressable>
-                  </View>
-                ))}
-              </Section>
-              <Section title={t('newList')}>
-                <View style={styles.newListRow}>
-                  <TextInput
-                    accessibilityLabel={t('listName')}
-                    value={newListName}
-                    onChangeText={setNewListName}
-                    onSubmitEditing={() => void addList()}
-                    placeholder={t('listName')}
-                    placeholderTextColor={colors.tertiaryLabel}
-                    returnKeyType="done"
-                    style={styles.newListInput}
-                  />
-                  <ActionButton
-                    title={t('createList')}
-                    disabled={!newListName.trim()}
-                    onPress={() => void addList()}
-                  />
-                </View>
-              </Section>
+                      {selected ? <View style={styles.pickerRadioDot} /> : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
           </SafeAreaView>
         </View>
@@ -577,7 +541,7 @@ export function ScannerScreen() {
         onClose={() => setSelectedItem(null)}
         onRemove={() => void removeSelectedItem()}
       />
-      {!product && (error || message || (bringSyncEnabled && !bringConfigured)) && (
+      {!product && (error || message || (syncEnabled && !syncConfigured)) && (
         <View pointerEvents="none" style={statusStyles.popover} testID="scanner-status">
           {error ? (
             <Notice>{error}</Notice>
@@ -593,7 +557,7 @@ export function ScannerScreen() {
           product={product}
           busy={busy}
           configured
-          bringSyncEnabled={false}
+          syncEnabled={false}
           error={error}
           onAdd={submit}
           onClose={closeProduct}
@@ -603,27 +567,37 @@ export function ScannerScreen() {
   );
 }
 
-function ShoppingListCard({
+export function ShoppingListCard({
   item,
   onPress,
   viewMode,
+  accessibilityLabel,
+  testIDPrefix = 'shopping-item',
 }: {
   item: ShoppingListItem;
   onPress: () => void;
   viewMode: ListViewMode;
+  accessibilityLabel?: string;
+  testIDPrefix?: string;
 }) {
   const { t } = useI18n();
   const imageSource = item.imageUrl ? { uri: item.imageUrl } : groceryIconForLabel(item.label);
+  const amount =
+    item.quantity !== undefined
+      ? item.unit
+        ? `${item.quantity} ${item.unit} `
+        : `${item.quantity}× `
+      : '';
 
   return (
     <View
-      testID={`shopping-item-wrap-${item.barcode}`}
+      testID={`${testIDPrefix}-wrap-${item.barcode}`}
       style={viewMode === 'tiles' ? historyStyles.tileWrap : historyStyles.listWrap}
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${item.label}, ${t('itemDetails')}`}
-        testID={`shopping-item-${item.barcode}`}
+        accessibilityLabel={accessibilityLabel || `${item.label}, ${t('itemDetails')}`}
+        testID={`${testIDPrefix}-${item.barcode}`}
         onPress={onPress}
         style={({ pressed }) => [
           historyStyles.card,
@@ -635,7 +609,7 @@ function ShoppingListCard({
           <Image
             source={imageSource}
             style={[historyStyles.image, viewMode === 'tiles' && historyStyles.tileImage]}
-            testID={`shopping-item-image-${item.barcode}`}
+            testID={`${testIDPrefix}-image-${item.barcode}`}
           />
         ) : null}
         <View style={[historyStyles.text, viewMode === 'tiles' && historyStyles.tileText]}>
@@ -648,7 +622,7 @@ function ShoppingListCard({
               viewMode === 'tiles' && item.label.length > 36 && historyStyles.tileLabelVeryLong,
             ]}
           >
-            {item.quantity ? `${item.quantity}× ` : ''}
+            {amount}
             {item.label}
           </Text>
           {viewMode === 'list' && !item.barcode.startsWith('manual:') && (
@@ -705,6 +679,18 @@ function ItemDetailsSheet({
               <Text style={styles.detailTitle}>{item.label}</Text>
               {item.brand ? <Text style={styles.detailBrand}>{item.brand}</Text> : null}
               <Section>
+                {item.quantity !== undefined ? (
+                  <>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>{t('quantity')}</Text>
+                      <Text style={styles.detailValue}>
+                        {item.quantity}
+                        {item.unit ? ` ${item.unit}` : ''}
+                      </Text>
+                    </View>
+                    <Separator />
+                  </>
+                ) : null}
                 {!item.barcode.startsWith('manual:') ? (
                   <>
                     <View style={styles.detailRow}>
@@ -750,7 +736,7 @@ export function ProductSheet({
   product,
   busy,
   configured,
-  bringSyncEnabled = false,
+  syncEnabled = false,
   error = '',
   onAdd,
   onClose,
@@ -758,7 +744,7 @@ export function ProductSheet({
   product: Product;
   busy: boolean;
   configured: boolean;
-  bringSyncEnabled?: boolean;
+  syncEnabled?: boolean;
   error?: string;
   onAdd: (label: string, quantity?: number) => void;
   onClose: () => void;
@@ -884,7 +870,7 @@ export function ProductSheet({
             <View style={styles.primaryWrap}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t(bringSyncEnabled ? 'addAndSync' : 'addToShoppingList')}
+                accessibilityLabel={t(syncEnabled ? 'addAndSync' : 'addToShoppingList')}
                 disabled={busy || !configured || !label.trim()}
                 onPress={() => onAdd(label.trim(), quantity ? Number(quantity) : undefined)}
                 style={({ pressed }) => [
@@ -896,7 +882,7 @@ export function ProductSheet({
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.primaryText}>
-                    {t(bringSyncEnabled ? 'addAndSync' : 'addToShoppingList')}
+                    {t(syncEnabled ? 'addAndSync' : 'addToShoppingList')}
                   </Text>
                 )}
               </Pressable>
@@ -1020,31 +1006,90 @@ const quantityStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   keyboardAvoider: { flex: 1 },
   scannerContent: { flex: 1 },
-  listTitleButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 8 },
-  listTitleChevron: { color: colors.tint, fontSize: 23, lineHeight: 28, fontWeight: '600' },
-  compactSheet: { height: '68%', minHeight: '68%' },
-  detailSheet: { height: '78%', minHeight: '78%' },
-  pickerContent: { padding: 16, gap: 8 },
-  pickerRow: {
-    minHeight: 58,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+  listTitleButton: {
+    width: '100%',
+    minHeight: 62,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 18,
+    backgroundColor: colors.secondaryGroupedBackground,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.separator,
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  pickerRowText: { flex: 1 },
-  pickerTitle: { color: colors.label, fontSize: 17, fontWeight: '600' },
-  pickerDetail: { color: colors.secondaryLabel, fontSize: 12, lineHeight: 16, marginTop: 2 },
-  pickerCheck: { color: colors.tint, fontSize: 20, fontWeight: '700' },
-  newListRow: { padding: 10, gap: 8 },
-  newListInput: {
-    height: 44,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+  listTitleText: {
+    flexShrink: 1,
     color: colors.label,
-    backgroundColor: colors.secondarySystemBackground,
-    fontSize: 16,
+    fontSize: 29,
+    lineHeight: 35,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
+  listTitleChevronBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.secondarySystemBackground,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.separator,
+  },
+  compactSheet: { height: '48%', minHeight: '48%' },
+  detailSheet: { height: '78%', minHeight: '78%' },
+  pickerContent: { padding: 16, paddingBottom: 28, gap: 10 },
+  pickerRow: {
+    minHeight: 64,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.separator,
+    backgroundColor: colors.secondaryGroupedBackground,
+  },
+  pickerRowSelected: {
+    borderColor: colors.tint,
+    backgroundColor: colors.secondarySystemBackground,
+  },
+  pickerRowPressed: { opacity: 0.62, transform: [{ scale: 0.99 }] },
+  pickerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.secondarySystemBackground,
+  },
+  pickerIconSelected: { backgroundColor: colors.tint },
+  pickerIconGlyph: {
+    color: colors.secondaryLabel,
+    fontSize: 25,
+    lineHeight: 27,
+    fontWeight: '700',
+  },
+  pickerIconGlyphSelected: { color: '#FFFFFF' },
+  pickerTitle: { flex: 1, color: colors.label, fontSize: 18, lineHeight: 22, fontWeight: '600' },
+  pickerRadio: {
+    width: 23,
+    height: 23,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.tertiaryLabel,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerRadioSelected: { borderColor: colors.tint },
+  pickerRadioDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: colors.tint },
   detailContent: { padding: 16, gap: 14 },
   detailImage: {
     width: 104,
