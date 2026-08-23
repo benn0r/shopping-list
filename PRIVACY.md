@@ -28,17 +28,18 @@ the developer, Bring, or Open Facts services.
 
 The app stores only the information needed to work:
 
-- your local shopping-list items, including barcode, label, brand when available, quantity when
-  selected, and scan time;
+- your local shopping lists and their items, including barcode, label, brand and stores when
+  available, quantity when selected, and scan time;
 - whether Bring synchronization is enabled;
 - your Bring email address and password in platform secure storage when Bring synchronization is
   configured;
-- your selected Bring shopping list;
+- the Bring shopping-list mapping selected for each local list;
 - custom barcode labels; and
 - product-lookup and language preferences.
 
 This information remains in private app storage on your device and is not available to the
-developer.
+developer. Store names shown for products are community-contributed metadata and may be incomplete
+or outdated.
 
 ## Communication with Bring
 
@@ -46,15 +47,19 @@ Bring synchronization is disabled by default. When you enable it and sign in, re
 lists, or add an item, the app communicates directly with Bring's services over HTTPS. Depending on
 your action, it sends your Bring email address and password, user and session identifiers,
 shopping-list identifier, item label, and an optional quantity. The scanned barcode is not sent to
-Bring. Bring controls its own processing, retention, and deletion of this information.
+Bring unless the item originated from a barcode scan. For scanned items, the barcode is included in
+the Bring item specification as an `EAN:` marker so another Shopping List installation can retrieve
+the same public product metadata. Bring controls its own processing, retention, and deletion of this
+information.
 
 ## Product-information lookups
 
-Unless you use a custom local label, the app sends the scanned barcode and a language and country
-code derived from your device locale to the Open Facts product-information services. These include
-Open Food Facts, Open Products Facts, Open Beauty Facts, and Open Pet Food Facts. Those services and
-their hosting providers may also receive standard network information such as your IP address,
-request time, and user-agent information. Their own privacy notices govern that processing.
+For a direct scan, and when a Bring item contains a barcode marker added by Shopping List, the app
+may send the barcode and a language and country code derived from your device locale to the Open
+Facts product-information services. These include Open Food Facts, Open Products Facts, Open Beauty
+Facts, and Open Pet Food Facts. Those services and their hosting providers may also receive standard
+network information such as your IP address, request time, and user-agent information. Their own
+privacy notices govern that processing.
 
 ## Sharing, sale, and tracking
 
@@ -64,9 +69,9 @@ Facts when necessary to perform an action you request.
 
 ## Retention and deletion
 
-The developer retains no user information. Logging out removes your Bring credentials and selected
-Bring shopping list from the app. Custom labels can be deleted in Settings. Marking a local item as
-purchased removes it from the local shopping list. Deleting the app removes its other local data,
+The developer retains no user information. Logging out removes your Bring credentials from the
+app. Custom labels can be deleted in Settings. Using an item's Remove button removes it from its
+local shopping list. Deleting the app removes its other local data,
 subject to your operating system's storage and backup behavior. Information sent to Bring or Open
 Facts is subject to those services' retention and deletion practices. Bring account requests must
 be directed to Bring because the developer cannot access or delete that account data.

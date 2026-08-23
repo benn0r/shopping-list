@@ -7,9 +7,12 @@ import { I18nProvider } from '../../src/i18n';
 import { SettingsScreen } from '../../src/screens/SettingsScreen';
 import {
   loadAppLanguage,
+  loadBringSyncEnabled,
   loadCustomBarcodes,
   loadLookupPreferences,
+  loadListViewMode,
   loadSelectedList,
+  loadShoppingLists,
   saveBringSyncEnabled,
   saveSelectedList,
 } from '../../src/services/storage';
@@ -56,6 +59,17 @@ afterEach(() => {
 });
 
 describe('settings flows', () => {
+  it('disables Bring Sync when sign-in is cancelled', async () => {
+    const screen = await renderAuthenticatedApp();
+
+    await waitFor(() => expect(screen.getByText('Sign In to Bring')).toBeTruthy());
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByText('Sign In to Bring')).toBeNull());
+    await expect(loadBringSyncEnabled()).resolves.toBe(false);
+    expect(screen.getByTestId('bring-sync-switch').props.value).toBe(false);
+  });
+
   it('requires login, signs in to Bring, selects a list, and logs out', async () => {
     const fetchSpy = jest
       .spyOn(global, 'fetch')
@@ -97,15 +111,19 @@ describe('settings flows', () => {
       JSON.stringify({ email: 'pilot@moon.example', password: 'lunar-secret' }),
     );
 
-    await fireEvent.press(screen.getByText('Weekend Supplies'));
+    await fireEvent.press(screen.getByTestId('bring-map-groceries-weekend-list'));
 
-    await expect(loadSelectedList()).resolves.toEqual({
-      listUuid: 'weekend-list',
-      name: 'Weekend Supplies',
-    });
-    expect(screen.getByTestId('list-weekend-list').props.accessibilityState).toEqual({
-      selected: true,
-    });
+    await expect(loadShoppingLists()).resolves.toEqual([
+      expect.objectContaining({
+        id: 'groceries',
+        bringList: { listUuid: 'weekend-list', name: 'Weekend Supplies' },
+      }),
+    ]);
+    expect(screen.getByTestId('bring-map-groceries-weekend-list').props.accessibilityState).toEqual(
+      {
+        selected: true,
+      },
+    );
     expect(screen.getByText('Weekend Supplies selected.')).toBeTruthy();
 
     await fireEvent.press(screen.getByText('Log Out'));
@@ -176,10 +194,10 @@ describe('settings flows', () => {
 
     const screen = await renderAuthenticatedApp();
 
-    expect(await screen.findByText('Cached Supplies')).toBeTruthy();
+    expect(await screen.findByText('Mapped to Bring: Cached Supplies')).toBeTruthy();
     expect(await screen.findByText('Fresh Supplies')).toBeTruthy();
-    expect(screen.getByTestId('list-cached-list').props.accessibilityState).toEqual({
-      selected: true,
+    expect(screen.getByTestId('bring-map-groceries-fresh-list').props.accessibilityState).toEqual({
+      selected: false,
     });
     expect(screen.queryByText('Sign In to Bring')).toBeNull();
   });
@@ -220,6 +238,22 @@ describe('settings flows', () => {
     await expect(loadLookupPreferences()).resolves.toEqual({
       language: 'de',
       labelStyle: 'generic',
+    });
+  });
+
+  it('selects and persists the shopping-list view', async () => {
+    const screen = await renderSettings();
+
+    await fireEvent.press(screen.getByTestId('list-view-tiles'));
+    await expect(loadListViewMode()).resolves.toBe('tiles');
+    expect(screen.getByTestId('list-view-tiles').props.accessibilityState).toEqual({
+      selected: true,
+    });
+
+    await fireEvent.press(screen.getByTestId('list-view-list'));
+    await expect(loadListViewMode()).resolves.toBe('list');
+    expect(screen.getByTestId('list-view-list').props.accessibilityState).toEqual({
+      selected: true,
     });
   });
 

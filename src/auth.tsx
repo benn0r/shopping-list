@@ -131,7 +131,7 @@ export function useAuth() {
 }
 
 export function LoginModal() {
-  const { bringSyncEnabled, credentials, initializing, login } = useAuth();
+  const { bringSyncEnabled, credentials, initializing, login, setBringSyncEnabled } = useAuth();
   const { language, t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -151,6 +151,18 @@ export function LoginModal() {
       setPassword('');
     } catch {
       setError(connectionError(language));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancel() {
+    setBusy(true);
+    setError('');
+    try {
+      await setBringSyncEnabled(false);
+      setEmail('');
+      setPassword('');
     } finally {
       setBusy(false);
     }
@@ -209,6 +221,8 @@ export function LoginModal() {
               />
               <Separator />
               <ActionButton title={t('signIn')} onPress={submit} loading={busy} />
+              <Separator />
+              <ActionButton title={t('cancel')} onPress={cancel} disabled={busy} />
             </Section>
           </ScrollView>
           {error ? (

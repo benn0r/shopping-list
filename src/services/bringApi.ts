@@ -1,8 +1,19 @@
-import { BringList, Credentials } from '../types';
-import { createItemBody, createLoginBody, normalizeLists } from './bringPayloads';
+import { BringItem, BringList, Credentials } from '../types';
+import {
+  createItemBody,
+  createLoginBody,
+  createRemoveBody,
+  normalizeItems,
+  normalizeLists,
+} from './bringPayloads';
 
 const API_URL = 'https://api.getbring.com/rest/v2/';
-type Session = { userUuid: string; token: string };
+type Session = {
+  userUuid: string;
+  token: string;
+  publicUserUuid?: string;
+  tokenType?: string;
+};
 
 function apiKey() {
   const value = process.env.EXPO_PUBLIC_BRING_API_KEY;
@@ -27,17 +38,24 @@ export async function login(credentials: Credentials): Promise<Session> {
   const body = await checkedJson(response, 'Bring sign-in failed. Check your credentials.');
   if (!body.uuid || !body.access_token)
     throw new Error('Bring returned an incomplete sign-in response.');
-  return { userUuid: body.uuid, token: body.access_token };
+  return {
+    userUuid: body.uuid,
+    token: body.access_token,
+    ...(body.publicUuid ? { publicUserUuid: body.publicUuid } : {}),
+    ...(body.token_type ? { tokenType: body.token_type } : {}),
+  };
 }
 
 function headers(session: Session) {
   return {
     'X-BRING-API-KEY': apiKey(),
-    'X-BRING-CLIENT': 'webApp',
-    'X-BRING-CLIENT-SOURCE': 'webApp',
+    'X-BRING-CLIENT': 'android',
+    'X-BRING-APPLICATION': 'bring',
     'X-BRING-COUNTRY': 'CH',
     'X-BRING-USER-UUID': session.userUuid,
-    Authorization: `Bearer ${session.token}`,
+    ...(session.publicUserUuid ? { 'X-BRING-PUBLIC-USER-UUID': session.publicUserUuid } : {}),
+    Accept: 'application/json',
+    Authorization: `${session.tokenType || 'Bearer'} ${session.token}`,
   };
 }
 
@@ -55,9 +73,10 @@ export async function addItem(
   listUuid: string,
   label: string,
   quantity?: number,
+  barcode?: string,
 ) {
   const session = await login(credentials);
-  const body = createItemBody(label, quantity);
+  const body = createItemBody(label, quantity, barcode);
   const response = await fetch(`${API_URL}bringlists/${encodeURIComponent(listUuid)}`, {
     method: 'PUT',
     headers: {
@@ -67,4 +86,26 @@ export async function addItem(
     body: body.toString(),
   });
   if (!response.ok) throw new Error('Bring did not accept the item. Please try again.');
+}
+
+export async function loadItems(credentials: Credentials, listUuid: string): Promise<BringItem[]> {
+  const session = await login(credentials);
+  const response = await fetch(`${API_URL}bringlists/${encodeURIComponent(listUuid)}`, {
+    headers: headers(session),
+  });
+  return normalizeItems(await checkedJson(response, 'Could not load Bring items.'));
+}
+
+export async function removeItem(
+  credentials: Credentials,
+  listUuid: string,
+  item: BringItem,
+): Promise<void> {
+  const session = await login(credentials);
+  const response = await fetch(`${API_URL}bringlists/${encodeURIComponent(listUuid)}/items`, {
+    method: 'PUT',
+    headers: { ...headers(session), 'Content-Type': 'application/json' },
+    body: JSON.stringify(createRemoveBody(item)),
+  });
+  if (!response.ok) throw new Error('Bring did not remove the item. Please try again.');
 }

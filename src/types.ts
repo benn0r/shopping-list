@@ -5,6 +5,8 @@ export type ProductLanguage = 'auto' | 'de' | 'en' | 'fr' | 'it';
 export type LabelStyle = 'generic' | 'exact' | 'ask';
 export type LookupPreferences = { language: ProductLanguage; labelStyle: LabelStyle };
 export type AppLanguage = 'en' | 'de' | 'fr' | 'it' | 'pt' | 'pt-BR';
+export type ListViewMode = 'list' | 'tiles';
+export type ShoppingListDefinition = { id: string; name: string; bringList?: BringList };
 export type Product = {
   barcode: string;
   label: string;
@@ -14,6 +16,17 @@ export type Product = {
   imageUrl?: string;
   source: 'custom' | 'open-products-family';
   productType?: 'food' | 'beauty' | 'petfood' | 'product';
+  stores?: string[];
 };
 export type ScanHistoryItem = { barcode: string; label: string; brand?: string; scannedAt: number };
-export type ShoppingListItem = ScanHistoryItem & { quantity?: number };
+export type ShoppingListItem = ScanHistoryItem & {
+  quantity?: number;
+  imageUrl?: string;
+  bringUuid?: string;
+  bringSpecification?: string;
+  metadataResolved?: boolean;
+  source?: Product['source'];
+  productType?: Product['productType'];
+  stores?: string[];
+};
+export type BringItem = { uuid: string; label: string; specification?: string; barcode?: string };

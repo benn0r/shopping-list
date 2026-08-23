@@ -138,6 +138,7 @@ describe('product lookup', () => {
       imageUrl: 'https://images.example/moon.png',
       productType: 'product',
       source: 'open-products-family',
+      stores: [],
     });
     expect(String(fetchSpy.mock.calls[0][0])).toContain('/api/v3/product/7612345678901?');
     expect(String(fetchSpy.mock.calls[0][0])).toContain('product_type=all');

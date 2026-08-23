@@ -51,6 +51,8 @@ async function renderConfiguredScanner() {
 }
 
 async function scanBarcode(screen: Awaited<ReturnType<typeof render>>) {
+  const openScanner = screen.queryByTestId('open-scanner');
+  if (openScanner) await fireEvent.press(openScanner);
   await fireEvent.press(screen.getByLabelText('Test camera'));
   await act(async () => {
     jest.advanceTimersByTime(650);

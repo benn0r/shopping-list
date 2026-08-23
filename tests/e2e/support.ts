@@ -26,6 +26,7 @@ export type ApiState = {
   loginBodies: URLSearchParams[];
   addedItems: URLSearchParams[];
   addedListUuids: string[];
+  bringItems: { uuid: string; itemId: string; specification: string }[];
   productRequests: string[];
   productRequestLanguages: string[];
   products: Record<string, ProductReply>;
@@ -39,6 +40,7 @@ export function createApiState(): ApiState {
     loginBodies: [],
     addedItems: [],
     addedListUuids: [],
+    bringItems: [],
     productRequests: [],
     productRequestLanguages: [],
     products: {},
@@ -94,10 +96,36 @@ export async function mockExternalApis(page: Page, state: ApiState) {
       await json(route, 200, { lists: FANTASY_LISTS });
       return;
     }
+    if (url.pathname.includes('/__e2e__/bring/lists/') && request.method() === 'GET') {
+      await json(route, 200, { items: { purchase: state.bringItems, recently: [] } });
+      return;
+    }
+    if (url.pathname.endsWith('/items') && request.method() === 'PUT') {
+      const body = JSON.parse(request.postData() || '{}') as {
+        changes?: { uuid: string; operation: string }[];
+      };
+      for (const change of body.changes || []) {
+        if (change.operation === 'REMOVE' || change.operation === 'TO_RECENTLY') {
+          state.bringItems = state.bringItems.filter((item) => item.uuid !== change.uuid);
+        }
+      }
+      await route.fulfill({ status: 204, headers: corsHeaders });
+      return;
+    }
     if (url.pathname.includes('/__e2e__/bring/lists/') && request.method() === 'PUT') {
       state.addedItems.push(new URLSearchParams(request.postData() ?? ''));
       state.addedListUuids.push(decodeURIComponent(url.pathname.split('/').at(-1) ?? ''));
       if (await applyFailure(route, state.addFailure, 'Fantasy list update failed.')) return;
+      const body = state.addedItems.at(-1)!;
+      const itemId = body.get('purchase') || '';
+      const existing = state.bringItems.find((item) => item.itemId === itemId);
+      if (existing) existing.specification = body.get('specification') || '';
+      else
+        state.bringItems.push({
+          uuid: `fantasy-item-${state.bringItems.length + 1}`,
+          itemId,
+          specification: body.get('specification') || '',
+        });
       await route.fulfill({ status: 204, headers: corsHeaders });
       return;
     }
@@ -200,12 +228,12 @@ export async function signIn(page: Page) {
 export async function signInAndSelectList(page: Page) {
   await signIn(page);
   await page.getByTestId('tab-settings').click();
-  await page.getByTestId(`list-${FANTASY_LISTS[0].listUuid}`).click();
-  await expect(page.getByTestId(`list-${FANTASY_LISTS[0].listUuid}`)).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  await page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[0].listUuid}`).click();
+  await expect(
+    page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[0].listUuid}`),
+  ).toHaveAttribute('aria-selected', 'true');
   await page.getByTestId('tab-scan').click();
+  await page.getByRole('button', { name: 'Scan Product' }).click();
   await expect(page.getByTestId('scanner-camera-wrap')).toBeVisible();
 }
 
@@ -215,6 +243,9 @@ export async function emitBarcodeBatch(
   page: Page,
   barcodes: { value: string; position?: BarcodePosition }[],
 ) {
+  if (!(await page.locator('video').first().isVisible())) {
+    await page.getByRole('button', { name: 'Scan Product' }).click();
+  }
   const video = page.locator('video').first();
   await expect(video).toBeVisible();
   await expect

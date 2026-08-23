@@ -15,11 +15,10 @@ test('selects every language and product-label preference in the browser', async
   const heading = page.getByRole('heading', { name: 'Settings', exact: true });
   const headingBeforeSave = await heading.boundingBox();
   expect(headingBeforeSave).not.toBeNull();
-  await page.getByTestId(`list-${FANTASY_LISTS[1].listUuid}`).click();
-  await expect(page.getByTestId(`list-${FANTASY_LISTS[1].listUuid}`)).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  await page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[1].listUuid}`).click();
+  await expect(
+    page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[1].listUuid}`),
+  ).toHaveAttribute('aria-selected', 'true');
   const status = page.getByTestId('settings-status');
   await expect(status).toContainText(`${FANTASY_LISTS[1].name} selected.`);
   await expect(status).toHaveCSS('position', 'absolute');
@@ -80,7 +79,7 @@ test('selects every language and product-label preference in the browser', async
   await page.getByTestId('tab-settings').click();
   await expect(page.getByRole('heading', { name: 'Ajustes', exact: true })).toBeVisible();
   for (const testId of [
-    `list-${FANTASY_LISTS[1].listUuid}`,
+    `bring-map-groceries-${FANTASY_LISTS[1].listUuid}`,
     'product-language-it',
     'label-style-ask',
     'app-language-pt-BR',
@@ -89,7 +88,8 @@ test('selects every language and product-label preference in the browser', async
   }
   await expect(page.getByTestId('tab-scan')).toContainText('Escanear');
   await page.getByTestId('tab-scan').click();
-  await expect(page.getByRole('heading', { name: 'Escanear', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Groceries', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Scan Product' }).click();
   await expect(
     page.getByText('Alinhe o código de barras dentro da moldura', { exact: true }),
   ).toBeVisible();

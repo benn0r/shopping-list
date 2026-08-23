@@ -57,11 +57,10 @@ test('persists a fantasy session, then logout clears the account and list', asyn
   expect(state.loginBodies.at(-1)?.get('password')).toBe(FANTASY_ACCOUNT.password);
   await page.getByTestId('tab-settings').click();
   await expect(page.getByText(FANTASY_ACCOUNT.email)).toBeVisible();
-  await page.getByTestId(`list-${FANTASY_LISTS[0].listUuid}`).click();
-  await expect(page.getByTestId(`list-${FANTASY_LISTS[0].listUuid}`)).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  await page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[0].listUuid}`).click();
+  await expect(
+    page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[0].listUuid}`),
+  ).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('settings-status')).toContainText(
     `${FANTASY_LISTS[0].name} selected.`,
   );
@@ -69,10 +68,9 @@ test('persists a fantasy session, then logout clears the account and list', asyn
   await page.reload();
   await expect(page.getByTestId('login-sheet')).toBeHidden();
   await page.getByTestId('tab-settings').click();
-  await expect(page.getByTestId(`list-${FANTASY_LISTS[0].listUuid}`)).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  await expect(
+    page.getByTestId(`bring-map-groceries-${FANTASY_LISTS[0].listUuid}`),
+  ).toHaveAttribute('aria-selected', 'true');
 
   await page.getByRole('button', { name: 'Log Out' }).click();
   await expect(page.getByTestId('login-sheet')).toBeVisible();

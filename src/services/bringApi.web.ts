@@ -1,5 +1,11 @@
-import { BringList, Credentials } from '../types';
-import { createItemBody, createLoginBody, normalizeLists } from './bringPayloads';
+import { BringItem, BringList, Credentials } from '../types';
+import {
+  createItemBody,
+  createLoginBody,
+  createRemoveBody,
+  normalizeItems,
+  normalizeLists,
+} from './bringPayloads';
 
 const API_URL = '/__e2e__/bring/';
 type Session = { userUuid: string; token: string };
@@ -53,9 +59,10 @@ export async function addItem(
   listUuid: string,
   label: string,
   quantity?: number,
+  barcode?: string,
 ) {
   const session = await login(credentials);
-  const body = createItemBody(label, quantity);
+  const body = createItemBody(label, quantity, barcode);
   const response = await fetch(`${API_URL}lists/${encodeURIComponent(listUuid)}`, {
     method: 'PUT',
     headers: {
@@ -65,4 +72,26 @@ export async function addItem(
     body: body.toString(),
   });
   if (!response.ok) throw new Error('Browser test list update failed.');
+}
+
+export async function loadItems(credentials: Credentials, listUuid: string): Promise<BringItem[]> {
+  const session = await login(credentials);
+  const response = await fetch(`${API_URL}lists/${encodeURIComponent(listUuid)}`, {
+    headers: headers(session),
+  });
+  return normalizeItems(await checkedJson(response, 'Could not load browser test items.'));
+}
+
+export async function removeItem(
+  credentials: Credentials,
+  listUuid: string,
+  item: BringItem,
+): Promise<void> {
+  const session = await login(credentials);
+  const response = await fetch(`${API_URL}lists/${encodeURIComponent(listUuid)}/items`, {
+    method: 'PUT',
+    headers: { ...headers(session), 'Content-Type': 'application/json' },
+    body: JSON.stringify(createRemoveBody(item)),
+  });
+  if (!response.ok) throw new Error('Browser test list removal failed.');
 }

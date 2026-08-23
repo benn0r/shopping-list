@@ -1,13 +1,19 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ProductSheet, ScannerScreen } from '../../src/screens/ScannerScreen';
-import { addItem } from '../../src/services/bringApi';
+import { addItem, removeItem as removeBringItem } from '../../src/services/bringApi';
 import { lookupProduct } from '../../src/services/productLookup';
+import { syncShoppingListWithBring } from '../../src/services/bringSync';
 import {
   loadCredentials,
   addShoppingListItem,
   loadBringSyncEnabled,
   loadCustomBarcodes,
   loadLookupPreferences,
+  loadListViewMode,
+  loadActiveShoppingList,
+  loadShoppingLists,
+  createShoppingList,
+  selectActiveShoppingList,
   loadShoppingList,
   loadSelectedList,
   removeShoppingListItem,
@@ -49,7 +55,14 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
-jest.mock('../../src/services/bringApi', () => ({ addItem: jest.fn() }));
+jest.mock('../../src/services/bringApi', () => ({
+  addItem: jest.fn(),
+  loadItems: jest.fn().mockResolvedValue([]),
+  removeItem: jest.fn(),
+}));
+jest.mock('../../src/services/bringSync', () => ({
+  syncShoppingListWithBring: jest.fn().mockResolvedValue([]),
+}));
 jest.mock('../../src/services/productLookup', () => ({ lookupProduct: jest.fn() }));
 jest.mock('../../src/services/storage', () => ({
   loadCredentials: jest.fn(),
@@ -57,6 +70,11 @@ jest.mock('../../src/services/storage', () => ({
   loadBringSyncEnabled: jest.fn(),
   loadCustomBarcodes: jest.fn(),
   loadLookupPreferences: jest.fn(),
+  loadListViewMode: jest.fn(),
+  loadActiveShoppingList: jest.fn(),
+  loadShoppingLists: jest.fn(),
+  createShoppingList: jest.fn(),
+  selectActiveShoppingList: jest.fn(),
   loadShoppingList: jest.fn(),
   loadSelectedList: jest.fn(),
   removeShoppingListItem: jest.fn(),
@@ -90,6 +108,9 @@ const scan = (data = cola.barcode, x = 175, y = 215): ScanResult => ({
 });
 
 async function emitScan(screen: Awaited<ReturnType<typeof render>>, result: ScanResult = scan()) {
+  if (!screen.queryByTestId('camera-view')) {
+    await fireEvent.press(await screen.findByTestId('open-scanner'));
+  }
   await fireEvent(screen.getByTestId('camera-view'), 'barcodeScanned', result);
   await act(async () => {
     jest.advanceTimersByTime(650);
@@ -106,7 +127,16 @@ beforeEach(() => {
   jest.mocked(loadSelectedList).mockResolvedValue(list);
   jest.mocked(loadCustomBarcodes).mockResolvedValue([]);
   jest.mocked(loadLookupPreferences).mockResolvedValue({ language: 'auto', labelStyle: 'generic' });
+  jest.mocked(loadListViewMode).mockResolvedValue('list');
+  jest
+    .mocked(loadActiveShoppingList)
+    .mockResolvedValue({ id: 'groceries', name: 'Groceries', bringList: list });
+  jest
+    .mocked(loadShoppingLists)
+    .mockResolvedValue([{ id: 'groceries', name: 'Groceries', bringList: list }]);
+  jest.mocked(createShoppingList).mockResolvedValue({ id: 'party', name: 'Party' });
   jest.mocked(loadShoppingList).mockResolvedValue([]);
+  jest.mocked(syncShoppingListWithBring).mockResolvedValue([]);
   jest
     .mocked(addShoppingListItem)
     .mockResolvedValue([
@@ -131,23 +161,107 @@ describe('scanner setup and selection', () => {
   });
 
   it('requests camera access when permission is denied', async () => {
+    jest.mocked(loadBringSyncEnabled).mockResolvedValue(false);
     mockUseCameraPermissions.mockReturnValue([{ granted: false }, mockRequestPermission]);
     const screen = await render(<ScannerScreen />);
 
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Scan Product' })).toBeTruthy());
+    expect(screen.queryByText('Camera access is used only to read product barcodes.')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Scan Product' }));
     expect(screen.getByText('Camera access is used only to read product barcodes.')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Allow Camera Access' }));
     expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the local-only camera closed until the scan button is pressed', async () => {
+    jest.mocked(loadBringSyncEnabled).mockResolvedValue(false);
+    const screen = await render(<ScannerScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('open-scanner')).toBeTruthy());
+    expect(screen.queryByTestId('camera-view')).toBeNull();
+    expect(screen.getByTestId('open-scanner')).toHaveStyle({
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+    });
+    expect(screen.getByTestId('scan-button-icon')).toHaveStyle({ width: 44, height: 44 });
+    expect(screen.getByTestId('item-composer')).toHaveStyle({
+      marginHorizontal: 16,
+      marginBottom: 12,
+      flexShrink: 0,
+    });
+
+    await fireEvent.press(screen.getByTestId('open-scanner'));
+    expect(screen.getByTestId('scanner-drawer')).toBeTruthy();
+    expect(screen.getByTestId('camera-view')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByTestId('camera-view')).toBeNull();
+  });
+
+  it('refreshes the configured Bring backend while the app remains open', async () => {
+    const screen = await render(<ScannerScreen />);
+    await waitFor(() => expect(syncShoppingListWithBring).toHaveBeenCalled());
+    expect(screen.getByTestId('shopping-list-scroll')).toBeTruthy();
+    expect(screen.getByTestId('shopping-list-scroll').props.refreshControl).toBeTruthy();
+    jest.mocked(syncShoppingListWithBring).mockClear();
+
+    await act(async () => {
+      jest.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    expect(syncShoppingListWithBring).toHaveBeenCalledTimes(1);
+  });
+
+  it('syncs immediately when the enabled Bring list is pulled down', async () => {
+    const storedItem = { barcode: cola.barcode, label: 'Soft drink', scannedAt: 1 };
+    jest.mocked(loadShoppingList).mockResolvedValue([storedItem]);
+    jest.mocked(syncShoppingListWithBring).mockResolvedValue([storedItem]);
+    const screen = await render(<ScannerScreen />);
+    await screen.findByTestId(`shopping-item-${cola.barcode}`);
+    jest.mocked(syncShoppingListWithBring).mockClear();
+
+    await act(async () => {
+      screen.getByTestId('shopping-list-scroll').props.refreshControl.props.onRefresh();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(syncShoppingListWithBring).toHaveBeenCalledTimes(1));
+  });
+
+  it('shows a retryable error when pull-to-refresh cannot reach Bring', async () => {
+    const storedItem = { barcode: cola.barcode, label: 'Soft drink', scannedAt: 1 };
+    jest.mocked(loadShoppingList).mockResolvedValue([storedItem]);
+    jest.mocked(syncShoppingListWithBring).mockResolvedValueOnce([storedItem]);
+    const screen = await render(<ScannerScreen />);
+    await screen.findByTestId(`shopping-item-${cola.barcode}`);
+    jest.mocked(syncShoppingListWithBring).mockRejectedValue(new Error('offline'));
+
+    await act(async () => {
+      screen.getByTestId('shopping-list-scroll').props.refreshControl.props.onRefresh();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('Could not sync with Bring. Pull down to try again.')).toBeTruthy();
   });
 
   it('shows camera guidance, supported codes, configuration notice, and saved history', async () => {
     jest.mocked(loadCredentials).mockResolvedValue(null);
     jest.mocked(loadSelectedList).mockResolvedValue(null);
     jest.mocked(loadShoppingList).mockResolvedValue([
-      { barcode: '11111111', label: 'Moon Milk', brand: 'Luna', scannedAt: 2 },
+      {
+        barcode: '11111111',
+        label: 'Moon Milk',
+        brand: 'Luna',
+        imageUrl: 'https://images.example/moon-milk.png',
+        scannedAt: 2,
+      },
       { barcode: '22222222', label: 'Star Bread', scannedAt: 1 },
     ]);
     const screen = await render(<ScannerScreen />);
     await waitFor(() => expect(screen.getByText('Moon Milk')).toBeTruthy());
+    await fireEvent.press(screen.getByTestId('open-scanner'));
     // Keep this broad rendered-content assertion off the expensive RN accessibility traversal.
     const exactTextNodes = (text: string) =>
       screen.container.queryAll((instance) => instance.props.children === text);
@@ -156,12 +270,78 @@ describe('scanner setup and selection', () => {
     expect(exactTextNodes('EAN-8, EAN-13, UPC-A and UPC-E are supported.')).toHaveLength(1);
     expect(exactTextNodes('Connect Bring and choose a shopping list in Settings.')).toHaveLength(1);
     expect(screen.getByText('Moon Milk')).toBeTruthy();
+    expect(screen.getByTestId('shopping-item-image-11111111').props.source).toEqual({
+      uri: 'https://images.example/moon-milk.png',
+    });
+    expect(screen.getByTestId('shopping-item-11111111')).toHaveStyle({
+      minHeight: 68,
+      padding: 8,
+      gap: 10,
+    });
+    expect(screen.getByTestId('shopping-item-image-11111111')).toHaveStyle({
+      width: 52,
+      height: 52,
+    });
+    expect(screen.getByTestId('shopping-item-image-22222222').props.source).toBeDefined();
     expect(screen.getByText('Luna')).toBeTruthy();
     expect(screen.getByText('22222222')).toBeTruthy();
   });
 
+  it('renders saved items as tiles when that view is selected', async () => {
+    jest.mocked(loadBringSyncEnabled).mockResolvedValue(false);
+    jest.mocked(loadListViewMode).mockResolvedValue('tiles');
+    jest.mocked(loadShoppingList).mockResolvedValue([
+      {
+        barcode: cola.barcode,
+        label: cola.label,
+        brand: cola.brand,
+        imageUrl: cola.imageUrl,
+        scannedAt: 1,
+      },
+    ]);
+
+    const screen = await render(<ScannerScreen />);
+
+    expect(await screen.findByTestId(`shopping-item-wrap-${cola.barcode}`)).toHaveStyle({
+      width: '31%',
+      minWidth: 0,
+    });
+    expect(screen.getByTestId(`shopping-item-${cola.barcode}`)).toHaveStyle({
+      width: '100%',
+      aspectRatio: 1,
+      minHeight: 0,
+      padding: 7,
+      gap: 6,
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    });
+    expect(screen.getByTestId(`shopping-item-image-${cola.barcode}`)).toHaveStyle({
+      width: 40,
+      height: 40,
+    });
+    expect(screen.queryByText(cola.brand!)).toBeNull();
+  });
+
+  it('centers and reduces long item labels in tiles', async () => {
+    const longLabel = 'Extra long intergalactic breakfast cereal family package';
+    jest.mocked(loadBringSyncEnabled).mockResolvedValue(false);
+    jest.mocked(loadListViewMode).mockResolvedValue('tiles');
+    jest
+      .mocked(loadShoppingList)
+      .mockResolvedValue([{ barcode: cola.barcode, label: longLabel, scannedAt: 1 }]);
+
+    const screen = await render(<ScannerScreen />);
+    const label = await screen.findByText(longLabel);
+
+    expect(label).toHaveStyle({ textAlign: 'center', fontSize: 12, lineHeight: 15 });
+    expect(label.props.numberOfLines).toBe(3);
+  });
+
   it('chooses the most centered in-frame barcode from a detection window', async () => {
     const screen = await render(<ScannerScreen />);
+    await fireEvent.press(await screen.findByTestId('open-scanner'));
 
     await fireEvent(screen.getByTestId('camera-view'), 'barcodeScanned', scan('top-code', 175, 80));
     await fireEvent(
@@ -188,6 +368,7 @@ describe('scanner setup and selection', () => {
 
   it('updates the scan-frame center when the camera layout width changes', async () => {
     const screen = await render(<ScannerScreen />);
+    await fireEvent.press(await screen.findByTestId('open-scanner'));
     await fireEvent(screen.getByTestId('camera-view').parent!, 'layout', {
       nativeEvent: { layout: { width: 400 } },
     });
@@ -226,6 +407,7 @@ describe('scanner setup and selection', () => {
 
   it('cancels a pending detection window when the scanner unmounts', async () => {
     const screen = await render(<ScannerScreen />);
+    await fireEvent.press(await screen.findByTestId('open-scanner'));
     await fireEvent(screen.getByTestId('camera-view'), 'barcodeScanned', scan());
 
     await screen.unmount();
@@ -246,33 +428,172 @@ describe('scanner setup and selection', () => {
 });
 
 describe('scan-to-list flow', () => {
+  it('adds a manual label-only item when Return is pressed', async () => {
+    jest.mocked(loadBringSyncEnabled).mockResolvedValue(false);
+    jest.spyOn(Date, 'now').mockReturnValue(1234);
+    const manualItem = { barcode: 'manual:1234', label: 'Moon cheese', scannedAt: 1234 };
+    jest.mocked(addShoppingListItem).mockResolvedValue([manualItem]);
+    const screen = await render(<ScannerScreen />);
+    const input = await screen.findByLabelText('New shopping item');
+    await fireEvent(input, 'submitEditing');
+    expect(addShoppingListItem).not.toHaveBeenCalled();
+    await fireEvent.changeText(input, '  Moon cheese  ');
+    await fireEvent(input, 'submitEditing');
+
+    await waitFor(() =>
+      expect(addShoppingListItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          barcode: 'manual:1234',
+          label: 'Moon cheese',
+          exactLabel: 'Moon cheese',
+          source: 'custom',
+        }),
+        'Moon cheese',
+        undefined,
+        'groceries',
+      ),
+    );
+    expect(screen.getByText('Moon cheese')).toBeTruthy();
+    expect(screen.queryByText('manual:1234')).toBeNull();
+  });
+
   it('stores items locally without contacting Bring when sync is disabled', async () => {
     jest.mocked(loadBringSyncEnabled).mockResolvedValue(false);
     const screen = await render(<ScannerScreen />);
+    await fireEvent.press(await screen.findByTestId('open-scanner'));
     await emitScan(screen);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add to Shopping List' }));
 
     await waitFor(() =>
-      expect(addShoppingListItem).toHaveBeenCalledWith(cola, 'Soft drink', undefined),
+      expect(addShoppingListItem).toHaveBeenCalledWith(cola, 'Soft drink', undefined, 'groceries'),
     );
     expect(addItem).not.toHaveBeenCalled();
     expect(await screen.findByText('Soft drink added to your shopping list.')).toBeTruthy();
   });
 
-  it('marks a local item as purchased when it is pressed', async () => {
-    jest
-      .mocked(loadShoppingList)
-      .mockResolvedValue([
-        { barcode: cola.barcode, label: 'Soft drink', brand: 'Comet', scannedAt: 1 },
-      ]);
+  it('opens item details and removes a local item only from the drawer button', async () => {
+    const storedItem = {
+      barcode: cola.barcode,
+      label: 'Soft drink',
+      brand: 'Comet',
+      scannedAt: 1,
+      stores: ['Migros'],
+      source: 'open-products-family' as const,
+      productType: 'food' as const,
+    };
+    jest.mocked(loadShoppingList).mockResolvedValue([storedItem]);
+    jest.mocked(syncShoppingListWithBring).mockResolvedValue([storedItem]);
     jest.mocked(removeShoppingListItem).mockResolvedValue([]);
     const screen = await render(<ScannerScreen />);
 
     await fireEvent.press(await screen.findByTestId(`shopping-item-${cola.barcode}`));
 
-    expect(removeShoppingListItem).toHaveBeenCalledWith(cola.barcode);
+    expect(screen.getByText('Item Details')).toBeTruthy();
+    expect(screen.getByText('Migros')).toBeTruthy();
+    expect(screen.getByText('Open Food Facts')).toBeTruthy();
+    expect(screen.getByText(cola.barcode)).toBeTruthy();
+    expect(removeShoppingListItem).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove from List' }));
+    expect(removeShoppingListItem).toHaveBeenCalledWith(cola.barcode, 'groceries');
     await waitFor(() => expect(screen.queryByText('Soft drink')).toBeNull());
+  });
+
+  it('creates and switches local lists from the title drawer', async () => {
+    jest.mocked(loadBringSyncEnabled).mockResolvedValue(false);
+    jest
+      .mocked(loadShoppingList)
+      .mockImplementation(async (listId) =>
+        listId === 'party' ? [{ barcode: 'manual:party', label: 'Party cups', scannedAt: 2 }] : [],
+      );
+    const screen = await render(<ScannerScreen />);
+
+    await fireEvent.press(await screen.findByTestId('active-list-title'));
+    expect(screen.getByText('Choose List')).toBeTruthy();
+    expect(screen.getByTestId('list-picker-sheet').props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ backgroundColor: expect.anything() })]),
+    );
+    await fireEvent.changeText(screen.getByLabelText('List name'), 'Party');
+    await fireEvent.press(screen.getByRole('button', { name: 'Create List' }));
+
+    await waitFor(() => expect(createShoppingList).toHaveBeenCalledWith('Party'));
+    expect(selectActiveShoppingList).toHaveBeenCalledWith('party');
+    expect(screen.getByText('Party')).toBeTruthy();
+    expect(screen.getByText('Party cups')).toBeTruthy();
+  });
+
+  it('switches to an existing mapped list and closes both drawers through their controls', async () => {
+    const pharmacy = {
+      id: 'pharmacy',
+      name: 'Pharmacy',
+      bringList: { listUuid: 'bring-pharmacy', name: 'Shared Pharmacy' },
+    };
+    jest
+      .mocked(loadShoppingLists)
+      .mockResolvedValue([{ id: 'groceries', name: 'Groceries', bringList: list }, pharmacy]);
+    jest
+      .mocked(loadShoppingList)
+      .mockImplementation(async (id) =>
+        id === 'pharmacy' ? [{ barcode: 'manual:meds', label: 'Bandages', scannedAt: 2 }] : [],
+      );
+    jest
+      .mocked(syncShoppingListWithBring)
+      .mockImplementation(async (id) =>
+        id === 'pharmacy' ? [{ barcode: 'manual:meds', label: 'Bandages', scannedAt: 2 }] : [],
+      );
+    const screen = await render(<ScannerScreen />);
+
+    await fireEvent.press(await screen.findByTestId('active-list-title'));
+    expect(screen.getByText('Mapped to Bring: Shared Pharmacy')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Cancel'));
+    expect(screen.queryByTestId('list-picker-modal')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('active-list-title'));
+    await fireEvent.press(screen.getByTestId('local-list-pharmacy'));
+    await waitFor(() => expect(syncShoppingListWithBring).toHaveBeenCalledWith('pharmacy'));
+    expect(screen.getByText('Pharmacy')).toBeTruthy();
+    expect(screen.getByText('Bandages')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('shopping-item-manual:meds'));
+    expect(screen.getByText('No store information available')).toBeTruthy();
+    await fireEvent(screen.getByTestId('item-details-modal'), 'requestClose');
+    expect(screen.queryByTestId('item-details-modal')).toBeNull();
+  });
+
+  it('removes a linked item from Bring before completing its local removal', async () => {
+    const storedItem = {
+      barcode: cola.barcode,
+      label: 'Soft drink',
+      scannedAt: 1,
+      bringUuid: 'remote-item',
+      bringSpecification: '2×',
+    };
+    jest.mocked(loadShoppingList).mockResolvedValue([storedItem]);
+    jest.mocked(syncShoppingListWithBring).mockResolvedValue([storedItem]);
+    jest.mocked(removeShoppingListItem).mockResolvedValue([]);
+    const screen = await render(<ScannerScreen />);
+
+    await fireEvent.press(await screen.findByTestId(`shopping-item-${cola.barcode}`));
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove from List' }));
+
+    expect(removeBringItem).toHaveBeenCalledWith(credentials, list.listUuid, {
+      uuid: 'remote-item',
+      label: 'Soft drink',
+      specification: '2×',
+    });
+  });
+
+  it('keeps the detail item available when local removal fails', async () => {
+    const storedItem = { barcode: cola.barcode, label: 'Soft drink', scannedAt: 1 };
+    jest.mocked(loadBringSyncEnabled).mockResolvedValue(false);
+    jest.mocked(loadShoppingList).mockResolvedValue([storedItem]);
+    jest.mocked(removeShoppingListItem).mockRejectedValue(new Error('storage unavailable'));
+    const screen = await render(<ScannerScreen />);
+
+    await fireEvent.press(await screen.findByTestId(`shopping-item-${cola.barcode}`));
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove from List' }));
+
+    expect(screen.getByTestId(`shopping-item-${cola.barcode}`)).toBeTruthy();
   });
 
   it('opens the product sheet, records history, and shows all product details', async () => {
@@ -304,14 +625,14 @@ describe('scan-to-list flow', () => {
     expect(screen.getByLabelText('Quantity').props.value).toBe('2');
     await fireEvent.press(screen.getByRole('button', { name: 'Decrease quantity' }));
     expect(screen.getByLabelText('Quantity').props.value).toBe('1');
-    await fireEvent.press(screen.getByRole('button', { name: 'Add and Sync to Bring' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add to Shopping List' }));
 
-    await waitFor(() =>
-      expect(addItem).toHaveBeenCalledWith(credentials, list.listUuid, 'Party Cola', 1),
-    );
+    await waitFor(() => expect(syncShoppingListWithBring).toHaveBeenCalled());
+    expect(addShoppingListItem).toHaveBeenCalledWith(cola, 'Party Cola', 1, 'groceries');
     expect(await screen.findByText('Party Cola added locally and synced to Bring.')).toBeTruthy();
     expect(screen.queryByText('Add Item')).toBeNull();
-    expect(screen.getByTestId('camera-view').props.cameraActive).toBe(true);
+    expect(screen.queryByTestId('camera-view')).toBeNull();
+    expect(screen.getByTestId('open-scanner')).toBeTruthy();
 
     await act(async () => jest.advanceTimersByTime(3000));
     expect(screen.queryByText('Party Cola added locally and synced to Bring.')).toBeNull();
@@ -322,43 +643,35 @@ describe('scan-to-list flow', () => {
     await emitScan(screen);
     await screen.findByText('Add Item');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Add and Sync to Bring' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add to Shopping List' }));
 
-    await waitFor(() =>
-      expect(addItem).toHaveBeenCalledWith(credentials, list.listUuid, 'Soft drink', undefined),
-    );
+    await waitFor(() => expect(syncShoppingListWithBring).toHaveBeenCalled());
+    expect(addShoppingListItem).toHaveBeenCalledWith(cola, 'Soft drink', undefined, 'groceries');
   });
 
-  it('keeps the sheet open on a Bring failure and allows retrying', async () => {
-    jest
-      .mocked(addItem)
-      .mockRejectedValueOnce(new Error('Bring unavailable'))
-      .mockResolvedValueOnce(undefined);
+  it('keeps an item locally when background Bring sync fails', async () => {
+    jest.mocked(syncShoppingListWithBring).mockRejectedValue(new Error('Bring unavailable'));
     const screen = await render(<ScannerScreen />);
     await emitScan(screen);
     await screen.findByText('Add Item');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Add and Sync to Bring' }));
-    expect(await screen.findByText('Could not add the item.')).toBeTruthy();
-    expect(screen.getByText('Add Item')).toBeTruthy();
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Add and Sync to Bring' }));
-    await waitFor(() => expect(addItem).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText('Soft drink added locally and synced to Bring.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add to Shopping List' }));
+    expect(await screen.findByText('Soft drink added to your shopping list.')).toBeTruthy();
+    expect(addShoppingListItem).toHaveBeenCalled();
+    expect(screen.queryByText('Add Item')).toBeNull();
   });
 
-  it('shows the configuration error if credentials disappear before adding', async () => {
+  it('still adds locally if Bring configuration disappears', async () => {
     const screen = await render(<ScannerScreen />);
     await emitScan(screen);
     await screen.findByText('Add Item');
     jest.mocked(loadCredentials).mockResolvedValue(null);
+    jest.mocked(syncShoppingListWithBring).mockRejectedValue(new Error('Not configured'));
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Add and Sync to Bring' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add to Shopping List' }));
 
-    expect(
-      await screen.findByText('Configure your Bring account and shopping list first.'),
-    ).toBeTruthy();
-    expect(addItem).not.toHaveBeenCalled();
+    expect(await screen.findByText('Soft drink added to your shopping list.')).toBeTruthy();
+    expect(addShoppingListItem).toHaveBeenCalled();
   });
 
   it('closes the sheet from Cancel and from the native close request, then permits another scan', async () => {

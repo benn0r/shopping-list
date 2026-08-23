@@ -1,4 +1,4 @@
-import { addItem, loadLists, login } from '../../src/services/bringApi';
+import { addItem, loadItems, loadLists, login, removeItem } from '../../src/services/bringApi';
 
 function response(body: unknown, ok = true) {
   return { ok, json: async () => body } as Response;
@@ -23,6 +23,31 @@ describe('Bring adapter', () => {
     expect(String((fetchSpy.mock.calls[0][1] as RequestInit).body)).toBe(
       'email=pilot%40example.com&password=secret',
     );
+  });
+
+  it('uses the public user ID and token type returned by modern Bring sessions', async () => {
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(
+        response({
+          uuid: 'user-id',
+          publicUuid: 'public-user-id',
+          access_token: 'token',
+          token_type: 'CustomBearer',
+        }),
+      )
+      .mockResolvedValueOnce(response({ items: { purchase: [] } }));
+
+    await loadItems({ email: 'pilot@example.com', password: 'secret' }, 'list');
+
+    expect(fetchSpy.mock.calls[1][1]).toMatchObject({
+      headers: expect.objectContaining({
+        'X-BRING-PUBLIC-USER-UUID': 'public-user-id',
+        'X-BRING-APPLICATION': 'bring',
+        'X-BRING-CLIENT': 'android',
+        Authorization: 'CustomBearer token',
+      }),
+    });
   });
 
   it.each([
@@ -145,6 +170,24 @@ describe('Bring adapter', () => {
     expect(body.get('specification')).toBe('3×');
   });
 
+  it('adds a machine-readable barcode alongside the visible quantity', async () => {
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(response({ uuid: 'user-id', access_token: 'token' }))
+      .mockResolvedValueOnce(response({}));
+
+    await addItem(
+      { email: 'pilot@example.com', password: 'secret' },
+      'list-id',
+      'Moon Milk',
+      2,
+      '7612345678901',
+    );
+
+    const body = new URLSearchParams(String((fetchSpy.mock.calls[1][1] as RequestInit).body));
+    expect(body.get('specification')).toBe('2× · EAN:7612345678901');
+  });
+
   it('rejects an item that Bring does not accept', async () => {
     jest
       .spyOn(global, 'fetch')
@@ -154,5 +197,91 @@ describe('Bring adapter', () => {
     await expect(
       addItem({ email: 'pilot@example.com', password: 'secret' }, 'list-id', 'Moon Milk'),
     ).rejects.toThrow('Bring did not accept the item');
+  });
+
+  it('loads active Bring items with their stable IDs and specifications', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(response({ uuid: 'user-id', access_token: 'token' }))
+      .mockResolvedValueOnce(
+        response({
+          items: {
+            purchase: [
+              { uuid: 'item-1', itemId: 'Moon Milk', specification: '2×' },
+              {
+                uuid: 'item-2',
+                itemId: 'Star Bread',
+                specification: 'EAN:7612345678901',
+              },
+              { itemId: 'Ignored incomplete item' },
+            ],
+          },
+        }),
+      );
+
+    await expect(
+      loadItems({ email: 'pilot@example.com', password: 'secret' }, 'list/id'),
+    ).resolves.toEqual([
+      { uuid: 'item-1', label: 'Moon Milk', specification: '2×' },
+      {
+        uuid: 'item-2',
+        label: 'Star Bread',
+        specification: 'EAN:7612345678901',
+        barcode: '7612345678901',
+      },
+    ]);
+  });
+
+  it('normalizes an empty Bring item response', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(response({ uuid: 'user-id', access_token: 'token' }))
+      .mockResolvedValueOnce(response({}));
+    await expect(
+      loadItems({ email: 'pilot@example.com', password: 'secret' }, 'list'),
+    ).resolves.toEqual([]);
+  });
+
+  it('accepts the legacy top-level Bring purchase shape', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(response({ uuid: 'user-id', access_token: 'token' }))
+      .mockResolvedValueOnce(
+        response({ purchase: [{ uuid: 'legacy-1', name: 'Star Bread', spec: 'fresh' }] }),
+      );
+    await expect(
+      loadItems({ email: 'pilot@example.com', password: 'secret' }, 'list'),
+    ).resolves.toEqual([{ uuid: 'legacy-1', label: 'Star Bread', specification: 'fresh' }]);
+  });
+
+  it('removes a Bring item by UUID through the batch endpoint', async () => {
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(response({ uuid: 'user-id', access_token: 'token' }))
+      .mockResolvedValueOnce(response({}));
+
+    await removeItem({ email: 'pilot@example.com', password: 'secret' }, 'list/id', {
+      uuid: 'item-1',
+      label: 'Moon Milk',
+      specification: '2×',
+    });
+
+    expect(fetchSpy.mock.calls[1][0]).toContain('bringlists/list%2Fid/items');
+    expect(JSON.parse(String((fetchSpy.mock.calls[1][1] as RequestInit).body))).toMatchObject({
+      changes: [{ uuid: 'item-1', itemId: 'Moon Milk', operation: 'TO_RECENTLY', spec: '2×' }],
+    });
+  });
+
+  it('rejects a removal that Bring does not accept', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(response({ uuid: 'user-id', access_token: 'token' }))
+      .mockResolvedValueOnce(response({}, false));
+    await expect(
+      removeItem({ email: 'pilot@example.com', password: 'secret' }, 'list', {
+        uuid: 'item-1',
+        label: 'Moon Milk',
+      }),
+    ).rejects.toThrow('Bring did not remove');
   });
 });

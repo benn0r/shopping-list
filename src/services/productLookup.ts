@@ -8,6 +8,8 @@ type OpenProduct = Record<string, unknown> & {
   quantity?: string;
   image_front_small_url?: string;
   product_type?: Product['productType'];
+  stores?: string;
+  stores_tags?: string[];
 };
 
 const SUPPORTED_LANGUAGES = ['de', 'en', 'fr', 'it'] as const;
@@ -95,6 +97,8 @@ export async function lookupProduct(
     'quantity',
     'image_front_small_url',
     'product_type',
+    'stores',
+    'stores_tags',
     ...LOCALIZED_FIELDS,
   ].join(',');
   const query = new URLSearchParams({
@@ -132,5 +136,11 @@ export async function lookupProduct(
     imageUrl: text(product.image_front_small_url),
     source: 'open-products-family',
     productType: product.product_type,
+    stores: [
+      ...(Array.isArray(product.stores_tags) ? product.stores_tags : []),
+      ...(text(product.stores)?.split(',') || []),
+    ]
+      .map((store) => store.trim())
+      .filter((store, index, values) => store && values.indexOf(store) === index),
   };
 }

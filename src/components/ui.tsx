@@ -177,6 +177,7 @@ export const sheetModal = StyleSheet.create({
     flex: 0,
     height: '92%',
     minHeight: '92%',
+    backgroundColor: colors.systemGroupedBackground,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     overflow: 'hidden',

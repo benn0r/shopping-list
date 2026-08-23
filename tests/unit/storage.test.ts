@@ -10,9 +10,16 @@ import {
   loadCredentials,
   loadCustomBarcodes,
   loadLookupPreferences,
+  loadListViewMode,
   loadScanHistory,
   loadSelectedList,
   loadShoppingList,
+  loadShoppingLists,
+  loadActiveShoppingList,
+  createShoppingList,
+  selectActiveShoppingList,
+  setShoppingListBringMapping,
+  subscribeShoppingLists,
   removeShoppingListItem,
   recordScannedProduct,
   saveAppLanguage,
@@ -20,6 +27,7 @@ import {
   saveCredentials,
   saveCustomBarcodes,
   saveLookupPreferences,
+  saveListViewMode,
   saveSelectedList,
 } from '../../src/services/storage';
 
@@ -125,21 +133,96 @@ describe('persistent settings', () => {
     await expect(loadBringSyncEnabled()).resolves.toBe(true);
   });
 
+  it('defaults to list view and persists the selected list view mode', async () => {
+    await expect(loadListViewMode()).resolves.toBe('list');
+    await saveListViewMode('tiles');
+    await expect(loadListViewMode()).resolves.toBe('tiles');
+
+    await AsyncStorage.setItem('list-view-mode', 'unsupported');
+    await expect(loadListViewMode()).resolves.toBe('list');
+  });
+
   it('adds, replaces, and removes local shopping-list items', async () => {
     const product = {
       barcode: '7611111111111',
       label: 'Drink',
       exactLabel: 'Comet Cola',
       brand: 'Comet',
+      imageUrl: 'https://images.example/cola.png',
       source: 'open-products-family' as const,
     };
     await addShoppingListItem(product, 'Cola', 2);
     await addShoppingListItem(product, 'Party Cola', 3);
     await expect(loadShoppingList()).resolves.toEqual([
-      expect.objectContaining({ barcode: product.barcode, label: 'Party Cola', quantity: 3 }),
+      expect.objectContaining({
+        barcode: product.barcode,
+        label: 'Party Cola',
+        quantity: 3,
+        imageUrl: 'https://images.example/cola.png',
+      }),
     ]);
     await removeShoppingListItem(product.barcode);
     await expect(loadShoppingList()).resolves.toEqual([]);
+  });
+
+  it('migrates the legacy list and Bring mapping into Groceries', async () => {
+    await saveSelectedList({ listUuid: 'bring-groceries', name: 'Shared Groceries' });
+    await AsyncStorage.setItem(
+      'shopping-list',
+      JSON.stringify([{ barcode: '123', label: 'Legacy item', scannedAt: 1 }]),
+    );
+
+    await expect(loadShoppingLists()).resolves.toEqual([
+      {
+        id: 'groceries',
+        name: 'Groceries',
+        bringList: { listUuid: 'bring-groceries', name: 'Shared Groceries' },
+      },
+    ]);
+    await expect(loadShoppingList('groceries')).resolves.toEqual([
+      { barcode: '123', label: 'Legacy item', scannedAt: 1 },
+    ]);
+  });
+
+  it('keeps items and Bring mappings separate for every local list', async () => {
+    const second = await createShoppingList('Hardware');
+    await setShoppingListBringMapping(second.id, {
+      listUuid: 'bring-hardware',
+      name: 'Shared Hardware',
+    });
+    await selectActiveShoppingList(second.id);
+    await addShoppingListItem(
+      { barcode: 'manual:1', label: 'Screws', exactLabel: 'Screws', source: 'custom' },
+      'Screws',
+      undefined,
+      second.id,
+    );
+
+    await expect(loadActiveShoppingList()).resolves.toMatchObject({
+      id: second.id,
+      bringList: { listUuid: 'bring-hardware' },
+    });
+    await expect(loadShoppingList(second.id)).resolves.toHaveLength(1);
+    await expect(loadShoppingList('groceries')).resolves.toEqual([]);
+  });
+
+  it('validates list selection and creation, removes mappings, and notifies subscribers', async () => {
+    const listener = jest.fn();
+    const unsubscribe = subscribeShoppingLists(listener);
+
+    await expect(createShoppingList('   ')).rejects.toThrow('Shopping-list name is required.');
+    await expect(selectActiveShoppingList('missing')).rejects.toThrow('Unknown shopping list.');
+
+    const second = await createShoppingList('  Pharmacy  ');
+    expect(second.name).toBe('Pharmacy');
+    await setShoppingListBringMapping(second.id, { listUuid: 'remote', name: 'Remote' });
+    const lists = await setShoppingListBringMapping(second.id, null);
+
+    expect(lists.find((entry) => entry.id === second.id)?.bringList).toBeUndefined();
+    expect(listener).toHaveBeenCalledTimes(3);
+    unsubscribe();
+    await createShoppingList('After unsubscribe');
+    expect(listener).toHaveBeenCalledTimes(3);
   });
 
   it('falls back to English for an unsupported stored app language', async () => {

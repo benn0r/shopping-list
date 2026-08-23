@@ -27,8 +27,11 @@ resolves product names. Bring synchronization can be enabled optionally in Setti
 - Automatic or selected product language with localized-name fallback
 - Generic, exact, or ask-every-time item labels
 - Custom barcode-to-label mappings that override online results
-- Persistent local shopping list with tap-to-mark-purchased behavior
+- Multiple persistent local shopping lists with item-detail drawers and explicit removal
+- Independent Bring-list mapping for every local shopping list
+- Multilingual grocery-icon fallback for items without a product image
 - Optional Bring synchronization with platform secure-storage-backed credentials
+- Cross-device barcode metadata enrichment through Bring
 - Bring shopping-list selection and explicit logout when synchronization is enabled
 - Confirmation before an item is added, with an optional quantity
 
@@ -114,6 +117,14 @@ checks for camera APIs, platform secure storage, or native safe areas.
 The coverage command runs the complete unit and integration suite and enforces minimum global
 coverage thresholds.
 
+## Bring metadata interoperability
+
+For a scanned item, Shopping List appends a compact `EAN:<barcode>` marker to Bring's item
+specification. A quantity and barcode are represented as `2× · EAN:7612345678901`. Other Shopping
+List installations can parse this marker and retrieve the product image and brand independently
+from the Open Facts product APIs. The visible shopping-list label remains the label stored in Bring.
+Manual items do not include a barcode marker.
+
 Automatically format the codebase and apply safe ESLint fixes with:
 
 ```sh
@@ -138,6 +149,10 @@ Product information comes from these community-contributed Open Facts databases:
 - [Open Pet Food Facts](https://world.openpetfoodfacts.org/) for pet food and treats
 
 Their data is available under the Open Database License. Coverage and labels vary by country and contributor data.
+
+Food, beverage, and utensil artwork is from [Food Icon Pack](https://foodiconpack.com/) and is
+licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The app bundles a curated
+subset of the Common Ingredient Icons, Common Utensils, Common Beverages, and Common Dishes packs.
 
 ## License
 

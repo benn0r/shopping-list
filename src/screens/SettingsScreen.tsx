@@ -28,10 +28,23 @@ import {
   DEFAULT_LOOKUP_PREFERENCES,
   loadCustomBarcodes,
   loadLookupPreferences,
+  loadListViewMode,
+  loadShoppingLists,
   saveCustomBarcodes,
   saveLookupPreferences,
+  saveListViewMode,
+  setShoppingListBringMapping,
+  subscribeShoppingLists,
 } from '../services/storage';
-import { BringList, CustomBarcode, LabelStyle, LookupPreferences, ProductLanguage } from '../types';
+import {
+  BringList,
+  CustomBarcode,
+  LabelStyle,
+  ListViewMode,
+  LookupPreferences,
+  ProductLanguage,
+  ShoppingListDefinition,
+} from '../types';
 import { PRODUCT_DATABASES } from '../productDatabases';
 import { APP_LANGUAGES, translate, useI18n } from '../i18n';
 import { useAuth } from '../auth';
@@ -51,29 +64,34 @@ const LABEL_STYLES: { value: LabelStyle; title: string; detail: string }[] = [
 
 export function SettingsScreen() {
   const { language: appLanguage, setLanguage: setAppLanguage, t } = useI18n();
-  const {
-    bringSyncEnabled,
-    credentials,
-    lists,
-    selectedList: selected,
-    logout,
-    selectList,
-    setBringSyncEnabled,
-  } = useAuth();
+  const { bringSyncEnabled, credentials, lists, logout, setBringSyncEnabled } = useAuth();
   const [barcode, setBarcode] = useState('');
   const [label, setLabel] = useState('');
   const [custom, setCustom] = useState<CustomBarcode[]>([]);
   const [preferences, setPreferences] = useState<LookupPreferences>(DEFAULT_LOOKUP_PREFERENCES);
+  const [listViewMode, setListViewMode] = useState<ListViewMode>('list');
+  const [shoppingLists, setShoppingLists] = useState<ShoppingListDefinition[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [customBarcodesVisible, setCustomBarcodesVisible] = useState(false);
   useEffect(() => {
-    Promise.all([loadCustomBarcodes(), loadLookupPreferences()])
-      .then(([b, p]) => {
-        setCustom(b);
-        setPreferences(p);
-      })
-      .catch(() => {});
+    const load = () => {
+      Promise.all([
+        loadCustomBarcodes(),
+        loadLookupPreferences(),
+        loadListViewMode(),
+        loadShoppingLists(),
+      ])
+        .then(([b, p, viewMode, storedLists]) => {
+          setCustom(b);
+          setPreferences(p);
+          setListViewMode(viewMode);
+          setShoppingLists(storedLists);
+        })
+        .catch(() => {});
+    };
+    load();
+    return subscribeShoppingLists(load);
   }, []);
   useEffect(() => {
     if (!success) return;
@@ -85,9 +103,9 @@ export function SettingsScreen() {
     setError('');
     setSuccess('');
   }
-  async function choose(list: BringList) {
-    await selectList(list);
-    setSuccess(t('selected', { name: list.name }));
+  async function choose(localList: ShoppingListDefinition, list: BringList | null) {
+    setShoppingLists(await setShoppingListBringMapping(localList.id, list));
+    setSuccess(list ? t('selected', { name: list.name }) : t('noBringList'));
   }
   async function addCustom() {
     const clean = barcode.replace(/\D/g, '');
@@ -169,8 +187,25 @@ export function SettingsScreen() {
               value={bringSyncEnabled}
               onValueChange={(enabled) => void setBringSyncEnabled(enabled)}
               trackColor={{ true: colors.tint }}
+              style={styles.switch}
             />
           </View>
+        </Section>
+        <Section title={t('listView')}>
+          {(['list', 'tiles'] as const).map((mode, index) => (
+            <View key={mode}>
+              {index > 0 ? <Separator /> : null}
+              <ListRow
+                title={t(mode)}
+                selected={listViewMode === mode}
+                testID={`list-view-${mode}`}
+                onPress={async () => {
+                  setListViewMode(mode);
+                  await saveListViewMode(mode);
+                }}
+              />
+            </View>
+          ))}
         </Section>
         <Section title={t('appLanguage')}>
           {APP_LANGUAGES.map((option, index) => (
@@ -195,26 +230,35 @@ export function SettingsScreen() {
             <ActionButton title={t('logout')} onPress={signOut} destructive />
           </Section>
         ) : null}
-        {bringSyncEnabled && (lists.length > 0 || selected) && (
-          <Section title={t('shoppingList')} footer={t('listFooter')}>
-            {selected && !lists.some((l) => l.listUuid === selected.listUuid) && (
-              <ListRow title={selected.name} selected testID={`list-${selected.listUuid}`} />
-            )}
-            {lists.map((list, index) => (
-              <View key={list.listUuid}>
-                {index > 0 || (selected && !lists.some((l) => l.listUuid === selected.listUuid)) ? (
-                  <Separator />
-                ) : null}
+        {bringSyncEnabled && lists.length > 0
+          ? shoppingLists.map((localList) => (
+              <Section
+                key={localList.id}
+                title={localList.name}
+                footer={t('mappedToBring', {
+                  name: localList.bringList?.name || t('noBringList'),
+                })}
+              >
                 <ListRow
-                  title={list.name}
-                  selected={selected?.listUuid === list.listUuid}
-                  onPress={() => choose(list)}
-                  testID={`list-${list.listUuid}`}
+                  title={t('noBringList')}
+                  selected={!localList.bringList}
+                  onPress={() => void choose(localList, null)}
+                  testID={`bring-map-${localList.id}-none`}
                 />
-              </View>
-            ))}
-          </Section>
-        )}
+                {lists.map((list) => (
+                  <View key={list.listUuid}>
+                    <Separator />
+                    <ListRow
+                      title={list.name}
+                      selected={localList.bringList?.listUuid === list.listUuid}
+                      onPress={() => void choose(localList, list)}
+                      testID={`bring-map-${localList.id}-${list.listUuid}`}
+                    />
+                  </View>
+                ))}
+              </Section>
+            ))
+          : null}
         <Section title={t('productLanguage')} footer={t('productLanguageFooter')}>
           {LANGUAGES.map((option, index) => {
             const key = (
@@ -306,6 +350,13 @@ export function SettingsScreen() {
           })}
         </Section>
         <Text style={styles.disclaimer}>{t('disclaimer')}</Text>
+        <Text
+          accessibilityRole="link"
+          onPress={() => void Linking.openURL('https://foodiconpack.com/license')}
+          style={styles.iconCredit}
+        >
+          {t('iconCredit')}
+        </Text>
       </ScrollView>
       <Modal
         visible={customBarcodesVisible}
@@ -397,13 +448,14 @@ export function SettingsScreen() {
 
 const styles = StyleSheet.create({
   switchRow: {
-    minHeight: 50,
+    minHeight: 54,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  switchLabel: { color: colors.label, fontSize: 17 },
+  switchLabel: { flex: 1, color: colors.label, fontSize: 17 },
+  switch: Platform.OS === 'ios' ? { marginRight: -8 } : {},
   statusSlot: { position: 'absolute', zIndex: 10, bottom: 12, left: 16, right: 16 },
   modalSafe: { flex: 1, backgroundColor: colors.systemGroupedBackground },
   modalHeader: {
@@ -441,5 +493,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 18,
     marginBottom: 12,
+  },
+  iconCredit: {
+    color: colors.tint,
+    fontSize: 12,
+    lineHeight: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 24,
+    textAlign: 'center',
   },
 });
