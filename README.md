@@ -3,51 +3,58 @@
 > [!IMPORTANT]
 > **This entire repository, including the application, design, tests, documentation, and deployment setup was made with AI.**
 
-A local-first React Native shopping list for iOS and Android that scans EAN/UPC barcodes and
-resolves product names. Bring synchronization can be enabled optionally in Settings.
+A local-first Expo and React Native shopping companion for iPhone and Android. Add items manually
+or scan EAN/UPC barcodes, enrich products from community databases, organize multiple lists, and
+take selected lists into a store-specific shopping session. Optional Bring and Mealie adapters keep
+individual local lists synchronized without making either provider a requirement.
 
 ## Screenshots
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshot.svg" alt="Centered barcode scanner" width="260"><br><sub>Centered barcode scanner and recent history</sub></td>
-    <td align="center"><img src="docs/screenshots/product-sheet.svg" alt="Product confirmation sheet" width="260"><br><sub>Edit the synced label and quantity before adding</sub></td>
+    <td align="center"><img src="docs/screenshots/shopping-list.jpg" alt="Shopping list with fantasy groceries" width="260"><br><sub>Local shopping list with grocery icons and floating item composer</sub></td>
+    <td align="center"><img src="docs/screenshots/camera-add-item.jpg" alt="Reviewing a fantasy product detected by the camera" width="260"><br><sub>Review and customize a camera-scanned product before adding it</sub></td>
+    <td align="center"><img src="docs/screenshots/settings.jpg" alt="Shopping List settings" width="260"><br><sub>Independent Bring and Mealie sync settings</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/settings.svg" alt="Apple-style settings" width="260"><br><sub>Language, account, and shopping-list settings</sub></td>
-    <td align="center"><img src="docs/screenshots/custom-barcodes.svg" alt="Custom barcode modal" width="260"><br><sub>Add and manage custom barcode labels</sub></td>
+    <td align="center"><img src="docs/screenshots/edit-list.jpg" alt="Edit shopping list drawer" width="260"><br><sub>Edit a list and its optional provider mapping</sub></td>
+    <td align="center"><img src="docs/screenshots/edit-store.jpg" alt="Edit store drawer" width="260"><br><sub>Edit stores in a keyboard-aware drawer</sub></td>
   </tr>
 </table>
 
 ## Features
 
-- EAN-8, EAN-13, UPC-A, and UPC-E scanning with the device camera
-- Free product lookup through Open Food Facts
-- Household, beauty, and pet-product lookup through the Open Facts product family
+- Manual item entry and EAN-8, EAN-13, UPC-A, and UPC-E scanning with the device camera
+- Free food, household, beauty, and pet-product lookup through the Open Facts product family
 - Automatic or selected product language with localized-name fallback
 - Generic, exact, or ask-every-time item labels
 - Custom barcode-to-label mappings that override online results
-- Multiple persistent local shopping lists with item-detail drawers and explicit removal
-- Store management and persistent shopping sessions with purchased-item history
-- Store-aware item filtering, reversible purchases, and matching list/tile layouts
-- Independent external-list mapping for every local shopping list
+- Multiple persistent local shopping lists with list and three-column tile layouts
+- Product details with barcode, image, source, added time, and store information when available
+- Store management and multi-list shopping sessions with reversible purchases and history
+- Swipe-to-delete shopping-history entries
+- Independent provider and remote-list mapping for every local shopping list
 - Multilingual grocery-icon fallback for items without a product image
-- Optional Bring synchronization with platform secure-storage-backed credentials
-- Cross-device barcode metadata enrichment through Bring
-- Bring shopping-list selection and explicit logout when synchronization is enabled
-- Confirmation before an item is added, with an optional quantity
+- Bring synchronization with cross-device barcode metadata enrichment
+- Mealie synchronization with shopping-item quantities and units
+- Multiple adapters can be enabled simultaneously; each local list maps to at most one provider
+- Pull-to-refresh synchronization for mapped lists
+- Platform secure storage for provider credentials and API tokens
+- Editable item labels and optional quantities before scanned products are added
+- English, German, French, Italian, Portuguese, and Brazilian Portuguese interfaces
 
 ## Sync adapter architecture
 
 The list UI and synchronization service use the provider-neutral `ShoppingListSyncAdapter`
-contract. An adapter supplies provider status plus load, add, and remove operations using generic
-remote-list and remote-item identifiers. Bring-specific credentials, API payloads, and identifiers
-are isolated in `src/services/sync/bringSyncAdapter.ts`.
+contract. An adapter supplies provider status plus load, add, restore, and remove operations using
+generic remote-list and remote-item identifiers. Provider credentials, API payloads, and item IDs
+stay inside their respective adapters.
 
-To add another backend such as Mealie, implement the same adapter contract, register its provider,
-and expose its account and list-mapping controls in Settings. The scanner, local-list persistence,
-reconciliation, metadata enrichment, pull-to-refresh, and item-removal flows do not need
-provider-specific changes.
+Bring and Mealie implement this contract independently and can be connected at the same time. A
+local list stores one optional sync target containing the provider, remote list ID, and display
+name. To add another backend, implement the same contract, register the adapter, and expose its
+connection and list-mapping controls in Settings. Scanner, local persistence, reconciliation,
+metadata enrichment, shopping sessions, and pull-to-refresh remain provider-neutral.
 
 ## Run locally
 
@@ -65,9 +72,10 @@ Before running the app, create an ignored `.env` file:
 cp .env.example .env
 ```
 
-Set `EXPO_PUBLIC_BRING_API_KEY` in that file. Expo public environment variables are embedded in the
-compiled app, so this keeps the value out of Git but does not make a mobile client key
-cryptographically secret.
+Set `EXPO_PUBLIC_BRING_API_KEY` in that file if Bring support is required. Expo public environment
+variables are embedded in the compiled app, so this keeps the value out of Git but does not make a
+mobile client key cryptographically secret. Mealie is configured at runtime with a server URL and
+API token in Settings.
 
 Useful device shortcuts:
 
@@ -122,11 +130,11 @@ npm run test:e2e:local
 
 The browser suite uses Chromium, a synthetic camera, mocked external services, and enforced
 `.example` account data. Its test API and credential adapter only run on a loopback host, so the
-bundle cannot send credentials to Bring. It covers sign-in and logout, persisted settings, every
-language and label option, custom barcodes, centered-barcode selection, product lookup failures, and
-Bring add/retry behavior without contacting live services. The test-only web export is not uploaded
+bundle cannot send credentials to a live provider. It covers provider connections, persisted
+settings, languages, label options, custom barcodes, centered-barcode selection, product lookup
+failures, shopping sessions, and synchronization retries. The test-only web export is not uploaded
 as a build artifact, is not a deployable version of the native app, and does not replace real-device
-checks for camera APIs, platform secure storage, or native safe areas.
+checks for camera APIs, platform secure storage, keyboards, or native safe areas.
 
 The coverage command runs the complete unit and integration suite and enforces minimum global
 coverage thresholds.
@@ -150,10 +158,13 @@ npm run fix
 See the [Privacy Policy](PRIVACY.md) for a complete description of on-device storage and network
 communication.
 
-In the native app, credentials are stored only in platform secure storage and are never written to
-source files or regular app storage. The test-only browser build enables an isolated session-only
-adapter for fantasy test credentials. Shopping-list selection and custom barcode mappings remain on
-the device.
+In the native app, provider credentials and API tokens are stored only in platform secure storage
+and are never written to source files or regular app storage. Lists, mappings, scanned metadata,
+custom barcode labels, stores, and shopping history remain in local app storage. The test-only
+browser build uses isolated fantasy data and mocked provider services.
+
+Shopping List is an independent project and is not affiliated with Bring! Labs AG or the Mealie
+project.
 
 Product information comes from these community-contributed Open Facts databases:
 

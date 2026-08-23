@@ -410,7 +410,7 @@ export function ScannerScreen() {
             placeholderTextColor={colors.tertiaryLabel}
             returnKeyType="done"
             enablesReturnKeyAutomatically
-            editable={!manualBusy}
+            submitBehavior="submit"
             style={styles.composerInput}
           />
           <Pressable

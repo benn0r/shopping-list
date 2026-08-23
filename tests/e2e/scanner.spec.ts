@@ -29,8 +29,10 @@ test('creates and switches lists and removes an item from its detail drawer', as
   await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
 
   const composer = page.getByLabel('New shopping item');
+  await expect(composer).toHaveAttribute('placeholder', 'Add…');
   await composer.fill('Screws');
   await composer.press('Enter');
+  await expect(composer).toBeFocused();
   await page.getByTestId(/^shopping-item-manual:/).click();
   await expect(page.getByRole('heading', { name: 'Item Details', exact: true })).toBeVisible();
   await expect(page.getByText('No store information available')).toBeVisible();

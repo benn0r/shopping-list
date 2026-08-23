@@ -482,6 +482,9 @@ describe('scan-to-list flow', () => {
     jest.mocked(addShoppingListItem).mockResolvedValue([manualItem]);
     const screen = await render(<ScannerScreen />);
     const input = await screen.findByLabelText('New shopping item');
+    expect(input.props.placeholder).toBe('Add…');
+    expect(input.props.submitBehavior).toBe('submit');
+    expect(input.props.editable).not.toBe(false);
     await fireEvent(input, 'submitEditing');
     expect(addShoppingListItem).not.toHaveBeenCalled();
     await fireEvent.changeText(input, '  Moon cheese  ');

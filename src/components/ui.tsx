@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
   },
-  fieldLabel: { color: colors.label, fontSize: 17, width: 82 },
+  fieldLabel: { color: colors.label, fontSize: 17, width: 112 },
   input: { flex: 1, color: colors.label, fontSize: 17, paddingVertical: 11, textAlign: 'right' },
   placeholderInput: { textAlign: 'left' },
   action: { minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },

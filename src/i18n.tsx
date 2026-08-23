@@ -14,7 +14,7 @@ const en = {
   allowCamera: 'Allow Camera Access',
   scanProduct: 'Scan Product',
   newShoppingItem: 'New shopping item',
-  newShoppingItemPlaceholder: 'I need…',
+  newShoppingItemPlaceholder: 'Add…',
   alignBarcode: 'Align the barcode inside the frame',
   lookingUp: 'Looking Up…',
   supportedCodes: 'EAN-8, EAN-13, UPC-A and UPC-E are supported.',
@@ -185,6 +185,7 @@ const translations: Record<AppLanguage, Record<Key, string>> = {
   en,
   de: {
     ...en,
+    newShoppingItemPlaceholder: 'Hinzufügen…',
     scan: 'Scannen',
     settings: 'Einstellungen',
     appLanguage: 'App-Sprache',
@@ -278,6 +279,7 @@ const translations: Record<AppLanguage, Record<Key, string>> = {
   },
   fr: {
     ...en,
+    newShoppingItemPlaceholder: 'Ajouter…',
     scan: 'Scanner',
     settings: 'Réglages',
     appLanguage: 'Langue de l’app',
@@ -370,6 +372,7 @@ const translations: Record<AppLanguage, Record<Key, string>> = {
   },
   it: {
     ...en,
+    newShoppingItemPlaceholder: 'Aggiungi…',
     scan: 'Scansiona',
     settings: 'Impostazioni',
     appLanguage: 'Lingua dell’app',
@@ -460,6 +463,7 @@ const translations: Record<AppLanguage, Record<Key, string>> = {
   },
   pt: {
     ...en,
+    newShoppingItemPlaceholder: 'Adicionar…',
     scan: 'Digitalizar',
     settings: 'Definições',
     appLanguage: 'Idioma da aplicação',
@@ -550,6 +554,7 @@ const translations: Record<AppLanguage, Record<Key, string>> = {
   },
   'pt-BR': {
     ...en,
+    newShoppingItemPlaceholder: 'Adicionar…',
     scan: 'Escanear',
     settings: 'Ajustes',
     appLanguage: 'Idioma do aplicativo',
