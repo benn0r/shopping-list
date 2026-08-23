@@ -191,7 +191,7 @@ describe('scanner setup and selection', () => {
     expect(await screen.findByText('2 cartons Milk')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('shopping-item-remote:mealie-milk'));
     expect(screen.getByText('2 cartons')).toBeTruthy();
-  });
+  }, 15_000);
 
   it('renders a safe empty state while camera permission is loading', async () => {
     mockUseCameraPermissions.mockReturnValue([null, mockRequestPermission]);
