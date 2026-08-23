@@ -419,7 +419,10 @@ export function SettingsScreen() {
               <Field
                 accessibilityLabel={t('email')}
                 value={bringEmail ?? credentials?.email ?? ''}
-                onChangeText={setBringEmail}
+                onChangeText={(value) => {
+                  setBringEmail(value);
+                  setError('');
+                }}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
@@ -430,7 +433,10 @@ export function SettingsScreen() {
               <Field
                 accessibilityLabel={t('password')}
                 value={bringPassword ?? credentials?.password ?? ''}
-                onChangeText={setBringPassword}
+                onChangeText={(value) => {
+                  setBringPassword(value);
+                  setError('');
+                }}
                 secureTextEntry
                 textContentType="password"
                 placeholder={t('password')}
@@ -473,7 +479,10 @@ export function SettingsScreen() {
               <Field
                 accessibilityLabel={t('mealieServerUrl')}
                 value={mealieBaseUrl}
-                onChangeText={setMealieBaseUrl}
+                onChangeText={(value) => {
+                  setMealieBaseUrl(value);
+                  setError('');
+                }}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
@@ -483,7 +492,10 @@ export function SettingsScreen() {
               <Field
                 accessibilityLabel={t('mealieApiToken')}
                 value={mealieToken}
-                onChangeText={setMealieToken}
+                onChangeText={(value) => {
+                  setMealieToken(value);
+                  setError('');
+                }}
                 autoCapitalize="none"
                 autoCorrect={false}
                 secureTextEntry
