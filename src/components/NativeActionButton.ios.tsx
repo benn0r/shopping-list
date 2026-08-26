@@ -39,7 +39,7 @@ export function NativeActionButton({
           role={destructive ? 'destructive' : 'default'}
           onPress={onPress}
           modifiers={[
-            buttonStyle(destructive ? 'glass' : 'glassProminent'),
+            buttonStyle('plain'),
             controlSize('large'),
             tint(destructive ? '#FF3B30' : '#237F78'),
             disabledModifier(isDisabled),

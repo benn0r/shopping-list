@@ -239,7 +239,7 @@ describe('scanner setup and selection', () => {
       position: 'absolute',
       left: 16,
       right: 16,
-      bottom: 12,
+      bottom: 70,
     });
     expect(screen.getByTestId('item-composer')).not.toHaveStyle({ position: 'absolute' });
 

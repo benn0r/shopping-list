@@ -423,7 +423,12 @@ export function ScannerScreen() {
         </View>
         <View
           pointerEvents="box-none"
-          style={[styles.composerAvoider, { bottom: 12 + keyboardInset }]}
+          style={[
+            styles.composerAvoider,
+            {
+              bottom: 12 + keyboardInset + (Platform.OS === 'ios' && keyboardInset === 0 ? 58 : 0),
+            },
+          ]}
           testID="keyboard-avoiding-composer"
         >
           <GlassSurface
