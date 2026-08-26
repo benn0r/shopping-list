@@ -56,7 +56,7 @@ const FRAME_SIDE = 28;
 const FRAME_TOP = 154;
 const FRAME_HEIGHT = 122;
 const SYNC_REFRESH_MS = 30_000;
-const NATIVE_TAB_BAR_CLEARANCE = 64;
+const NATIVE_TAB_BAR_CLEARANCE = 112;
 
 export function getComposerKeyboardInset(keyboardHeight: number) {
   return Math.max(0, keyboardHeight);

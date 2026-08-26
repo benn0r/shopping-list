@@ -3,6 +3,7 @@ import {
   buttonStyle,
   controlSize,
   disabled as disabledModifier,
+  foregroundStyle,
   frame,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
@@ -32,11 +33,7 @@ export function NativeActionButton({
     );
   }
   return (
-    <Host
-      matchContents={{ vertical: true, horizontal: false }}
-      style={{ width: '100%', minHeight: 50 }}
-      seedColor={color}
-    >
+    <Host style={{ width: '100%', height: 50 }} seedColor={color}>
       {loading ? (
         <ProgressView modifiers={[frame({ maxWidth: Infinity, minHeight: 44 })]} />
       ) : (
@@ -48,8 +45,9 @@ export function NativeActionButton({
             buttonStyle('plain'),
             controlSize('large'),
             tint(color),
+            foregroundStyle(color),
             disabledModifier(isDisabled),
-            frame({ maxWidth: Infinity, minHeight: 44 }),
+            frame({ maxWidth: Infinity, minHeight: 50, maxHeight: 50 }),
           ]}
         />
       )}
