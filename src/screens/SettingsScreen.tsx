@@ -24,6 +24,7 @@ import {
 } from '../components/ui';
 import { NativeSheet } from '../components/NativeSheet';
 import { NativeLink } from '../components/NativeLink';
+import { NativeSettingsView } from './NativeSettingsView';
 import {
   DEFAULT_LOOKUP_PREFERENCES,
   createShoppingList,
@@ -379,6 +380,134 @@ export function SettingsScreen() {
       ? shoppingLists.find((list) => list.id === listEditorId) || null
       : null;
   const editedStore = stores.find((store) => store.id === storeEditorId) || null;
+
+  if (Platform.OS === 'ios' && !process.env.JEST_WORKER_ID) {
+    return (
+      <NativeSettingsView
+        t={t}
+        appLanguage={appLanguage}
+        bringSyncEnabled={bringSyncEnabled}
+        bringEmail={bringEmail ?? credentials?.email ?? ''}
+        bringPassword={bringPassword ?? credentials?.password ?? ''}
+        bringConnected={Boolean(credentials)}
+        bringBusy={bringBusy}
+        mealieEnabled={mealieEnabled}
+        mealieBaseUrl={mealieBaseUrl}
+        mealieToken={mealieToken}
+        mealieConfigured={mealieConfigured}
+        listViewMode={listViewMode}
+        shoppingLists={shoppingLists}
+        stores={stores}
+        preferences={preferences}
+        custom={custom}
+        error={error}
+        listEditorId={listEditorId}
+        listEditorName={listEditorName}
+        listEditorProvider={listEditorProvider}
+        listEditorRemoteId={listEditorRemoteId}
+        storeEditorId={storeEditorId}
+        storeEditorName={storeEditorName}
+        customBarcodesVisible={customBarcodesVisible}
+        barcode={barcode}
+        barcodeLabel={label}
+        bringLists={lists.map((list) => ({ id: list.listUuid, name: list.name }))}
+        mealieLists={mealieLists}
+        appLanguages={APP_LANGUAGES}
+        productLanguages={LANGUAGES.map((option) => ({
+          value: option.value,
+          name: t(
+            (
+              {
+                auto: 'automatic',
+                de: 'german',
+                en: 'english',
+                fr: 'french',
+                it: 'italian',
+              } as const
+            )[option.value],
+          ),
+        }))}
+        labelStyles={LABEL_STYLES.map((option) => {
+          const keys = (
+            {
+              generic: ['generic', 'genericExample'],
+              exact: ['exactProduct', 'exactDetail'],
+              ask: ['askEveryTime', 'askDetail'],
+            } as const
+          )[option.value];
+          return { value: option.value, name: t(keys[0]), detail: t(keys[1]) };
+        })}
+        databases={PRODUCT_DATABASES}
+        onBringEnabledChange={(value) => void setBringSyncEnabled(value)}
+        onBringEmailChange={(value) => {
+          setBringEmail(value);
+          setError('');
+        }}
+        onBringPasswordChange={(value) => {
+          setBringPassword(value);
+          setError('');
+        }}
+        onConnectBring={() => void connectBring()}
+        onDisconnectBring={() => void disconnectBring()}
+        onMealieEnabledChange={(value) => void toggleMealie(value)}
+        onMealieBaseUrlChange={(value) => {
+          setMealieBaseUrl(value);
+          setError('');
+        }}
+        onMealieTokenChange={(value) => {
+          setMealieToken(value);
+          setError('');
+        }}
+        onConnectMealie={() => void connectMealie()}
+        onDisconnectMealie={() => void disconnectMealie()}
+        onListViewModeChange={(value) => {
+          setListViewMode(value);
+          void saveListViewMode(value);
+        }}
+        onAppLanguageChange={(value) => {
+          const option = APP_LANGUAGES.find((candidate) => candidate.value === value);
+          void setAppLanguage(value).then(() =>
+            setSuccess(translate(value, 'languageSaved', { language: option?.name || value })),
+          );
+        }}
+        onProductLanguageChange={(value) =>
+          void updatePreferences({ language: value }, t('languageSet', { language: value }))
+        }
+        onLabelStyleChange={(value) =>
+          void updatePreferences({ labelStyle: value }, t('labelSet', { style: value }))
+        }
+        onOpenList={(list) => {
+          setListEditorId(list?.id || 'new');
+          setListEditorName(list?.name || '');
+          setListEditorRemoteId(list?.syncTarget?.remoteListId || null);
+          setListEditorProvider(list?.syncTarget?.provider || null);
+          setError('');
+        }}
+        onListEditorNameChange={setListEditorName}
+        onListEditorSyncChange={(provider, remoteId) => {
+          setListEditorProvider(provider);
+          setListEditorRemoteId(remoteId);
+        }}
+        onSaveList={() => void (editedList ? renameLocalList(editedList) : createLocalList())}
+        onDeleteList={() => editedList && confirmDeleteList(editedList)}
+        onCloseList={() => setListEditorId(null)}
+        onOpenStore={(store) => {
+          setStoreEditorId(store?.id || 'new');
+          setStoreEditorName(store?.name || '');
+        }}
+        onStoreEditorNameChange={setStoreEditorName}
+        onSaveStore={() => void saveStore()}
+        onDeleteStore={() => editedStore && confirmDeleteStore(editedStore)}
+        onCloseStore={() => setStoreEditorId(null)}
+        onOpenCustomBarcodes={openCustomBarcodes}
+        onCloseCustomBarcodes={closeCustomBarcodes}
+        onBarcodeChange={setBarcode}
+        onBarcodeLabelChange={setLabel}
+        onAddCustomBarcode={() => void addCustom()}
+        onDeleteCustomBarcode={removeCustom}
+      />
+    );
+  }
 
   return (
     <SafeAreaView edges={['top']} style={ui.safe}>

@@ -40,6 +40,8 @@ export function AppTabs({ dark }: { dark: boolean }) {
         options={{
           tabBarLabel: t('settings'),
           tabBarIcon: { type: 'sfSymbol', name: 'gearshape.fill' },
+          headerShown: true,
+          title: t('settings'),
         }}
       />
     </Tab.Navigator>
