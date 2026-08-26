@@ -2,7 +2,6 @@ import { PropsWithChildren, useCallback, useMemo, useState } from 'react';
 import {
   Animated,
   LayoutAnimation,
-  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -18,15 +17,14 @@ import {
   ActionButton,
   ChevronIcon,
   colors,
-  GlassSurface,
   LargeTitle,
   ListRow,
   Notice,
   Section,
   Separator,
-  sheetModal,
   ui,
 } from '../components/ui';
+import { NativeSheet } from '../components/NativeSheet';
 import { useI18n } from '../i18n';
 import {
   completeShoppingSession,
@@ -402,49 +400,44 @@ export function ShoppingScreen() {
         }}
         t={t}
       />
-      <Modal
+      <NativeSheet
         visible={Boolean(details)}
-        animationType="slide"
-        transparent
-        presentationStyle="overFullScreen"
-        onRequestClose={() => setDetails(null)}
+        onDismiss={() => setDetails(null)}
+        fraction={0.72}
         testID="shopping-detail-modal"
+        style={styles.detailSheet}
       >
-        <View style={sheetModal.backdrop}>
-          <GlassSurface style={[sheetModal.sheet, styles.detailSheet]}>
-            <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
-              <SheetHeader
-                title={details?.storeName || ''}
-                onClose={() => setDetails(null)}
-                closeLabel={t('done')}
-              />
-              <ScrollView contentContainerStyle={styles.detailContent}>
-                {details ? (
-                  <Text style={styles.detailMeta}>
-                    {shoppingSessionListNames(details).join(', ')} ·{' '}
-                    {formatDate(details.completedAt || details.startedAt)}
-                  </Text>
-                ) : null}
-                <Section title={t('purchasedItems')}>
-                  {details?.purchasedItems.length ? (
-                    details.purchasedItems.map((item, index) => (
-                      <View key={`${item.barcode}-${item.purchasedAt}`}>
-                        {index ? <Separator /> : null}
-                        <ListRow
-                          title={item.label}
-                          detail={`${item.quantity !== undefined ? `${item.quantity}${item.unit ? ` ${item.unit}` : '×'} · ` : ''}${formatDate(item.purchasedAt)}`}
-                        />
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={styles.empty}>{t('noPurchasedItems')}</Text>
-                  )}
-                </Section>
-              </ScrollView>
-            </SafeAreaView>
-          </GlassSurface>
-        </View>
-      </Modal>
+        <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
+          <SheetHeader
+            title={details?.storeName || ''}
+            onClose={() => setDetails(null)}
+            closeLabel={t('done')}
+          />
+          <ScrollView contentContainerStyle={styles.detailContent}>
+            {details ? (
+              <Text style={styles.detailMeta}>
+                {shoppingSessionListNames(details).join(', ')} ·{' '}
+                {formatDate(details.completedAt || details.startedAt)}
+              </Text>
+            ) : null}
+            <Section title={t('purchasedItems')}>
+              {details?.purchasedItems.length ? (
+                details.purchasedItems.map((item, index) => (
+                  <View key={`${item.barcode}-${item.purchasedAt}`}>
+                    {index ? <Separator /> : null}
+                    <ListRow
+                      title={item.label}
+                      detail={`${item.quantity !== undefined ? `${item.quantity}${item.unit ? ` ${item.unit}` : '×'} · ` : ''}${formatDate(item.purchasedAt)}`}
+                    />
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.empty}>{t('noPurchasedItems')}</Text>
+              )}
+            </Section>
+          </ScrollView>
+        </SafeAreaView>
+      </NativeSheet>
     </SafeAreaView>
   );
 }
@@ -569,41 +562,36 @@ function PickerSheet({
 }) {
   const options = kind === 'store' ? stores : lists;
   return (
-    <Modal
+    <NativeSheet
       visible={Boolean(kind)}
-      animationType="slide"
-      transparent
-      presentationStyle="overFullScreen"
-      onRequestClose={onClose}
+      onDismiss={onClose}
+      fraction={0.52}
       testID="shopping-picker-modal"
+      style={styles.pickerSheet}
     >
-      <View style={sheetModal.backdrop}>
-        <GlassSurface style={[sheetModal.sheet, styles.pickerSheet]}>
-          <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
-            <SheetHeader
-              title={t(kind === 'store' ? 'chooseStore' : 'chooseList')}
-              onClose={onClose}
-              closeLabel={t(kind === 'list' ? 'done' : 'cancel')}
-            />
-            <ScrollView contentContainerStyle={styles.detailContent}>
-              <Section>
-                {options.map((option, index) => (
-                  <View key={option.id}>
-                    {index ? <Separator /> : null}
-                    <ListRow
-                      title={option.name}
-                      selected={selectedIds.includes(option.id)}
-                      onPress={() => onSelect(option.id)}
-                      testID={`shopping-option-${option.id}`}
-                    />
-                  </View>
-                ))}
-              </Section>
-            </ScrollView>
-          </SafeAreaView>
-        </GlassSurface>
-      </View>
-    </Modal>
+      <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
+        <SheetHeader
+          title={t(kind === 'store' ? 'chooseStore' : 'chooseList')}
+          onClose={onClose}
+          closeLabel={t(kind === 'list' ? 'done' : 'cancel')}
+        />
+        <ScrollView contentContainerStyle={styles.detailContent}>
+          <Section>
+            {options.map((option, index) => (
+              <View key={option.id}>
+                {index ? <Separator /> : null}
+                <ListRow
+                  title={option.name}
+                  selected={selectedIds.includes(option.id)}
+                  onPress={() => onSelect(option.id)}
+                  testID={`shopping-option-${option.id}`}
+                />
+              </View>
+            ))}
+          </Section>
+        </ScrollView>
+      </SafeAreaView>
+    </NativeSheet>
   );
 }
 

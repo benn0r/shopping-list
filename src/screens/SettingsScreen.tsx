@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Linking,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -16,15 +15,15 @@ import {
   ActionButton,
   colors,
   Field,
-  GlassSurface,
   LargeTitle,
   ListRow,
   Notice,
   Section,
   Separator,
-  sheetModal,
   ui,
 } from '../components/ui';
+import { NativeSheet } from '../components/NativeSheet';
+import { NativeLink } from '../components/NativeLink';
 import {
   DEFAULT_LOOKUP_PREFERENCES,
   createShoppingList,
@@ -699,293 +698,266 @@ export function SettingsScreen() {
                 <ListRow
                   title={database.name}
                   detail={description}
-                  onPress={() => Linking.openURL(database.url)}
-                  trailing={<Text style={styles.open}>{t('open')}</Text>}
+                  onPress={() => void Linking.openURL(database.url)}
+                  trailing={<NativeLink label={t('open')} destination={database.url} />}
                 />
               </View>
             );
           })}
         </Section>
         <Text style={styles.disclaimer}>{t('disclaimer')}</Text>
-        <Text
-          accessibilityRole="link"
-          onPress={() => void Linking.openURL('https://foodiconpack.com/license')}
-          style={styles.iconCredit}
-        >
-          {t('iconCredit')}
-        </Text>
+        <View style={styles.iconCredit}>
+          <NativeLink label={t('iconCredit')} destination="https://foodiconpack.com/license" />
+        </View>
       </ScrollView>
-      <Modal
+      <NativeSheet
         visible={Boolean(listEditorId)}
-        animationType="slide"
-        presentationStyle="overFullScreen"
-        transparent
-        onRequestClose={() => setListEditorId(null)}
+        onDismiss={() => setListEditorId(null)}
+        fraction={0.88}
         testID="list-editor-modal"
+        contentTestID="list-editor-sheet"
+        style={styles.listEditorSheet}
       >
-        <View style={sheetModal.backdrop}>
-          <GlassSurface
-            style={[sheetModal.sheet, styles.listEditorSheet]}
-            testID="list-editor-sheet"
+        <View style={styles.modalHeader}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('cancel')}
+            onPress={() => setListEditorId(null)}
+            style={styles.modalButtonLeft}
           >
-            <View style={styles.modalHeader}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('cancel')}
-                onPress={() => setListEditorId(null)}
-                style={styles.modalButtonLeft}
-              >
-                <Text style={styles.done}>{t('cancel')}</Text>
-              </Pressable>
-              <Text accessibilityRole="header" style={styles.modalTitle}>
-                {t(editedList ? 'editList' : 'addList')}
-              </Text>
-              <View style={styles.modalButtonSpacer} />
-            </View>
-            <ScrollView
-              style={styles.editorScroll}
-              contentContainerStyle={styles.listEditorContent}
-              keyboardShouldPersistTaps="handled"
-              automaticallyAdjustKeyboardInsets
-            >
-              <Section>
-                <Field
-                  label={t('listName')}
-                  accessibilityLabel={t('listName')}
-                  value={listEditorName}
-                  onChangeText={setListEditorName}
-                  onSubmitEditing={() =>
-                    void (editedList ? renameLocalList(editedList) : createLocalList())
-                  }
-                  autoFocus
-                  returnKeyType="done"
-                />
-              </Section>
-              <Section title={t('syncWith')}>
-                <ListRow
-                  title={t('notSynced')}
-                  selected={!listEditorProvider}
-                  onPress={() => {
-                    setListEditorProvider(null);
-                    setListEditorRemoteId(null);
-                  }}
-                  testID="list-editor-sync-none"
-                />
-                {bringSyncEnabled && credentials
-                  ? lists.map((list) => (
-                      <View key={list.listUuid}>
-                        <Separator />
-                        <ListRow
-                          title={list.name}
-                          detail={t('bringProvider')}
-                          selected={
-                            listEditorProvider === 'bring' && listEditorRemoteId === list.listUuid
-                          }
-                          onPress={() => {
-                            setListEditorProvider('bring');
-                            setListEditorRemoteId(list.listUuid);
-                          }}
-                          testID={`list-editor-sync-${list.listUuid}`}
-                        />
-                      </View>
-                    ))
-                  : null}
-                {mealieEnabled
-                  ? mealieLists.map((list) => (
-                      <View key={`mealie-${list.id}`}>
-                        <Separator />
-                        <ListRow
-                          title={list.name}
-                          detail={t('mealieProvider')}
-                          selected={
-                            listEditorProvider === 'mealie' && listEditorRemoteId === list.id
-                          }
-                          onPress={() => {
-                            setListEditorProvider('mealie');
-                            setListEditorRemoteId(list.id);
-                          }}
-                          testID={`list-editor-sync-mealie-${list.id}`}
-                        />
-                      </View>
-                    ))
-                  : null}
-              </Section>
-              <Section>
-                <ActionButton
-                  title={editedList ? t('save') : t('createList')}
-                  disabled={
-                    !listEditorName.trim() ||
-                    (listEditorName.trim() === editedList?.name &&
-                      listEditorRemoteId === (editedList?.syncTarget?.remoteListId || null) &&
-                      listEditorProvider === (editedList?.syncTarget?.provider || null))
-                  }
-                  onPress={() =>
-                    void (editedList ? renameLocalList(editedList) : createLocalList())
-                  }
-                />
-                {editedList ? (
-                  <>
-                    <Separator />
-                    <ActionButton
-                      title={t('deleteList')}
-                      onPress={() => confirmDeleteList(editedList)}
-                      destructive
-                    />
-                  </>
-                ) : null}
-              </Section>
-            </ScrollView>
-          </GlassSurface>
+            <Text style={styles.done}>{t('cancel')}</Text>
+          </Pressable>
+          <Text accessibilityRole="header" style={styles.modalTitle}>
+            {t(editedList ? 'editList' : 'addList')}
+          </Text>
+          <View style={styles.modalButtonSpacer} />
         </View>
-      </Modal>
-      <Modal
+        <ScrollView
+          style={styles.editorScroll}
+          contentContainerStyle={styles.listEditorContent}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+        >
+          <Section>
+            <Field
+              label={t('listName')}
+              accessibilityLabel={t('listName')}
+              value={listEditorName}
+              onChangeText={setListEditorName}
+              onSubmitEditing={() =>
+                void (editedList ? renameLocalList(editedList) : createLocalList())
+              }
+              autoFocus
+              returnKeyType="done"
+            />
+          </Section>
+          <Section title={t('syncWith')}>
+            <ListRow
+              title={t('notSynced')}
+              selected={!listEditorProvider}
+              onPress={() => {
+                setListEditorProvider(null);
+                setListEditorRemoteId(null);
+              }}
+              testID="list-editor-sync-none"
+            />
+            {bringSyncEnabled && credentials
+              ? lists.map((list) => (
+                  <View key={list.listUuid}>
+                    <Separator />
+                    <ListRow
+                      title={list.name}
+                      detail={t('bringProvider')}
+                      selected={
+                        listEditorProvider === 'bring' && listEditorRemoteId === list.listUuid
+                      }
+                      onPress={() => {
+                        setListEditorProvider('bring');
+                        setListEditorRemoteId(list.listUuid);
+                      }}
+                      testID={`list-editor-sync-${list.listUuid}`}
+                    />
+                  </View>
+                ))
+              : null}
+            {mealieEnabled
+              ? mealieLists.map((list) => (
+                  <View key={`mealie-${list.id}`}>
+                    <Separator />
+                    <ListRow
+                      title={list.name}
+                      detail={t('mealieProvider')}
+                      selected={listEditorProvider === 'mealie' && listEditorRemoteId === list.id}
+                      onPress={() => {
+                        setListEditorProvider('mealie');
+                        setListEditorRemoteId(list.id);
+                      }}
+                      testID={`list-editor-sync-mealie-${list.id}`}
+                    />
+                  </View>
+                ))
+              : null}
+          </Section>
+          <Section>
+            <ActionButton
+              title={editedList ? t('save') : t('createList')}
+              disabled={
+                !listEditorName.trim() ||
+                (listEditorName.trim() === editedList?.name &&
+                  listEditorRemoteId === (editedList?.syncTarget?.remoteListId || null) &&
+                  listEditorProvider === (editedList?.syncTarget?.provider || null))
+              }
+              onPress={() => void (editedList ? renameLocalList(editedList) : createLocalList())}
+            />
+            {editedList ? (
+              <>
+                <Separator />
+                <ActionButton
+                  title={t('deleteList')}
+                  onPress={() => confirmDeleteList(editedList)}
+                  destructive
+                />
+              </>
+            ) : null}
+          </Section>
+        </ScrollView>
+      </NativeSheet>
+      <NativeSheet
         visible={Boolean(storeEditorId)}
-        animationType="slide"
-        presentationStyle="overFullScreen"
-        transparent
-        onRequestClose={() => setStoreEditorId(null)}
+        onDismiss={() => setStoreEditorId(null)}
+        fraction={0.72}
         testID="store-editor-modal"
+        contentTestID="store-editor-sheet"
+        style={styles.storeEditorSheet}
       >
-        <View style={sheetModal.backdrop}>
-          <GlassSurface
-            style={[sheetModal.sheet, styles.storeEditorSheet]}
-            testID="store-editor-sheet"
+        <View style={styles.modalHeader}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('cancel')}
+            onPress={() => setStoreEditorId(null)}
+            style={styles.modalButtonLeft}
           >
-            <View style={styles.modalHeader}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('cancel')}
-                onPress={() => setStoreEditorId(null)}
-                style={styles.modalButtonLeft}
-              >
-                <Text style={styles.done}>{t('cancel')}</Text>
-              </Pressable>
-              <Text accessibilityRole="header" style={styles.modalTitle}>
-                {t(editedStore ? 'editStore' : 'addStore')}
-              </Text>
-              <View style={styles.modalButtonSpacer} />
-            </View>
-            <ScrollView
-              style={styles.editorScroll}
-              contentContainerStyle={styles.listEditorContent}
-              keyboardShouldPersistTaps="handled"
-              automaticallyAdjustKeyboardInsets
-            >
-              <Section>
-                <Field
-                  label={t('storeName')}
-                  accessibilityLabel={t('storeName')}
-                  value={storeEditorName}
-                  onChangeText={setStoreEditorName}
-                  onSubmitEditing={() => void saveStore()}
-                  autoFocus
-                  returnKeyType="done"
-                />
-              </Section>
-              <Section>
+            <Text style={styles.done}>{t('cancel')}</Text>
+          </Pressable>
+          <Text accessibilityRole="header" style={styles.modalTitle}>
+            {t(editedStore ? 'editStore' : 'addStore')}
+          </Text>
+          <View style={styles.modalButtonSpacer} />
+        </View>
+        <ScrollView
+          style={styles.editorScroll}
+          contentContainerStyle={styles.listEditorContent}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+        >
+          <Section>
+            <Field
+              label={t('storeName')}
+              accessibilityLabel={t('storeName')}
+              value={storeEditorName}
+              onChangeText={setStoreEditorName}
+              onSubmitEditing={() => void saveStore()}
+              autoFocus
+              returnKeyType="done"
+            />
+          </Section>
+          <Section>
+            <ActionButton
+              title={editedStore ? t('save') : t('createStore')}
+              disabled={!storeEditorName.trim() || storeEditorName.trim() === editedStore?.name}
+              onPress={() => void saveStore()}
+            />
+            {editedStore ? (
+              <>
+                <Separator />
                 <ActionButton
-                  title={editedStore ? t('save') : t('createStore')}
-                  disabled={!storeEditorName.trim() || storeEditorName.trim() === editedStore?.name}
-                  onPress={() => void saveStore()}
+                  title={t('deleteStore')}
+                  destructive
+                  onPress={() => confirmDeleteStore(editedStore)}
                 />
-                {editedStore ? (
-                  <>
-                    <Separator />
-                    <ActionButton
-                      title={t('deleteStore')}
-                      destructive
-                      onPress={() => confirmDeleteStore(editedStore)}
-                    />
-                  </>
-                ) : null}
-              </Section>
-            </ScrollView>
-          </GlassSurface>
-        </View>
-      </Modal>
-      <Modal
+              </>
+            ) : null}
+          </Section>
+        </ScrollView>
+      </NativeSheet>
+      <NativeSheet
         visible={customBarcodesVisible}
-        animationType="slide"
-        presentationStyle="overFullScreen"
-        transparent
-        onRequestClose={closeCustomBarcodes}
+        onDismiss={closeCustomBarcodes}
         testID="custom-barcodes-modal"
+        contentTestID="custom-barcodes-sheet"
+        style={styles.modalSafe}
       >
-        <View style={sheetModal.backdrop}>
-          <GlassSurface style={[styles.modalSafe, sheetModal.sheet]} testID="custom-barcodes-sheet">
-            <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
-              <View style={styles.modalHeader}>
-                <View style={styles.modalButtonSpacer} />
-                <Text accessibilityRole="header" style={styles.modalTitle}>
-                  {t('customBarcodes')}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('done')}
-                  hitSlop={8}
-                  onPress={closeCustomBarcodes}
-                  style={styles.modalButton}
-                >
-                  <Text style={styles.done}>{t('done')}</Text>
-                </Pressable>
-              </View>
-              <ScrollView
-                style={styles.editorScroll}
-                contentContainerStyle={styles.modalContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                <Section title={t('addCustomBarcode')} footer={t('customFooter')}>
-                  <Field
-                    label={t('barcode')}
-                    value={barcode}
-                    onChangeText={setBarcode}
-                    keyboardType="number-pad"
-                    placeholder="7612345678901"
-                  />
-                  <Separator />
-                  <Field
-                    label={t('itemLabel')}
-                    value={label}
-                    onChangeText={setLabel}
-                    placeholder={t('productName')}
-                  />
-                  <Separator />
-                  <ActionButton title={t('saveCustom')} onPress={addCustom} />
-                </Section>
-                {custom.length > 0 && (
-                  <Section title={t('savedBarcodes')}>
-                    {custom.map((item, index) => (
-                      <View key={item.barcode}>
-                        {index > 0 ? <Separator /> : null}
-                        <ListRow
-                          title={item.label}
-                          detail={item.barcode}
-                          trailing={
-                            <Pressable
-                              accessibilityRole="button"
-                              hitSlop={10}
-                              onPress={() => removeCustom(item.barcode)}
-                              testID={`delete-custom-${item.barcode}`}
-                            >
-                              <Text style={styles.delete}>{t('delete')}</Text>
-                            </Pressable>
-                          }
-                        />
-                      </View>
-                    ))}
-                  </Section>
-                )}
-              </ScrollView>
-              {error && (
-                <View pointerEvents="none" style={styles.modalStatus} testID="custom-status">
-                  <Notice>{error}</Notice>
-                </View>
-              )}
-            </SafeAreaView>
-          </GlassSurface>
-        </View>
-      </Modal>
+        <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalButtonSpacer} />
+            <Text accessibilityRole="header" style={styles.modalTitle}>
+              {t('customBarcodes')}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('done')}
+              hitSlop={8}
+              onPress={closeCustomBarcodes}
+              style={styles.modalButton}
+            >
+              <Text style={styles.done}>{t('done')}</Text>
+            </Pressable>
+          </View>
+          <ScrollView
+            style={styles.editorScroll}
+            contentContainerStyle={styles.modalContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Section title={t('addCustomBarcode')} footer={t('customFooter')}>
+              <Field
+                label={t('barcode')}
+                value={barcode}
+                onChangeText={setBarcode}
+                keyboardType="number-pad"
+                placeholder="7612345678901"
+              />
+              <Separator />
+              <Field
+                label={t('itemLabel')}
+                value={label}
+                onChangeText={setLabel}
+                placeholder={t('productName')}
+              />
+              <Separator />
+              <ActionButton title={t('saveCustom')} onPress={addCustom} />
+            </Section>
+            {custom.length > 0 && (
+              <Section title={t('savedBarcodes')}>
+                {custom.map((item, index) => (
+                  <View key={item.barcode}>
+                    {index > 0 ? <Separator /> : null}
+                    <ListRow
+                      title={item.label}
+                      detail={item.barcode}
+                      trailing={
+                        <Pressable
+                          accessibilityRole="button"
+                          hitSlop={10}
+                          onPress={() => removeCustom(item.barcode)}
+                          testID={`delete-custom-${item.barcode}`}
+                        >
+                          <Text style={styles.delete}>{t('delete')}</Text>
+                        </Pressable>
+                      }
+                    />
+                  </View>
+                ))}
+              </Section>
+            )}
+          </ScrollView>
+          {error && (
+            <View pointerEvents="none" style={styles.modalStatus} testID="custom-status">
+              <Notice>{error}</Notice>
+            </View>
+          )}
+        </SafeAreaView>
+      </NativeSheet>
     </SafeAreaView>
   );
 }

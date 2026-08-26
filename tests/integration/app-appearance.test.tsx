@@ -54,6 +54,35 @@ jest.mock('@react-navigation/bottom-tabs', () => {
   };
 });
 
+jest.mock('@react-navigation/bottom-tabs/unstable', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    createNativeBottomTabNavigator: () => ({
+      Navigator: ({
+        children,
+        screenOptions,
+      }: {
+        children: React.ReactNode;
+        screenOptions: object;
+      }) => {
+        const props: import('react-native').ViewProps & { screenOptions: object } = {
+          testID: 'tab-navigator',
+          screenOptions,
+        };
+        return React.createElement(View, props, children);
+      },
+      Screen: ({ name, options }: { name: string; options: object }) => {
+        const props: import('react-native').ViewProps & { options: object } = {
+          testID: `screen-${name}`,
+          options,
+        };
+        return React.createElement(View, props);
+      },
+    }),
+  };
+});
+
 jest.mock('expo-status-bar', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const { View } = jest.requireActual<typeof import('react-native')>('react-native');
@@ -131,39 +160,21 @@ describe('application appearance wiring', () => {
       const options = screen.getByTestId('tab-navigator').props.screenOptions;
       expect(options.tabBarActiveTintColor).toBe(expected.active);
       expect(options.tabBarInactiveTintColor).toBe(expected.inactive);
-      expect(options.tabBarStyle).toMatchObject({ height: 84, paddingBottom: 34 });
+      expect(options.tabBarControllerMode).toBe('tabBar');
+      expect(options.tabBarMinimizeBehavior).toBe('onScrollDown');
       expect(screen.getByTestId('status-bar').props.statusBarStyle).toBe('auto');
-      expect(screen.getByTestId('screen-Scan').props.options.tabBarButtonTestID).toBe('tab-scan');
-      expect(screen.getByTestId('screen-Shopping').props.options.tabBarButtonTestID).toBe(
-        'tab-shopping',
-      );
-      expect(screen.getByTestId('screen-Settings').props.options.tabBarButtonTestID).toBe(
-        'tab-settings',
-      );
-
-      const scanIcon = await render(
-        screen.getByTestId('screen-Scan').props.options.tabBarIcon({ color: expected.active }),
-      );
-      expect(scanIcon.getByTestId('shopping-list-tab-icon')).toHaveProp(
-        'tintColor',
-        expected.active,
-      );
-      const shoppingIcon = await render(
-        screen.getByTestId('screen-Shopping').props.options.tabBarIcon({ color: expected.active }),
-      );
-      expect(shoppingIcon.getByTestId('shopping-cart-tab-icon')).toHaveProp(
-        'tintColor',
-        expected.active,
-      );
-      const settingsIcon = await render(
-        screen.getByTestId('screen-Settings').props.options.tabBarIcon({
-          color: expected.inactive,
-        }),
-      );
-      expect(settingsIcon.getByTestId('settings-tab-icon')).toHaveProp(
-        'tintColor',
-        expected.inactive,
-      );
+      expect(screen.getByTestId('screen-Scan').props.options.tabBarIcon).toEqual({
+        type: 'sfSymbol',
+        name: 'checklist',
+      });
+      expect(screen.getByTestId('screen-Shopping').props.options.tabBarIcon).toEqual({
+        type: 'sfSymbol',
+        name: 'cart.fill',
+      });
+      expect(screen.getByTestId('screen-Settings').props.options.tabBarIcon).toEqual({
+        type: 'sfSymbol',
+        name: 'gearshape.fill',
+      });
     },
   );
 });

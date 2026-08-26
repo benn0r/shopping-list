@@ -3,7 +3,6 @@ import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { SymbolView } from 'expo-symbols';
 import type { SFSymbol, SymbolViewProps } from 'expo-symbols';
 import {
-  ActivityIndicator,
   DynamicColorIOS,
   Platform,
   PlatformColor,
@@ -15,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import type { ColorValue } from 'react-native';
+import { NativeActionButton } from './NativeActionButton';
 
 const adaptive = (light: string, dark: string) =>
   Platform.OS === 'ios' ? DynamicColorIOS({ light, dark }) : light;
@@ -187,21 +187,14 @@ export function ActionButton({
   destructive?: boolean;
   loading?: boolean;
 }) {
-  const color = destructive ? colors.destructive : colors.tint;
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      disabled={disabled || loading}
+    <NativeActionButton
+      title={title}
       onPress={onPress}
-      style={({ pressed }) => [styles.action, (pressed || disabled) && styles.dim]}
-    >
-      {loading ? (
-        <ActivityIndicator color={color} />
-      ) : (
-        <Text style={[styles.actionText, { color }]}>{title}</Text>
-      )}
-    </Pressable>
+      disabled={disabled}
+      destructive={destructive}
+      loading={loading}
+    />
   );
 }
 export function ListRow({
@@ -323,9 +316,6 @@ const styles = StyleSheet.create({
   fieldLabel: { color: colors.label, fontSize: 17, width: 112 },
   input: { flex: 1, color: colors.label, fontSize: 17, paddingVertical: 11, textAlign: 'right' },
   placeholderInput: { textAlign: 'left' },
-  action: { minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  actionText: { fontSize: 17, fontWeight: '400' },
-  dim: { opacity: 0.42 },
   listRow: {
     minHeight: 50,
     flexDirection: 'row',

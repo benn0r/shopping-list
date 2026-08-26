@@ -569,7 +569,7 @@ describe('scan-to-list flow', () => {
 
     await fireEvent.press(await screen.findByTestId('active-list-title'));
     expect(screen.getByText('Choose List')).toBeTruthy();
-    expect(screen.getByTestId('list-picker-sheet')).toHaveProp('glassEffectStyle', 'regular');
+    expect(screen.getByTestId('list-picker-sheet')).toBeTruthy();
     expect(screen.getByTestId('local-list-radio-groceries')).toBeTruthy();
     expect(screen.getByTestId('local-list-radio-party')).toBeTruthy();
     expect(screen.queryByText('Create List')).toBeNull();

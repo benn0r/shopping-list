@@ -5,7 +5,6 @@ import {
   AppState,
   Image,
   Keyboard,
-  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -27,9 +26,9 @@ import {
   Notice,
   Section,
   Separator,
-  sheetModal,
   ui,
 } from '../components/ui';
+import { NativeSheet } from '../components/NativeSheet';
 import { groceryIconForLabel } from '../services/groceryIcons';
 import { lookupProduct } from '../services/productLookup';
 import {
@@ -459,102 +458,93 @@ export function ScannerScreen() {
           </GlassSurface>
         </View>
       </View>
-      <Modal
+      <NativeSheet
         visible={cameraOpen}
-        animationType="slide"
-        presentationStyle="overFullScreen"
-        transparent
-        onRequestClose={closeCamera}
+        onDismiss={closeCamera}
+        fraction={0.76}
         testID="scanner-drawer"
+        style={styles.drawer}
       >
-        <View style={sheetModal.backdrop}>
-          <GlassSurface style={styles.drawer}>
-            <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
-              <View style={styles.drawerHeader}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('cancel')}
-                  onPress={closeCamera}
-                  style={styles.drawerCancel}
-                >
-                  <Text style={styles.drawerCancelText}>{t('cancel')}</Text>
-                </Pressable>
-                <Text accessibilityRole="header" style={styles.drawerTitle}>
-                  {t('scanProduct')}
-                </Text>
-                <View style={styles.drawerSpacer} />
-              </View>
-              <View style={styles.drawerContent}>{cameraPanel}</View>
-              <Text style={styles.help}>{t('supportedCodes')}</Text>
-            </SafeAreaView>
-          </GlassSurface>
-        </View>
-      </Modal>
-      <Modal
+        <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
+          <View style={styles.drawerHeader}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('cancel')}
+              onPress={closeCamera}
+              style={styles.drawerCancel}
+            >
+              <Text style={styles.drawerCancelText}>{t('cancel')}</Text>
+            </Pressable>
+            <Text accessibilityRole="header" style={styles.drawerTitle}>
+              {t('scanProduct')}
+            </Text>
+            <View style={styles.drawerSpacer} />
+          </View>
+          <View style={styles.drawerContent}>{cameraPanel}</View>
+          <Text style={styles.help}>{t('supportedCodes')}</Text>
+        </SafeAreaView>
+      </NativeSheet>
+      <NativeSheet
         visible={listPickerOpen}
-        animationType="slide"
-        presentationStyle="overFullScreen"
-        transparent
-        onRequestClose={() => setListPickerOpen(false)}
+        onDismiss={() => setListPickerOpen(false)}
+        fraction={0.48}
         testID="list-picker-modal"
+        contentTestID="list-picker-sheet"
+        style={styles.compactSheet}
       >
-        <View style={sheetModal.backdrop}>
-          <GlassSurface style={[sheetModal.sheet, styles.compactSheet]} testID="list-picker-sheet">
-            <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
-              <View style={styles.drawerHeader}>
+        <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
+          <View style={styles.drawerHeader}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setListPickerOpen(false)}
+              style={styles.drawerCancel}
+            >
+              <Text style={styles.drawerCancelText}>{t('cancel')}</Text>
+            </Pressable>
+            <Text accessibilityRole="header" style={styles.drawerTitle}>
+              {t('chooseList')}
+            </Text>
+            <View style={styles.drawerSpacer} />
+          </View>
+          <ScrollView contentContainerStyle={styles.pickerContent}>
+            {lists.map((list) => {
+              const selected = list.id === activeList.id;
+              return (
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setListPickerOpen(false)}
-                  style={styles.drawerCancel}
+                  accessibilityState={{ selected }}
+                  testID={`local-list-${list.id}`}
+                  key={list.id}
+                  onPress={() => void switchList(list)}
+                  style={({ pressed }) => [
+                    styles.pickerRow,
+                    selected && styles.pickerRowSelected,
+                    pressed && styles.pickerRowPressed,
+                  ]}
                 >
-                  <Text style={styles.drawerCancelText}>{t('cancel')}</Text>
+                  <View style={[styles.pickerIcon, selected && styles.pickerIconSelected]}>
+                    <NativeIcon
+                      ios="list.bullet"
+                      android="list"
+                      size={22}
+                      color={selected ? '#FFFFFF' : colors.secondaryLabel}
+                    />
+                  </View>
+                  <Text style={styles.pickerTitle} numberOfLines={2}>
+                    {list.name}
+                  </Text>
+                  <View
+                    style={[styles.pickerRadio, selected && styles.pickerRadioSelected]}
+                    testID={`local-list-radio-${list.id}`}
+                  >
+                    {selected ? <View style={styles.pickerRadioDot} /> : null}
+                  </View>
                 </Pressable>
-                <Text accessibilityRole="header" style={styles.drawerTitle}>
-                  {t('chooseList')}
-                </Text>
-                <View style={styles.drawerSpacer} />
-              </View>
-              <ScrollView contentContainerStyle={styles.pickerContent}>
-                {lists.map((list) => {
-                  const selected = list.id === activeList.id;
-                  return (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      testID={`local-list-${list.id}`}
-                      key={list.id}
-                      onPress={() => void switchList(list)}
-                      style={({ pressed }) => [
-                        styles.pickerRow,
-                        selected && styles.pickerRowSelected,
-                        pressed && styles.pickerRowPressed,
-                      ]}
-                    >
-                      <View style={[styles.pickerIcon, selected && styles.pickerIconSelected]}>
-                        <NativeIcon
-                          ios="list.bullet"
-                          android="list"
-                          size={22}
-                          color={selected ? '#FFFFFF' : colors.secondaryLabel}
-                        />
-                      </View>
-                      <Text style={styles.pickerTitle} numberOfLines={2}>
-                        {list.name}
-                      </Text>
-                      <View
-                        style={[styles.pickerRadio, selected && styles.pickerRadioSelected]}
-                        testID={`local-list-radio-${list.id}`}
-                      >
-                        {selected ? <View style={styles.pickerRadioDot} /> : null}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </SafeAreaView>
-          </GlassSurface>
-        </View>
-      </Modal>
+              );
+            })}
+          </ScrollView>
+        </SafeAreaView>
+      </NativeSheet>
       <ItemDetailsSheet
         item={selectedItem}
         onClose={() => setSelectedItem(null)}
@@ -665,85 +655,78 @@ function ItemDetailsSheet({
       : groceryIconForLabel(item.label)
     : undefined;
   return (
-    <Modal
+    <NativeSheet
       visible={Boolean(item)}
-      animationType="slide"
-      presentationStyle="overFullScreen"
-      transparent
-      onRequestClose={onClose}
+      onDismiss={onClose}
+      fraction={0.78}
       testID="item-details-modal"
+      style={styles.detailSheet}
     >
-      <View style={sheetModal.backdrop}>
-        <GlassSurface style={[sheetModal.sheet, styles.detailSheet]}>
-          <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
-            <View style={styles.drawerHeader}>
-              <Pressable accessibilityRole="button" onPress={onClose} style={styles.drawerCancel}>
-                <Text style={styles.drawerCancelText}>{t('done')}</Text>
-              </Pressable>
-              <Text accessibilityRole="header" style={styles.drawerTitle}>
-                {t('itemDetails')}
-              </Text>
-              <View style={styles.drawerSpacer} />
-            </View>
-            {item ? (
-              <ScrollView contentContainerStyle={styles.detailContent}>
-                {imageSource ? (
-                  <Image source={imageSource} style={styles.detailImage} testID="detail-image" />
-                ) : null}
-                <Text style={styles.detailTitle}>{item.label}</Text>
-                {item.brand ? <Text style={styles.detailBrand}>{item.brand}</Text> : null}
-                <Section>
-                  {item.quantity !== undefined ? (
-                    <>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>{t('quantity')}</Text>
-                        <Text style={styles.detailValue}>
-                          {item.quantity}
-                          {item.unit ? ` ${item.unit}` : ''}
-                        </Text>
-                      </View>
-                      <Separator />
-                    </>
-                  ) : null}
-                  {!item.barcode.startsWith('manual:') ? (
-                    <>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>{t('barcode')}</Text>
-                        <Text style={styles.detailValue}>{item.barcode}</Text>
-                      </View>
-                      <Separator />
-                    </>
-                  ) : null}
+      <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
+        <View style={styles.drawerHeader}>
+          <Pressable accessibilityRole="button" onPress={onClose} style={styles.drawerCancel}>
+            <Text style={styles.drawerCancelText}>{t('done')}</Text>
+          </Pressable>
+          <Text accessibilityRole="header" style={styles.drawerTitle}>
+            {t('itemDetails')}
+          </Text>
+          <View style={styles.drawerSpacer} />
+        </View>
+        {item ? (
+          <ScrollView contentContainerStyle={styles.detailContent}>
+            {imageSource ? (
+              <Image source={imageSource} style={styles.detailImage} testID="detail-image" />
+            ) : null}
+            <Text style={styles.detailTitle}>{item.label}</Text>
+            {item.brand ? <Text style={styles.detailBrand}>{item.brand}</Text> : null}
+            <Section>
+              {item.quantity !== undefined ? (
+                <>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>{t('added')}</Text>
+                    <Text style={styles.detailLabel}>{t('quantity')}</Text>
                     <Text style={styles.detailValue}>
-                      {new Date(item.scannedAt).toLocaleString()}
+                      {item.quantity}
+                      {item.unit ? ` ${item.unit}` : ''}
                     </Text>
                   </View>
-                  {item.source ? (
-                    <>
-                      <Separator />
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>{t('source')}</Text>
-                        <Text style={styles.detailValue}>
-                          {sourceLabel(item.source, item.productType, t('customLabel'))}
-                        </Text>
-                      </View>
-                    </>
-                  ) : null}
-                </Section>
-                <Section title={t('stores')}>
-                  <Text style={styles.storeText}>
-                    {item.stores?.length ? item.stores.join(', ') : t('unknownStore')}
-                  </Text>
-                </Section>
-                <ActionButton title={t('removeFromList')} onPress={onRemove} destructive />
-              </ScrollView>
-            ) : null}
-          </SafeAreaView>
-        </GlassSurface>
-      </View>
-    </Modal>
+                  <Separator />
+                </>
+              ) : null}
+              {!item.barcode.startsWith('manual:') ? (
+                <>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>{t('barcode')}</Text>
+                    <Text style={styles.detailValue}>{item.barcode}</Text>
+                  </View>
+                  <Separator />
+                </>
+              ) : null}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>{t('added')}</Text>
+                <Text style={styles.detailValue}>{new Date(item.scannedAt).toLocaleString()}</Text>
+              </View>
+              {item.source ? (
+                <>
+                  <Separator />
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>{t('source')}</Text>
+                    <Text style={styles.detailValue}>
+                      {sourceLabel(item.source, item.productType, t('customLabel'))}
+                    </Text>
+                  </View>
+                </>
+              ) : null}
+            </Section>
+            <Section title={t('stores')}>
+              <Text style={styles.storeText}>
+                {item.stores?.length ? item.stores.join(', ') : t('unknownStore')}
+              </Text>
+            </Section>
+            <ActionButton title={t('removeFromList')} onPress={onRemove} destructive />
+          </ScrollView>
+        ) : null}
+      </SafeAreaView>
+    </NativeSheet>
   );
 }
 
@@ -768,154 +751,145 @@ export function ProductSheet({
   const [label, setLabel] = useState(product.label);
   const [quantity, setQuantity] = useState('');
   return (
-    <Modal
+    <NativeSheet
       visible
-      animationType="slide"
-      presentationStyle="overFullScreen"
-      transparent
-      onRequestClose={onClose}
+      onDismiss={onClose}
       testID="product-modal"
+      contentTestID="product-sheet"
+      style={styles.sheetSafe}
     >
-      <View style={sheetModal.backdrop}>
-        <GlassSurface
-          style={[styles.sheetSafe, sheetModal.sheet]}
-          testID="product-sheet"
-          tintColor="rgba(86,181,170,0.08)"
-        >
-          <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
-            <View style={styles.sheetBar}>
+      <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
+        <View style={styles.sheetBar}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onClose}
+            hitSlop={8}
+            style={productHeaderStyles.cancelButton}
+          >
+            <Text style={styles.cancel}>{t('cancel')}</Text>
+          </Pressable>
+          <Text style={styles.sheetTitle}>{t('addItem')}</Text>
+          <View style={productHeaderStyles.barSpacer} />
+        </View>
+        <ScrollView contentContainerStyle={styles.sheetContent}>
+          {product.imageUrl ? (
+            <Image
+              source={{ uri: product.imageUrl }}
+              style={styles.image}
+              resizeMode="contain"
+              testID="product-image"
+            />
+          ) : (
+            <View style={styles.productIcon}>
+              <NativeIcon
+                ios="barcode.viewfinder"
+                android="barcode_scanner"
+                size={54}
+                color={colors.tint}
+                testID="product-placeholder-icon"
+              />
+            </View>
+          )}
+          <Text style={styles.product}>{product.exactLabel}</Text>
+          {product.brand ? (
+            <Text style={[ui.muted, productHeaderStyles.brand]}>{product.brand}</Text>
+          ) : null}
+          <Section title={t('itemLabel')}>
+            <TextInput
+              accessibilityLabel={t('itemLabel')}
+              value={label}
+              onChangeText={setLabel}
+              style={styles.labelInput}
+              placeholder={t('shoppingListLabel')}
+              placeholderTextColor={colors.tertiaryLabel}
+              selectionColor={colors.tint}
+            />
+          </Section>
+          <Section title={t('quantity')}>
+            <View style={quantityStyles.row}>
               <Pressable
                 accessibilityRole="button"
-                onPress={onClose}
-                hitSlop={8}
-                style={productHeaderStyles.cancelButton}
+                accessibilityLabel={t('decreaseQuantity')}
+                disabled={!quantity}
+                onPress={() =>
+                  setQuantity((value) => {
+                    const next = Number(value) - 1;
+                    return next > 0 ? String(next) : '';
+                  })
+                }
+                style={({ pressed }) => [
+                  quantityStyles.button,
+                  (pressed || !quantity) && quantityStyles.disabled,
+                ]}
               >
-                <Text style={styles.cancel}>{t('cancel')}</Text>
+                <NativeIcon ios="minus" android="remove" color={colors.tint} size={20} />
               </Pressable>
-              <Text style={styles.sheetTitle}>{t('addItem')}</Text>
-              <View style={productHeaderStyles.barSpacer} />
+              <TextInput
+                accessibilityLabel={t('quantity')}
+                value={quantity}
+                placeholder="—"
+                placeholderTextColor={colors.tertiaryLabel}
+                onChangeText={(value) => {
+                  const digits = value.replace(/\D/g, '');
+                  setQuantity(digits ? String(Math.min(99, Number(digits))) : '');
+                }}
+                keyboardType="number-pad"
+                selectTextOnFocus
+                style={quantityStyles.input}
+                selectionColor={colors.tint}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('increaseQuantity')}
+                disabled={Number(quantity) >= 99}
+                onPress={() =>
+                  setQuantity((value) => String(Math.min(99, (Number(value) || 0) + 1)))
+                }
+                style={({ pressed }) => [
+                  quantityStyles.button,
+                  (pressed || Number(quantity) >= 99) && quantityStyles.disabled,
+                ]}
+              >
+                <NativeIcon ios="plus" android="add" color={colors.tint} size={20} />
+              </Pressable>
             </View>
-            <ScrollView contentContainerStyle={styles.sheetContent}>
-              {product.imageUrl ? (
-                <Image
-                  source={{ uri: product.imageUrl }}
-                  style={styles.image}
-                  resizeMode="contain"
-                  testID="product-image"
-                />
+          </Section>
+          <Section>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{t('barcode')}</Text>
+              <Text style={styles.detailValue}>{product.barcode}</Text>
+            </View>
+            <Separator />
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{t('source')}</Text>
+              <Text style={styles.detailValue}>{sourceName(product, t('customLabel'))}</Text>
+            </View>
+          </Section>
+          <View style={styles.primaryWrap}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(syncEnabled ? 'addAndSync' : 'addToShoppingList')}
+              disabled={busy || !configured || !label.trim()}
+              onPress={() => onAdd(label.trim(), quantity ? Number(quantity) : undefined)}
+              style={({ pressed }) => [
+                styles.primary,
+                (pressed || busy || !configured || !label.trim()) && styles.primaryDisabled,
+              ]}
+            >
+              {busy ? (
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <View style={styles.productIcon}>
-                  <NativeIcon
-                    ios="barcode.viewfinder"
-                    android="barcode_scanner"
-                    size={54}
-                    color={colors.tint}
-                    testID="product-placeholder-icon"
-                  />
-                </View>
+                <Text style={styles.primaryText}>
+                  {t(syncEnabled ? 'addAndSync' : 'addToShoppingList')}
+                </Text>
               )}
-              <Text style={styles.product}>{product.exactLabel}</Text>
-              {product.brand ? (
-                <Text style={[ui.muted, productHeaderStyles.brand]}>{product.brand}</Text>
-              ) : null}
-              <Section title={t('itemLabel')}>
-                <TextInput
-                  accessibilityLabel={t('itemLabel')}
-                  value={label}
-                  onChangeText={setLabel}
-                  style={styles.labelInput}
-                  placeholder={t('shoppingListLabel')}
-                  placeholderTextColor={colors.tertiaryLabel}
-                  selectionColor={colors.tint}
-                />
-              </Section>
-              <Section title={t('quantity')}>
-                <View style={quantityStyles.row}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('decreaseQuantity')}
-                    disabled={!quantity}
-                    onPress={() =>
-                      setQuantity((value) => {
-                        const next = Number(value) - 1;
-                        return next > 0 ? String(next) : '';
-                      })
-                    }
-                    style={({ pressed }) => [
-                      quantityStyles.button,
-                      (pressed || !quantity) && quantityStyles.disabled,
-                    ]}
-                  >
-                    <NativeIcon ios="minus" android="remove" color={colors.tint} size={20} />
-                  </Pressable>
-                  <TextInput
-                    accessibilityLabel={t('quantity')}
-                    value={quantity}
-                    placeholder="—"
-                    placeholderTextColor={colors.tertiaryLabel}
-                    onChangeText={(value) => {
-                      const digits = value.replace(/\D/g, '');
-                      setQuantity(digits ? String(Math.min(99, Number(digits))) : '');
-                    }}
-                    keyboardType="number-pad"
-                    selectTextOnFocus
-                    style={quantityStyles.input}
-                    selectionColor={colors.tint}
-                  />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('increaseQuantity')}
-                    disabled={Number(quantity) >= 99}
-                    onPress={() =>
-                      setQuantity((value) => String(Math.min(99, (Number(value) || 0) + 1)))
-                    }
-                    style={({ pressed }) => [
-                      quantityStyles.button,
-                      (pressed || Number(quantity) >= 99) && quantityStyles.disabled,
-                    ]}
-                  >
-                    <NativeIcon ios="plus" android="add" color={colors.tint} size={20} />
-                  </Pressable>
-                </View>
-              </Section>
-              <Section>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>{t('barcode')}</Text>
-                  <Text style={styles.detailValue}>{product.barcode}</Text>
-                </View>
-                <Separator />
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>{t('source')}</Text>
-                  <Text style={styles.detailValue}>{sourceName(product, t('customLabel'))}</Text>
-                </View>
-              </Section>
-              <View style={styles.primaryWrap}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(syncEnabled ? 'addAndSync' : 'addToShoppingList')}
-                  disabled={busy || !configured || !label.trim()}
-                  onPress={() => onAdd(label.trim(), quantity ? Number(quantity) : undefined)}
-                  style={({ pressed }) => [
-                    styles.primary,
-                    (pressed || busy || !configured || !label.trim()) && styles.primaryDisabled,
-                  ]}
-                >
-                  {busy ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.primaryText}>
-                      {t(syncEnabled ? 'addAndSync' : 'addToShoppingList')}
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
-              {error ? <Notice testID="product-status">{error}</Notice> : null}
-              {!configured && <Text style={styles.sheetHelp}>{t('configureBeforeAdding')}</Text>}
-            </ScrollView>
-          </SafeAreaView>
-        </GlassSurface>
-      </View>
-    </Modal>
+            </Pressable>
+          </View>
+          {error ? <Notice testID="product-status">{error}</Notice> : null}
+          {!configured && <Text style={styles.sheetHelp}>{t('configureBeforeAdding')}</Text>}
+        </ScrollView>
+      </SafeAreaView>
+    </NativeSheet>
   );
 }
 
