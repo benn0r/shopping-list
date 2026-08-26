@@ -4,7 +4,7 @@ import {
   ActivityIndicator,
   AppState,
   Image,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -55,6 +55,11 @@ const FRAME_SIDE = 28;
 const FRAME_TOP = 154;
 const FRAME_HEIGHT = 122;
 const SYNC_REFRESH_MS = 30_000;
+const TAB_BAR_BASE_HEIGHT = 50;
+
+export function getComposerKeyboardInset(keyboardHeight: number) {
+  return Math.max(0, keyboardHeight - TAB_BAR_BASE_HEIGHT);
+}
 
 export function ScannerScreen() {
   const { t } = useI18n();
@@ -71,6 +76,7 @@ export function ScannerScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [manualLabel, setManualLabel] = useState('');
   const [manualBusy, setManualBusy] = useState(false);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const [listViewMode, setListViewMode] = useState<ListViewMode>('list');
   const [lists, setLists] = useState<ShoppingListDefinition[]>([]);
   const [activeList, setActiveList] = useState<ShoppingListDefinition>({
@@ -89,6 +95,22 @@ export function ScannerScreen() {
     bottom: FRAME_TOP + FRAME_HEIGHT,
   });
   const scanLocked = useRef(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const showSubscription = Keyboard.addListener('keyboardWillShow', (event) => {
+      Keyboard.scheduleLayoutAnimation(event);
+      setKeyboardInset(getComposerKeyboardInset(event.endCoordinates.height));
+    });
+    const hideSubscription = Keyboard.addListener('keyboardWillHide', (event) => {
+      Keyboard.scheduleLayoutAnimation(event);
+      setKeyboardInset(0);
+    });
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -347,11 +369,7 @@ export function ScannerScreen() {
   );
   return (
     <SafeAreaView edges={['top']} style={ui.safe}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoider}
-        testID="keyboard-avoiding-content"
-      >
+      <View style={styles.screenBody}>
         <View style={ui.header}>
           <Pressable
             accessibilityRole="button"
@@ -400,30 +418,36 @@ export function ScannerScreen() {
             </ScrollView>
           </View>
         </View>
-        <View style={styles.composer} testID="item-composer">
-          <TextInput
-            accessibilityLabel={t('newShoppingItem')}
-            value={manualLabel}
-            onChangeText={setManualLabel}
-            onSubmitEditing={() => void addManualItem()}
-            placeholder={t('newShoppingItemPlaceholder')}
-            placeholderTextColor={colors.tertiaryLabel}
-            returnKeyType="done"
-            enablesReturnKeyAutomatically
-            submitBehavior="submit"
-            style={styles.composerInput}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('scanProduct')}
-            testID="open-scanner"
-            onPress={() => setCameraOpen(true)}
-            style={({ pressed }) => [styles.scanButton, pressed && styles.scanButtonPressed]}
-          >
-            <CameraIcon />
-          </Pressable>
+        <View
+          pointerEvents="box-none"
+          style={[styles.composerAvoider, { bottom: 12 + keyboardInset }]}
+          testID="keyboard-avoiding-composer"
+        >
+          <View style={styles.composer} testID="item-composer">
+            <TextInput
+              accessibilityLabel={t('newShoppingItem')}
+              value={manualLabel}
+              onChangeText={setManualLabel}
+              onSubmitEditing={() => void addManualItem()}
+              placeholder={t('newShoppingItemPlaceholder')}
+              placeholderTextColor={colors.tertiaryLabel}
+              returnKeyType="done"
+              enablesReturnKeyAutomatically
+              submitBehavior="submit"
+              style={styles.composerInput}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('scanProduct')}
+              testID="open-scanner"
+              onPress={() => setCameraOpen(true)}
+              style={({ pressed }) => [styles.scanButton, pressed && styles.scanButtonPressed]}
+            >
+              <CameraIcon />
+            </Pressable>
+          </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
       <Modal
         visible={cameraOpen}
         animationType="slide"
@@ -981,7 +1005,7 @@ const quantityStyles = StyleSheet.create({
   },
 });
 const styles = StyleSheet.create({
-  keyboardAvoider: { flex: 1 },
+  screenBody: { flex: 1 },
   scannerContent: { flex: 1 },
   listTitleButton: {
     width: '100%',
@@ -1075,11 +1099,13 @@ const styles = StyleSheet.create({
   },
   detailBrand: { color: colors.secondaryLabel, fontSize: 15, textAlign: 'center', marginTop: -8 },
   storeText: { color: colors.label, fontSize: 16, lineHeight: 21, padding: 13 },
-  composer: {
+  composerAvoider: {
     position: 'absolute',
     left: 16,
     right: 16,
     bottom: 12,
+  },
+  composer: {
     minHeight: 68,
     padding: 6,
     paddingLeft: 10,

@@ -1,5 +1,9 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { ProductSheet, ScannerScreen } from '../../src/screens/ScannerScreen';
+import {
+  getComposerKeyboardInset,
+  ProductSheet,
+  ScannerScreen,
+} from '../../src/screens/ScannerScreen';
 import { addItem } from '../../src/services/bringApi';
 import { lookupProduct } from '../../src/services/productLookup';
 import {
@@ -175,6 +179,11 @@ afterEach(() => {
 });
 
 describe('scanner setup and selection', () => {
+  it('positions the floating composer above the iPhone keyboard and tab bar', () => {
+    expect(getComposerKeyboardInset(336)).toBe(286);
+    expect(getComposerKeyboardInset(0)).toBe(0);
+  });
+
   it('shows Mealie quantity and unit in list cards and item details', async () => {
     const mealieItem = {
       barcode: 'remote:mealie-milk',
@@ -226,12 +235,13 @@ describe('scanner setup and selection', () => {
       borderRadius: 28,
     });
     expect(screen.getByTestId('scan-button-icon')).toHaveStyle({ width: 27 });
-    expect(screen.getByTestId('item-composer')).toHaveStyle({
+    expect(screen.getByTestId('keyboard-avoiding-composer')).toHaveStyle({
       position: 'absolute',
       left: 16,
       right: 16,
       bottom: 12,
     });
+    expect(screen.getByTestId('item-composer')).not.toHaveStyle({ position: 'absolute' });
 
     await fireEvent.press(screen.getByTestId('open-scanner'));
     expect(screen.getByTestId('scanner-drawer')).toBeTruthy();
