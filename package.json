@@ -44,7 +44,7 @@
     "android:device": "expo run:android --device",
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
-    "ios:release": "expo run:ios --device --configuration Release",
+    "ios:release": "expo run:ios --device --configuration Release --no-build-cache",
     "web": "expo start --web",
     "lint": "expo lint . --max-warnings=0",
     "lint:fix": "expo lint . --fix",
