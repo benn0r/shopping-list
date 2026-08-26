@@ -179,12 +179,14 @@ export function ActionButton({
   onPress,
   disabled,
   destructive = false,
+  success = false,
   loading = false,
 }: {
   title: string;
   onPress: () => void;
   disabled?: boolean;
   destructive?: boolean;
+  success?: boolean;
   loading?: boolean;
 }) {
   return (
@@ -193,6 +195,7 @@ export function ActionButton({
       onPress={onPress}
       disabled={disabled}
       destructive={destructive}
+      success={success}
       loading={loading}
     />
   );

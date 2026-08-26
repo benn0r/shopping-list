@@ -14,9 +14,11 @@ export function NativeActionButton({
   onPress,
   disabled,
   destructive,
+  success,
   loading,
 }: NativeActionButtonProps) {
   const isDisabled = Boolean(disabled || loading);
+  const color = destructive ? '#FF3B30' : success ? '#248A3D' : '#237F78';
   if (process.env.JEST_WORKER_ID) {
     return (
       <Pressable
@@ -30,7 +32,11 @@ export function NativeActionButton({
     );
   }
   return (
-    <Host style={{ width: '100%', height: 52 }} seedColor={destructive ? '#FF3B30' : '#237F78'}>
+    <Host
+      matchContents={{ vertical: true, horizontal: false }}
+      style={{ width: '100%', minHeight: 50 }}
+      seedColor={color}
+    >
       {loading ? (
         <ProgressView modifiers={[frame({ maxWidth: Infinity, minHeight: 44 })]} />
       ) : (
@@ -41,7 +47,7 @@ export function NativeActionButton({
           modifiers={[
             buttonStyle('plain'),
             controlSize('large'),
-            tint(destructive ? '#FF3B30' : '#237F78'),
+            tint(color),
             disabledModifier(isDisabled),
             frame({ maxWidth: Infinity, minHeight: 44 }),
           ]}

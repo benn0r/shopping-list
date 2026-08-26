@@ -5,6 +5,7 @@ export type NativeActionButtonProps = {
   onPress: () => void;
   disabled?: boolean;
   destructive?: boolean;
+  success?: boolean;
   loading?: boolean;
 };
 
@@ -13,9 +14,10 @@ export function NativeActionButton({
   onPress,
   disabled,
   destructive,
+  success,
   loading,
 }: NativeActionButtonProps) {
-  const color = destructive ? '#FF3B30' : '#237F78';
+  const color = destructive ? '#FF3B30' : success ? '#248A3D' : '#237F78';
   return (
     <Pressable
       accessibilityRole="button"

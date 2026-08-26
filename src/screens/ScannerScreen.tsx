@@ -56,10 +56,10 @@ const FRAME_SIDE = 28;
 const FRAME_TOP = 154;
 const FRAME_HEIGHT = 122;
 const SYNC_REFRESH_MS = 30_000;
-const TAB_BAR_BASE_HEIGHT = 50;
+const NATIVE_TAB_BAR_CLEARANCE = 64;
 
 export function getComposerKeyboardInset(keyboardHeight: number) {
-  return Math.max(0, keyboardHeight - TAB_BAR_BASE_HEIGHT);
+  return Math.max(0, keyboardHeight);
 }
 
 export function ScannerScreen() {
@@ -100,12 +100,10 @@ export function ScannerScreen() {
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
-    const showSubscription = Keyboard.addListener('keyboardWillShow', (event) => {
-      Keyboard.scheduleLayoutAnimation(event);
+    const showSubscription = Keyboard.addListener('keyboardWillChangeFrame', (event) => {
       setKeyboardInset(getComposerKeyboardInset(event.endCoordinates.height));
     });
-    const hideSubscription = Keyboard.addListener('keyboardWillHide', (event) => {
-      Keyboard.scheduleLayoutAnimation(event);
+    const hideSubscription = Keyboard.addListener('keyboardWillHide', () => {
       setKeyboardInset(0);
     });
     return () => {
@@ -426,7 +424,10 @@ export function ScannerScreen() {
           style={[
             styles.composerAvoider,
             {
-              bottom: 12 + keyboardInset + (Platform.OS === 'ios' && keyboardInset === 0 ? 58 : 0),
+              bottom:
+                12 +
+                keyboardInset +
+                (Platform.OS === 'ios' && keyboardInset === 0 ? NATIVE_TAB_BAR_CLEARANCE : 0),
             },
           ]}
           testID="keyboard-avoiding-composer"

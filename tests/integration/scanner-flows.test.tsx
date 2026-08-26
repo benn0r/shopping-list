@@ -180,7 +180,7 @@ afterEach(() => {
 
 describe('scanner setup and selection', () => {
   it('positions the floating composer above the iPhone keyboard and tab bar', () => {
-    expect(getComposerKeyboardInset(336)).toBe(286);
+    expect(getComposerKeyboardInset(336)).toBe(336);
     expect(getComposerKeyboardInset(0)).toBe(0);
   });
 
@@ -239,7 +239,7 @@ describe('scanner setup and selection', () => {
       position: 'absolute',
       left: 16,
       right: 16,
-      bottom: 70,
+      bottom: 76,
     });
     expect(screen.getByTestId('item-composer')).not.toHaveStyle({ position: 'absolute' });
 

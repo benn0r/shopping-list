@@ -441,6 +441,7 @@ export function SettingsScreen() {
                 title={t('connectBring')}
                 onPress={() => void connectBring()}
                 loading={bringBusy}
+                success
               />
               {credentials ? (
                 <>
@@ -497,7 +498,11 @@ export function SettingsScreen() {
                 placeholder={t('mealieApiToken')}
               />
               <Separator />
-              <ActionButton title={t('connectMealie')} onPress={() => void connectMealie()} />
+              <ActionButton
+                title={t('connectMealie')}
+                onPress={() => void connectMealie()}
+                success
+              />
               {mealieConfigured ? (
                 <>
                   <Separator />
