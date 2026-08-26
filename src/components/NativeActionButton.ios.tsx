@@ -1,14 +1,5 @@
-import { Button, Host, ProgressView } from '@expo/ui/swift-ui';
-import {
-  buttonStyle,
-  controlSize,
-  disabled as disabledModifier,
-  foregroundStyle,
-  frame,
-  tint,
-} from '@expo/ui/swift-ui/modifiers';
+import { ActivityIndicator, Button, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeActionButtonProps } from './NativeActionButton';
-import { ActivityIndicator, Pressable, Text } from 'react-native';
 
 export function NativeActionButton({
   title,
@@ -20,6 +11,7 @@ export function NativeActionButton({
 }: NativeActionButtonProps) {
   const isDisabled = Boolean(disabled || loading);
   const color = destructive ? '#FF3B30' : success ? '#248A3D' : '#237F78';
+
   if (process.env.JEST_WORKER_ID) {
     return (
       <Pressable
@@ -28,29 +20,37 @@ export function NativeActionButton({
         disabled={isDisabled}
         onPress={onPress}
       >
-        {loading ? <ActivityIndicator /> : <Text>{title}</Text>}
+        {loading ? <ActivityIndicator color={color} /> : <Text style={{ color }}>{title}</Text>}
       </Pressable>
     );
   }
+
   return (
-    <Host style={{ width: '100%', height: 50 }} seedColor={color}>
+    <View style={styles.container}>
       {loading ? (
-        <ProgressView modifiers={[frame({ maxWidth: Infinity, minHeight: 44 })]} />
+        <View
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={title}
+          accessibilityState={{ disabled: true, busy: true }}
+          style={styles.loading}
+        >
+          <ActivityIndicator color={color} />
+        </View>
       ) : (
         <Button
-          label={title}
-          role={destructive ? 'destructive' : 'default'}
+          accessibilityLabel={title}
+          title={title}
+          color={color}
+          disabled={isDisabled}
           onPress={onPress}
-          modifiers={[
-            buttonStyle('plain'),
-            controlSize('large'),
-            tint(color),
-            foregroundStyle(color),
-            disabledModifier(isDisabled),
-            frame({ maxWidth: Infinity, minHeight: 50, maxHeight: 50 }),
-          ]}
         />
       )}
-    </Host>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { width: '100%', height: 50, justifyContent: 'center' },
+  loading: { height: 50, alignItems: 'center', justifyContent: 'center' },
+});
