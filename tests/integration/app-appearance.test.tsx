@@ -144,21 +144,26 @@ describe('application appearance wiring', () => {
       const scanIcon = await render(
         screen.getByTestId('screen-Scan').props.options.tabBarIcon({ color: expected.active }),
       );
-      expect(scanIcon.getByTestId('shopping-list-tab-icon')).toHaveStyle({
-        borderColor: expected.active,
-      });
+      expect(scanIcon.getByTestId('shopping-list-tab-icon')).toHaveProp(
+        'tintColor',
+        expected.active,
+      );
       const shoppingIcon = await render(
         screen.getByTestId('screen-Shopping').props.options.tabBarIcon({ color: expected.active }),
       );
-      expect(shoppingIcon.getByTestId('shopping-cart-tab-icon-basket')).toHaveStyle({
-        borderColor: expected.active,
-      });
+      expect(shoppingIcon.getByTestId('shopping-cart-tab-icon')).toHaveProp(
+        'tintColor',
+        expected.active,
+      );
       const settingsIcon = await render(
         screen.getByTestId('screen-Settings').props.options.tabBarIcon({
           color: expected.inactive,
         }),
       );
-      expect(settingsIcon.getByText('⚙︎')).toHaveStyle({ color: expected.inactive });
+      expect(settingsIcon.getByTestId('settings-tab-icon')).toHaveProp(
+        'tintColor',
+        expected.inactive,
+      );
     },
   );
 });

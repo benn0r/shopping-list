@@ -42,28 +42,18 @@ test('selects every language and product-label preference in the browser', async
   expect(headingAfterSave).not.toBeNull();
   expect(headingAfterSave?.y).toBe(headingBeforeSave?.y);
 
-  for (const [value, title] of [
-    ['auto', 'Automatic'],
-    ['de', 'German'],
-    ['en', 'English'],
-    ['fr', 'French'],
-    ['it', 'Italian'],
-  ] as const) {
+  for (const value of ['auto', 'de', 'en', 'fr', 'it'] as const) {
     await page.getByTestId(`product-language-${value}`).click();
     await expect(page.getByTestId(`product-language-${value}`)).toHaveAttribute(
       'aria-selected',
       'true',
     );
-    await expect(status).toContainText(`Product language set to ${title}.`);
+    await expect(status).toBeHidden();
   }
-  for (const [value, title] of [
-    ['generic', 'Generic'],
-    ['exact', 'Exact Product'],
-    ['ask', 'Ask Every Time'],
-  ] as const) {
+  for (const value of ['generic', 'exact', 'ask'] as const) {
     await page.getByTestId(`label-style-${value}`).click();
     await expect(page.getByTestId(`label-style-${value}`)).toHaveAttribute('aria-selected', 'true');
-    await expect(status).toContainText(`Synced item label set to ${title}.`);
+    await expect(status).toBeHidden();
   }
 
   const appLanguages = [
@@ -74,19 +64,19 @@ test('selects every language and product-label preference in the browser', async
     ['pt-BR', 'Ajustes', 'Português (Brasil)'],
     ['en', 'Settings', 'English'],
   ] as const;
-  for (const [value, heading, languageName] of appLanguages) {
+  for (const [value, heading] of appLanguages) {
     await page.getByTestId(`app-language-${value}`).click();
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
     await expect(page.getByTestId(`app-language-${value}`)).toHaveAttribute(
       'aria-selected',
       'true',
     );
-    await expect(status).toContainText(languageName);
+    await expect(status).toBeHidden();
   }
 
   await page.getByTestId('app-language-pt-BR').click();
   await expect(page.getByRole('heading', { name: 'Ajustes', exact: true })).toBeVisible();
-  await expect(status).toContainText('Português (Brasil)');
+  await expect(status).toBeHidden();
 
   await page.reload();
   await page.getByTestId('tab-settings').click();

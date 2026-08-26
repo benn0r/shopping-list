@@ -276,9 +276,7 @@ test('keeps the product locally when Bring is unavailable', async ({ page }) => 
   await emitBarcodeBatch(page, [{ value: barcode }]);
   await page.getByRole('button', { name: 'Add to Shopping List' }).click();
   await expect(page.getByTestId('product-sheet')).toBeHidden();
-  await expect(page.getByTestId('scanner-status')).toContainText(
-    'Soft drink added to your shopping list.',
-  );
+  await expect(page.getByTestId('scanner-status')).toBeHidden();
   expect(state.addedItems).toHaveLength(1);
 });
 

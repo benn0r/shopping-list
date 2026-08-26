@@ -1,4 +1,7 @@
-import { PropsWithChildren, ReactNode } from 'react';
+import { ComponentProps, PropsWithChildren, ReactNode } from 'react';
+import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
+import { SymbolView } from 'expo-symbols';
+import type { SFSymbol, SymbolViewProps } from 'expo-symbols';
 import {
   ActivityIndicator,
   DynamicColorIOS,
@@ -36,6 +39,55 @@ export const colors = {
   success: adaptive('#237F62', '#72D5B0'),
 };
 
+const liquidGlassAvailable = Platform.OS === 'ios' && isGlassEffectAPIAvailable();
+
+export function GlassSurface({
+  children,
+  fallbackColor = colors.secondaryGroupedBackground,
+  ...props
+}: ComponentProps<typeof GlassView> & { fallbackColor?: ColorValue }) {
+  if (liquidGlassAvailable) {
+    return (
+      <GlassView glassEffectStyle="regular" {...props}>
+        {children}
+      </GlassView>
+    );
+  }
+  return (
+    <View {...props} style={[props.style, { backgroundColor: fallbackColor }]}>
+      {children}
+    </View>
+  );
+}
+
+export function NativeIcon({
+  ios,
+  android,
+  size = 24,
+  color = colors.label,
+  testID,
+  weight = 'regular',
+}: {
+  ios: SFSymbol;
+  android: string;
+  size?: number;
+  color?: ColorValue;
+  testID?: string;
+  weight?: SymbolViewProps['weight'];
+}) {
+  return (
+    <SymbolView
+      name={{ ios, android: android as never, web: android as never }}
+      size={size}
+      tintColor={color}
+      weight={weight}
+      type="hierarchical"
+      style={{ width: size, height: size }}
+      testID={testID}
+    />
+  );
+}
+
 export function LargeTitle({ children }: PropsWithChildren) {
   return (
     <Text accessibilityRole="header" style={styles.largeTitle}>
@@ -51,7 +103,9 @@ export function Section({
   return (
     <View style={styles.section}>
       {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
-      <View style={styles.group}>{children}</View>
+      <GlassSurface style={styles.group} testID="native-section-surface">
+        {children}
+      </GlassSurface>
       {footer ? <Text style={styles.footer}>{footer}</Text> : null}
     </View>
   );
@@ -69,17 +123,12 @@ export function ChevronIcon({
   color?: ColorValue;
 }) {
   return (
-    <View
-      accessible={false}
-      pointerEvents="none"
-      style={{
-        width: size,
-        height: size,
-        borderRightWidth: 2,
-        borderBottomWidth: 2,
-        borderColor: color,
-        transform: [{ rotate: direction === 'down' ? '45deg' : '-45deg' }],
-      }}
+    <NativeIcon
+      ios={direction === 'down' ? 'chevron.down' : 'chevron.right'}
+      android={direction === 'down' ? 'keyboard_arrow_down' : 'chevron_right'}
+      size={size + 4}
+      color={color}
+      weight="semibold"
       testID={`chevron-${direction}`}
     />
   );
@@ -91,25 +140,15 @@ export function CameraIcon({
   size?: number;
   color?: ColorValue;
 }) {
-  const lensSize = Math.round(size * 0.38);
   return (
-    <View
-      accessible={false}
-      pointerEvents="none"
-      style={[
-        styles.cameraIconBody,
-        { width: size, height: Math.round(size * 0.7), borderColor: color },
-      ]}
+    <NativeIcon
+      ios="camera.fill"
+      android="photo_camera"
+      size={size}
+      color={color}
+      weight="semibold"
       testID="scan-button-icon"
-    >
-      <View style={[styles.cameraIconTop, { borderBottomColor: color }]} />
-      <View
-        style={[
-          styles.cameraIconLens,
-          { width: lensSize, height: lensSize, borderRadius: lensSize / 2, borderColor: color },
-        ]}
-      />
-    </View>
+    />
   );
 }
 export function Field({ label, ...props }: TextInputProps & { label?: string }) {
@@ -186,7 +225,10 @@ export function ListRow({
         <Text style={styles.rowTitle}>{title}</Text>
         {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
       </View>
-      {trailing ?? (selected ? <Text style={styles.check}>✓</Text> : null)}
+      {trailing ??
+        (selected ? (
+          <NativeIcon ios="checkmark" android="check" size={20} color={colors.tint} />
+        ) : null)}
     </>
   );
   return onPress ? (
@@ -240,31 +282,12 @@ export const sheetModal = StyleSheet.create({
     flex: 0,
     height: '92%',
     minHeight: '92%',
-    backgroundColor: colors.systemGroupedBackground,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     overflow: 'hidden',
   },
 });
 const styles = StyleSheet.create({
-  cameraIconBody: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2.4,
-    borderRadius: 5,
-  },
-  cameraIconTop: {
-    position: 'absolute',
-    top: -6,
-    width: 11,
-    height: 6,
-    borderLeftWidth: 3,
-    borderRightWidth: 3,
-    borderBottomWidth: 6,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-  },
-  cameraIconLens: { borderWidth: 2 },
   largeTitle: {
     color: colors.label,
     fontSize: 34,
@@ -281,7 +304,6 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   group: {
-    backgroundColor: colors.secondaryGroupedBackground,
     borderRadius: 10,
     overflow: 'hidden',
   },
@@ -315,8 +337,6 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, paddingVertical: 9 },
   rowTitle: { color: colors.label, fontSize: 17, lineHeight: 22 },
   rowDetail: { color: colors.secondaryLabel, fontSize: 13, lineHeight: 17, marginTop: 1 },
-  check: { color: colors.tint, fontSize: 20, fontWeight: '600' },
-  chevron: { color: colors.tertiaryLabel, fontSize: 28, lineHeight: 28, fontWeight: '300' },
   notice: {
     fontSize: 15,
     lineHeight: 20,

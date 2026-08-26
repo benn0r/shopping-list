@@ -16,6 +16,7 @@ import {
   ActionButton,
   colors,
   Field,
+  GlassSurface,
   LargeTitle,
   ListRow,
   Notice,
@@ -723,7 +724,10 @@ export function SettingsScreen() {
         testID="list-editor-modal"
       >
         <View style={sheetModal.backdrop}>
-          <View style={[sheetModal.sheet, styles.listEditorSheet]} testID="list-editor-sheet">
+          <GlassSurface
+            style={[sheetModal.sheet, styles.listEditorSheet]}
+            testID="list-editor-sheet"
+          >
             <View style={styles.modalHeader}>
               <Pressable
                 accessibilityRole="button"
@@ -739,7 +743,7 @@ export function SettingsScreen() {
               <View style={styles.modalButtonSpacer} />
             </View>
             <ScrollView
-              style={ui.screen}
+              style={styles.editorScroll}
               contentContainerStyle={styles.listEditorContent}
               keyboardShouldPersistTaps="handled"
               automaticallyAdjustKeyboardInsets
@@ -831,7 +835,7 @@ export function SettingsScreen() {
                 ) : null}
               </Section>
             </ScrollView>
-          </View>
+          </GlassSurface>
         </View>
       </Modal>
       <Modal
@@ -843,7 +847,10 @@ export function SettingsScreen() {
         testID="store-editor-modal"
       >
         <View style={sheetModal.backdrop}>
-          <View style={[sheetModal.sheet, styles.storeEditorSheet]} testID="store-editor-sheet">
+          <GlassSurface
+            style={[sheetModal.sheet, styles.storeEditorSheet]}
+            testID="store-editor-sheet"
+          >
             <View style={styles.modalHeader}>
               <Pressable
                 accessibilityRole="button"
@@ -859,7 +866,7 @@ export function SettingsScreen() {
               <View style={styles.modalButtonSpacer} />
             </View>
             <ScrollView
-              style={ui.screen}
+              style={styles.editorScroll}
               contentContainerStyle={styles.listEditorContent}
               keyboardShouldPersistTaps="handled"
               automaticallyAdjustKeyboardInsets
@@ -893,7 +900,7 @@ export function SettingsScreen() {
                 ) : null}
               </Section>
             </ScrollView>
-          </View>
+          </GlassSurface>
         </View>
       </Modal>
       <Modal
@@ -905,80 +912,78 @@ export function SettingsScreen() {
         testID="custom-barcodes-modal"
       >
         <View style={sheetModal.backdrop}>
-          <SafeAreaView
-            edges={['bottom']}
-            style={[styles.modalSafe, sheetModal.sheet]}
-            testID="custom-barcodes-sheet"
-          >
-            <View style={styles.modalHeader}>
-              <View style={styles.modalButtonSpacer} />
-              <Text accessibilityRole="header" style={styles.modalTitle}>
-                {t('customBarcodes')}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('done')}
-                hitSlop={8}
-                onPress={closeCustomBarcodes}
-                style={styles.modalButton}
-              >
-                <Text style={styles.done}>{t('done')}</Text>
-              </Pressable>
-            </View>
-            <ScrollView
-              style={ui.screen}
-              contentContainerStyle={styles.modalContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <Section title={t('addCustomBarcode')} footer={t('customFooter')}>
-                <Field
-                  label={t('barcode')}
-                  value={barcode}
-                  onChangeText={setBarcode}
-                  keyboardType="number-pad"
-                  placeholder="7612345678901"
-                />
-                <Separator />
-                <Field
-                  label={t('itemLabel')}
-                  value={label}
-                  onChangeText={setLabel}
-                  placeholder={t('productName')}
-                />
-                <Separator />
-                <ActionButton title={t('saveCustom')} onPress={addCustom} />
-              </Section>
-              {custom.length > 0 && (
-                <Section title={t('savedBarcodes')}>
-                  {custom.map((item, index) => (
-                    <View key={item.barcode}>
-                      {index > 0 ? <Separator /> : null}
-                      <ListRow
-                        title={item.label}
-                        detail={item.barcode}
-                        trailing={
-                          <Pressable
-                            accessibilityRole="button"
-                            hitSlop={10}
-                            onPress={() => removeCustom(item.barcode)}
-                            testID={`delete-custom-${item.barcode}`}
-                          >
-                            <Text style={styles.delete}>{t('delete')}</Text>
-                          </Pressable>
-                        }
-                      />
-                    </View>
-                  ))}
-                </Section>
-              )}
-            </ScrollView>
-            {error && (
-              <View pointerEvents="none" style={styles.modalStatus} testID="custom-status">
-                <Notice>{error}</Notice>
+          <GlassSurface style={[styles.modalSafe, sheetModal.sheet]} testID="custom-barcodes-sheet">
+            <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalButtonSpacer} />
+                <Text accessibilityRole="header" style={styles.modalTitle}>
+                  {t('customBarcodes')}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('done')}
+                  hitSlop={8}
+                  onPress={closeCustomBarcodes}
+                  style={styles.modalButton}
+                >
+                  <Text style={styles.done}>{t('done')}</Text>
+                </Pressable>
               </View>
-            )}
-          </SafeAreaView>
+              <ScrollView
+                style={styles.editorScroll}
+                contentContainerStyle={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <Section title={t('addCustomBarcode')} footer={t('customFooter')}>
+                  <Field
+                    label={t('barcode')}
+                    value={barcode}
+                    onChangeText={setBarcode}
+                    keyboardType="number-pad"
+                    placeholder="7612345678901"
+                  />
+                  <Separator />
+                  <Field
+                    label={t('itemLabel')}
+                    value={label}
+                    onChangeText={setLabel}
+                    placeholder={t('productName')}
+                  />
+                  <Separator />
+                  <ActionButton title={t('saveCustom')} onPress={addCustom} />
+                </Section>
+                {custom.length > 0 && (
+                  <Section title={t('savedBarcodes')}>
+                    {custom.map((item, index) => (
+                      <View key={item.barcode}>
+                        {index > 0 ? <Separator /> : null}
+                        <ListRow
+                          title={item.label}
+                          detail={item.barcode}
+                          trailing={
+                            <Pressable
+                              accessibilityRole="button"
+                              hitSlop={10}
+                              onPress={() => removeCustom(item.barcode)}
+                              testID={`delete-custom-${item.barcode}`}
+                            >
+                              <Text style={styles.delete}>{t('delete')}</Text>
+                            </Pressable>
+                          }
+                        />
+                      </View>
+                    ))}
+                  </Section>
+                )}
+              </ScrollView>
+              {error && (
+                <View pointerEvents="none" style={styles.modalStatus} testID="custom-status">
+                  <Notice>{error}</Notice>
+                </View>
+              )}
+            </SafeAreaView>
+          </GlassSurface>
         </View>
       </Modal>
     </SafeAreaView>
@@ -989,7 +994,6 @@ const styles = StyleSheet.create({
   listAction: { minHeight: 36, justifyContent: 'center' },
   listActionDisabled: { opacity: 0.35 },
   listActionText: { color: colors.tint, fontSize: 15, fontWeight: '600' },
-  chevron: { color: colors.secondaryLabel, fontSize: 20, fontWeight: '600' },
   switchRow: {
     minHeight: 54,
     paddingHorizontal: 16,
@@ -1001,17 +1005,17 @@ const styles = StyleSheet.create({
   switchLabel: { flex: 1, color: colors.label, fontSize: 17, lineHeight: 22 },
   switch: { alignSelf: 'center', margin: 0 },
   statusSlot: { position: 'absolute', zIndex: 10, bottom: 12, left: 16, right: 16 },
-  modalSafe: { flex: 1, backgroundColor: colors.systemGroupedBackground },
+  modalSafe: { flex: 1 },
+  glassSheetInner: { flex: 1 },
+  editorScroll: { flex: 1 },
   listEditorSheet: {
     height: '88%',
     maxHeight: '88%',
     minHeight: '72%',
-    backgroundColor: colors.systemGroupedBackground,
   },
   storeEditorSheet: {
     height: '72%',
     minHeight: '72%',
-    backgroundColor: colors.systemGroupedBackground,
   },
   listEditorContent: { padding: 16, paddingBottom: 32, gap: 18 },
   modalHeader: {

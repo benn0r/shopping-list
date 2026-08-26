@@ -18,6 +18,7 @@ import {
   ActionButton,
   ChevronIcon,
   colors,
+  GlassSurface,
   LargeTitle,
   ListRow,
   Notice,
@@ -410,36 +411,38 @@ export function ShoppingScreen() {
         testID="shopping-detail-modal"
       >
         <View style={sheetModal.backdrop}>
-          <SafeAreaView edges={['bottom']} style={[sheetModal.sheet, styles.detailSheet]}>
-            <SheetHeader
-              title={details?.storeName || ''}
-              onClose={() => setDetails(null)}
-              closeLabel={t('done')}
-            />
-            <ScrollView contentContainerStyle={styles.detailContent}>
-              {details ? (
-                <Text style={styles.detailMeta}>
-                  {shoppingSessionListNames(details).join(', ')} ·{' '}
-                  {formatDate(details.completedAt || details.startedAt)}
-                </Text>
-              ) : null}
-              <Section title={t('purchasedItems')}>
-                {details?.purchasedItems.length ? (
-                  details.purchasedItems.map((item, index) => (
-                    <View key={`${item.barcode}-${item.purchasedAt}`}>
-                      {index ? <Separator /> : null}
-                      <ListRow
-                        title={item.label}
-                        detail={`${item.quantity !== undefined ? `${item.quantity}${item.unit ? ` ${item.unit}` : '×'} · ` : ''}${formatDate(item.purchasedAt)}`}
-                      />
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.empty}>{t('noPurchasedItems')}</Text>
-                )}
-              </Section>
-            </ScrollView>
-          </SafeAreaView>
+          <GlassSurface style={[sheetModal.sheet, styles.detailSheet]}>
+            <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
+              <SheetHeader
+                title={details?.storeName || ''}
+                onClose={() => setDetails(null)}
+                closeLabel={t('done')}
+              />
+              <ScrollView contentContainerStyle={styles.detailContent}>
+                {details ? (
+                  <Text style={styles.detailMeta}>
+                    {shoppingSessionListNames(details).join(', ')} ·{' '}
+                    {formatDate(details.completedAt || details.startedAt)}
+                  </Text>
+                ) : null}
+                <Section title={t('purchasedItems')}>
+                  {details?.purchasedItems.length ? (
+                    details.purchasedItems.map((item, index) => (
+                      <View key={`${item.barcode}-${item.purchasedAt}`}>
+                        {index ? <Separator /> : null}
+                        <ListRow
+                          title={item.label}
+                          detail={`${item.quantity !== undefined ? `${item.quantity}${item.unit ? ` ${item.unit}` : '×'} · ` : ''}${formatDate(item.purchasedAt)}`}
+                        />
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.empty}>{t('noPurchasedItems')}</Text>
+                  )}
+                </Section>
+              </ScrollView>
+            </SafeAreaView>
+          </GlassSurface>
         </View>
       </Modal>
     </SafeAreaView>
@@ -575,28 +578,30 @@ function PickerSheet({
       testID="shopping-picker-modal"
     >
       <View style={sheetModal.backdrop}>
-        <SafeAreaView edges={['bottom']} style={[sheetModal.sheet, styles.pickerSheet]}>
-          <SheetHeader
-            title={t(kind === 'store' ? 'chooseStore' : 'chooseList')}
-            onClose={onClose}
-            closeLabel={t(kind === 'list' ? 'done' : 'cancel')}
-          />
-          <ScrollView contentContainerStyle={styles.detailContent}>
-            <Section>
-              {options.map((option, index) => (
-                <View key={option.id}>
-                  {index ? <Separator /> : null}
-                  <ListRow
-                    title={option.name}
-                    selected={selectedIds.includes(option.id)}
-                    onPress={() => onSelect(option.id)}
-                    testID={`shopping-option-${option.id}`}
-                  />
-                </View>
-              ))}
-            </Section>
-          </ScrollView>
-        </SafeAreaView>
+        <GlassSurface style={[sheetModal.sheet, styles.pickerSheet]}>
+          <SafeAreaView edges={['bottom']} style={styles.glassSheetInner}>
+            <SheetHeader
+              title={t(kind === 'store' ? 'chooseStore' : 'chooseList')}
+              onClose={onClose}
+              closeLabel={t(kind === 'list' ? 'done' : 'cancel')}
+            />
+            <ScrollView contentContainerStyle={styles.detailContent}>
+              <Section>
+                {options.map((option, index) => (
+                  <View key={option.id}>
+                    {index ? <Separator /> : null}
+                    <ListRow
+                      title={option.name}
+                      selected={selectedIds.includes(option.id)}
+                      onPress={() => onSelect(option.id)}
+                      testID={`shopping-option-${option.id}`}
+                    />
+                  </View>
+                ))}
+              </Section>
+            </ScrollView>
+          </SafeAreaView>
+        </GlassSurface>
       </View>
     </Modal>
   );
@@ -607,6 +612,7 @@ const styles = StyleSheet.create({
   activeStore: { color: colors.label, fontSize: 22, lineHeight: 27, fontWeight: '700' },
   activeMeta: { color: colors.secondaryLabel, fontSize: 13, lineHeight: 18 },
   purchasedSection: { gap: 9, marginTop: 6 },
+  glassSheetInner: { flex: 1 },
   collectionTitle: { color: colors.label, fontSize: 20, lineHeight: 25, fontWeight: '700' },
   empty: {
     color: colors.secondaryLabel,

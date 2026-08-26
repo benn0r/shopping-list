@@ -569,9 +569,7 @@ describe('scan-to-list flow', () => {
 
     await fireEvent.press(await screen.findByTestId('active-list-title'));
     expect(screen.getByText('Choose List')).toBeTruthy();
-    expect(screen.getByTestId('list-picker-sheet').props.style).toEqual(
-      expect.arrayContaining([expect.objectContaining({ backgroundColor: expect.anything() })]),
-    );
+    expect(screen.getByTestId('list-picker-sheet')).toHaveProp('glassEffectStyle', 'regular');
     expect(screen.getByTestId('local-list-radio-groceries')).toBeTruthy();
     expect(screen.getByTestId('local-list-radio-party')).toBeTruthy();
     expect(screen.queryByText('Create List')).toBeNull();
@@ -832,6 +830,6 @@ describe('product sheet controls', () => {
     );
 
     expect(screen.getByText(expected)).toBeTruthy();
-    expect(screen.getByText('▦')).toBeTruthy();
+    expect(screen.getByTestId('product-placeholder-icon')).toBeTruthy();
   });
 });
