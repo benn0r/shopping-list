@@ -202,6 +202,42 @@ jobs:
             echo "Android bundle failed; retrying (attempt $attempt of 3)."
             sleep 10
           done
+      - name: Compile Android native code
+        working-directory: android
+        run: |
+          attempt=1
+          until ./gradlew :app:buildCMakeRelWithDebInfo \
+            --no-daemon --stacktrace \
+            --max-workers=1 \
+            -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=512m" \
+            -Dorg.gradle.parallel=false \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            -PreactNativeArchitectures=arm64-v8a; do
+            if [ "$attempt" -ge 3 ]; then
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            echo "Android native build failed; retrying (attempt $attempt of 3)."
+            sleep 10
+          done
+      - name: Merge Android release dex
+        working-directory: android
+        run: |
+          attempt=1
+          until ./gradlew :app:mergeExtDexRelease \
+            --no-daemon --stacktrace \
+            --max-workers=1 \
+            -Dorg.gradle.jvmargs="-Xmx1024m -XX:MaxMetaspaceSize=512m" \
+            -Dorg.gradle.parallel=false \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            -PreactNativeArchitectures=arm64-v8a; do
+            if [ "$attempt" -ge 3 ]; then
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            echo "Android dex merge failed; retrying (attempt $attempt of 3)."
+            sleep 10
+          done
       - name: Build standalone Android APK
         working-directory: android
         env:
