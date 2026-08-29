@@ -30,8 +30,7 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run build
-      # Gitea Actions does not support the GitHub-only artifact v4 protocol.
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ios-js-bundle
           path: dist/ios
@@ -70,7 +69,7 @@ jobs:
       - run: npm ci
       - run: npm run build:web:e2e
       - run: npm run test:e2e
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-report
@@ -111,7 +110,18 @@ jobs:
         run: test -n "$EXPO_PUBLIC_BRING_API_KEY"
       - name: Generate the Expo Android project
         run: npm run prebuild:android
+      - name: Restore Android SDK cache
+        id: android-sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}/platforms/android-36
+            ${{ env.ANDROID_HOME }}/build-tools/36.0.0
+            ${{ env.ANDROID_HOME }}/cmake/3.22.1
+            ${{ env.ANDROID_HOME }}/ndk/27.1.12297006
+          key: android-sdk-${{ runner.os }}-api36-build36-cmake3.22.1-ndk27.1.12297006
       - name: Install Android build dependencies
+        if: ${{ steps.android-sdk-cache.outputs.cache-hit != 'true' }}
         run: |
           attempt=1
           until "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
@@ -126,6 +136,16 @@ jobs:
             echo "Android SDK install failed; retrying (attempt $attempt of 3)."
             sleep 10
           done
+      - name: Restore Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.gradle/native
+          key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json', 'app.json', 'android/gradle/wrapper/gradle-wrapper.properties', 'android/**/*.gradle', 'android/**/*.gradle.kts') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
       - name: Warm Gradle configuration
         working-directory: android
         run: |
@@ -169,7 +189,7 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs
           android/app/build/outputs/apk/release/app-release.apk
       - name: Upload Android APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: shopping-list-android-preview-${{ gitea.sha }}
           path: android/app/build/outputs/apk/release/app-release.apk
