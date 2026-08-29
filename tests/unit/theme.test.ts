@@ -6,7 +6,7 @@ import { createNavigationTheme } from '../../src/theme';
 describe('system appearance', () => {
   it('allows Expo to follow the device appearance', () => {
     expect(appConfig.expo.userInterfaceStyle).toBe('automatic');
-    expect(packageConfig.dependencies['expo-system-ui']).toBe('~57.0.1');
+    expect(packageConfig.dependencies['expo-system-ui']).toBe('~57.0.3');
   });
 
   it('uses the light navigation palette in light mode', () => {

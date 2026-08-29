@@ -319,7 +319,9 @@ describe('scanner setup and selection', () => {
     await fireEvent.press(screen.getByTestId('open-scanner'));
     // Keep this broad rendered-content assertion off the expensive RN accessibility traversal.
     const exactTextNodes = (text: string) =>
-      screen.container.queryAll((instance) => instance.props.children === text);
+      screen.container.queryAll(
+        (instance: { props: { children?: unknown } }) => instance.props.children === text,
+      );
 
     expect(exactTextNodes('Align the barcode inside the frame')).toHaveLength(1);
     expect(exactTextNodes('EAN-8, EAN-13, UPC-A and UPC-E are supported.')).toHaveLength(1);

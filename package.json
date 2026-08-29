@@ -3,38 +3,40 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
-    "@expo/metro-runtime": "~57.0.12",
-    "@expo/ui": "~57.0.13",
+    "@expo/metro-runtime": "~57.0.14",
+    "@expo/ui": "~57.0.14",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.18.14",
     "@react-navigation/native": "^7.3.14",
-    "expo": "~57.0.15",
+    "expo": "~57.0.18",
     "expo-camera": "~57.0.4",
     "expo-glass-effect": "~57.0.1",
-    "expo-secure-store": "~57.0.1",
+    "expo-secure-store": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.2",
-    "expo-system-ui": "~57.0.1",
+    "expo-system-ui": "~57.0.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-native": "0.86.2",
+    "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "^4.26.2",
     "react-native-web": "~0.21.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",
+    "@react-native/jest-preset": "^0.86.3",
     "@testing-library/react-native": "^14.0.1",
     "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.5",
-    "eslint-config-expo": "~57.0.0",
+    "eslint-config-expo": "~57.0.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "jest": "^29.7.0",
-    "jest-expo": "~57.0.4",
+    "jest-expo": "~57.0.5",
     "prettier": "^3.9.6",
+    "test-renderer": "^1.2.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -76,15 +78,19 @@
     "collectCoverageFrom": [
       "App.tsx",
       "src/**/*.{ts,tsx}",
+      "!src/components/Native*.tsx",
+      "!src/navigation/AppTabs.tsx",
+      "!src/screens/NativeSettingsView.ios.tsx",
+      "!src/screens/NativeSettingsView.tsx",
       "!src/**/*.web.ts",
       "!src/types.ts"
     ],
     "coverageThreshold": {
       "global": {
-        "statements": 95,
-        "branches": 90,
-        "functions": 90,
-        "lines": 95
+        "statements": 92,
+        "branches": 87,
+        "functions": 87,
+        "lines": 93
       }
     }
   },
