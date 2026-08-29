@@ -15,6 +15,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run check:expo
       - run: npm run format:check
@@ -28,6 +30,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run build
       - uses: actions/upload-artifact@v4
@@ -43,6 +47,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm test
   test-integration:
@@ -53,6 +59,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run test:integration
   test-e2e:
@@ -66,6 +74,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Restore npm download cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
       - run: npm ci
       - run: npm run build:web:e2e
       - run: npm run test:e2e
@@ -85,6 +100,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run test:coverage
 
@@ -98,11 +115,14 @@ jobs:
     env:
       CI: 'true'
       NODE_ENV: production
+      CMAKE_BUILD_PARALLEL_LEVEL: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - name: Validate Android build configuration
         env:
@@ -163,17 +183,35 @@ jobs:
             echo "Gradle warm-up failed; retrying (attempt $attempt of 3)."
             sleep 10
           done
+      - name: Bundle Android JavaScript
+        working-directory: android
+        env:
+          NODE_OPTIONS: --max-old-space-size=384
+        run: |
+          attempt=1
+          until ./gradlew :app:createBundleReleaseJsAndAssets \
+            --no-daemon --stacktrace \
+            --max-workers=1 \
+            -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=512m" \
+            -Dorg.gradle.parallel=false \
+            -Pkotlin.compiler.execution.strategy=in-process; do
+            if [ "$attempt" -ge 3 ]; then
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            echo "Android bundle failed; retrying (attempt $attempt of 3)."
+            sleep 10
+          done
       - name: Build standalone Android APK
         working-directory: android
         env:
           EXPO_PUBLIC_BRING_API_KEY: ${{ secrets.EXPO_PUBLIC_BRING_API_KEY }}
-          NODE_OPTIONS: --max-old-space-size=384
         run: |
           attempt=1
           until ./gradlew :app:assembleRelease \
             --no-daemon --stacktrace \
             --max-workers=1 \
-            -Dorg.gradle.jvmargs="-Xmx1024m -XX:MaxMetaspaceSize=768m" \
+            -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=768m" \
             -Dorg.gradle.parallel=false \
             -Pkotlin.compiler.execution.strategy=in-process \
             -PreactNativeArchitectures=arm64-v8a; do
