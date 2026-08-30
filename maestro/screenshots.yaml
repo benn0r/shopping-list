@@ -2,6 +2,8 @@ appId: ch.benn0r.shoppinglist
 ---
 - launchApp:
     clearState: true
+    arguments:
+      screenshotMode: true
 - tapOn:
     id: "add-item-field"
 - inputText: "Apples"
@@ -14,10 +16,44 @@ appId: ch.benn0r.shoppinglist
     id: "add-item-field"
 - inputText: "Sparkling Water"
 - pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Cherry Tomatoes"
+- pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Avocado"
+- pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Whole Milk"
+- pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Free Range Eggs"
+- pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Spaghetti"
+- pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Tomato Sauce"
+- pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Coffee Beans"
+- pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Dark Chocolate"
+- pressKey: Enter
 - tapOn: "Settings"
 - tapOn:
     id: "list-view-picker"
 - tapOn: "Tiles"
+- tapOn:
+    id: "show-category-labels"
 - tapOn:
     id: "add-store-button"
 - tapOn:
@@ -32,7 +68,17 @@ appId: ch.benn0r.shoppinglist
 - tapOn:
     text: "Allow"
     optional: true
+- assertVisible:
+    id: "demo-fridge-camera"
+- assertVisible: "Scan demo barcode"
+- waitForAnimationToEnd
 - takeScreenshot: "screenshots/ios-scanner"
+- tapOn:
+    id: "demo-barcode"
+- assertVisible: "Raspberry Oat Yogurt"
+- waitForAnimationToEnd
+- takeScreenshot: "screenshots/ios-product"
+- tapOn: "Rescan"
 - tapOn: "Cancel"
 - tapOn: "Shopping"
 - takeScreenshot: "screenshots/ios-shopping"

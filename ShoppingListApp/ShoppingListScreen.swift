@@ -178,7 +178,14 @@ private struct ScannerSheet: View {
   var body: some View {
     NavigationStack {
       ZStack {
-        BarcodeScanner(code: $code).ignoresSafeArea(edges: .bottom)
+        if Self.isScreenshotMode {
+          FakeScannerCameraView {
+            product = Self.demoProduct
+          }
+          .ignoresSafeArea(edges: .bottom)
+        } else {
+          BarcodeScanner(code: $code).ignoresSafeArea(edges: .bottom)
+        }
         ScannerOverlay(isLookingUp: isLookingUp)
       }
       .navigationTitle("Scan Product").navigationBarTitleDisplayMode(.inline)
@@ -236,6 +243,50 @@ private struct ScannerSheet: View {
             lookupError = nil
             code = nil
           })
+      }
+    }
+  }
+
+  fileprivate static var isScreenshotMode: Bool {
+    UserDefaults.standard.bool(forKey: "screenshotMode")
+      || ProcessInfo.processInfo.arguments.contains { $0.contains("screenshotMode") }
+      || ProcessInfo.processInfo.environment["screenshotMode"] == "true"
+  }
+
+  private static let demoProduct = ScannedProduct(
+    barcode: "7612345678901",
+    metadata: ProductMetadata(
+      label: "Raspberry Oat Yogurt", exactLabel: "Alpen Gut Raspberry Oat Yogurt",
+      genericLabel: "Raspberry Oat Yogurt", brand: "Alpen Gut", imageURL: nil,
+      stores: ["Alpine Market"], source: "Open Food Facts", productType: "Yogurt",
+      categoryHints: ["Yogurts"]))
+}
+
+private struct FakeScannerCameraView: View {
+  let onScan: () -> Void
+
+  var body: some View {
+    GeometryReader { geometry in
+      let frameTop = min(CGFloat(154), max(112, geometry.size.height * 0.28))
+      ZStack {
+        Image("DemoFridge")
+          .resizable().scaledToFill()
+          .frame(width: geometry.size.width, height: geometry.size.height)
+          .scaleEffect(1.75)
+          .offset(y: -220)
+          .clipped()
+          .accessibilityLabel("Demo refrigerator camera view")
+          .accessibilityIdentifier("demo-fridge-camera")
+        Color.black.opacity(0.05)
+        Button(action: onScan) {
+          Color.clear
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(width: 230, height: 126)
+        .accessibilityLabel("Scan demo barcode")
+        .accessibilityIdentifier("demo-barcode")
+        .position(x: geometry.size.width / 2, y: frameTop + 63)
       }
     }
   }
@@ -310,7 +361,9 @@ private struct ProductConfirmationSheet: View {
         Section {
           VStack(spacing: 10) {
             Group {
-              if let imageURL = product.metadata?.imageURL {
+              if ScannerSheet.isScreenshotMode, let demoImage = UIImage(named: "DemoProduct") {
+                Image(uiImage: demoImage).resizable().scaledToFit()
+              } else if let imageURL = product.metadata?.imageURL {
                 AsyncImage(url: imageURL) { image in
                   image.resizable().scaledToFit()
                 } placeholder: {
@@ -371,6 +424,7 @@ private struct ProductConfirmationSheet: View {
       }
     }
   }
+
 }
 
 private struct BarcodeScanner: UIViewControllerRepresentable {

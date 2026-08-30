@@ -12,7 +12,8 @@ can synchronize individual lists without changing the core app.
 
 | Shopping list | Barcode scanner |
 | --- | --- |
-| <img src="screenshots/ios-shopping-list.png" alt="A grocery list displayed as category-coloured tiles" width="320"> | <img src="screenshots/ios-scanner.png" alt="Barcode scanner with a guided camera overlay" width="320"> |
+| <img src="screenshots/ios-shopping-list.png" alt="A grocery list displayed as category-coloured tiles" width="320"> | <img src="screenshots/ios-scanner.png" alt="Barcode scanner with a fictional product and barcode in the camera frame" width="320"> |
+| <img src="screenshots/ios-product.png" alt="Scanned fictional product with its photo, barcode, source, and store" width="320"> | |
 | **Shopping** | **Settings** |
 | <img src="screenshots/ios-shopping.png" alt="New shopping setup with a fictional store" width="320"> | <img src="screenshots/ios-settings.png" alt="Native appearance, list, store, and product settings" width="320"> |
 
