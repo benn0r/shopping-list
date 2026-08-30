@@ -3,9 +3,13 @@ appId: ch.benn0r.shoppinglist
 - launchApp:
     clearState: true
 - tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "enable-bring-sync"
+    direction: DOWN
 - tapOn:
     id: "enable-bring-sync"
-    point: "25%,50%"
+    point: "90%,50%"
 - scrollUntilVisible:
     element:
       text: "API URL (optional)"
@@ -15,8 +19,14 @@ appId: ch.benn0r.shoppinglist
 - inputText: "http://127.0.0.1:8787/rest/v2"
 - tapOn:
     point: "50%,10%"
-- tapOn: "Add List"
-- tapOn: "List name"
+- scrollUntilVisible:
+    element:
+      id: "add-list-button"
+    direction: UP
+- tapOn:
+    id: "add-list-button"
+- tapOn:
+    id: "list-name-field"
 - inputText: "Bring Synced"
 - tapOn: "Provider"
 - tapOn: "Bring"

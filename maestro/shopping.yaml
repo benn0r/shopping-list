@@ -1,6 +1,7 @@
 appId: ch.benn0r.shoppinglist
 ---
-- launchApp
+- launchApp:
+    clearState: true
 - tapOn: "Settings"
 - tapOn: "Add Store"
 - tapOn: "Store name"
@@ -9,6 +10,5 @@ appId: ch.benn0r.shoppinglist
 - tapOn: "Shopping"
 - tapOn: "Store"
 - tapOn: "Mock Market"
-- tapOn: "Groceries"
 - tapOn: "Start Shopping"
 - assertVisible: "Mock Market"

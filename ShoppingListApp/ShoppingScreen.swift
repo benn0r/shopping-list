@@ -28,6 +28,7 @@ struct ShoppingScreen: View {
           Text("Choose Store").tag(nil as StoreDefinition?)
           ForEach(store.stores) { Text($0.name).tag(Optional($0)) }
         }
+        .accessibilityIdentifier("shopping-store-picker")
       }
       Section("Shopping Lists") {
         ForEach(store.lists) { list in
@@ -40,6 +41,7 @@ struct ShoppingScreen: View {
               if selectedLists.contains(list.id) { Image(systemName: "checkmark") }
             }
           }.foregroundStyle(.primary)
+            .accessibilityIdentifier("shopping-list-\(list.id.uuidString)")
         }
       }
       Section {
@@ -47,6 +49,7 @@ struct ShoppingScreen: View {
           if let selectedStore { store.startShopping(store: selectedStore, listIDs: selectedLists) }
         }
         .disabled(selectedStore == nil || selectedLists.isEmpty)
+        .accessibilityIdentifier("start-shopping-button")
       }
       historySection
     }
@@ -103,6 +106,7 @@ struct ShoppingScreen: View {
         Button("Finish Shopping") { store.finishShopping() }
           .buttonStyle(.borderedProminent)
           .tint(.shoppingAccent)
+          .accessibilityIdentifier("finish-shopping-button")
       }.padding(.horizontal, 16).padding(.vertical)
     }
   }
@@ -127,6 +131,7 @@ struct ShoppingScreen: View {
             }
           }
           .foregroundStyle(.primary)
+          .accessibilityIdentifier("shopping-history-row")
         }.onDelete { offsets in
           let ids = offsets.map { completedSessions[$0].id }
           store.sessions.removeAll { ids.contains($0.id) }

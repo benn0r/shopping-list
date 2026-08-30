@@ -15,26 +15,33 @@ struct SettingsScreen: View {
           Picker("List View", selection: $store.viewMode) {
             Text("List").tag(ListViewMode.list)
             Text("Tiles").tag(ListViewMode.tiles)
-          }.onChange(of: store.viewMode) { store.save() }
+          }
+          .accessibilityIdentifier("list-view-picker")
+          .onChange(of: store.viewMode) { store.save() }
           Toggle("Show Category Labels", isOn: $store.showCategoryLabels)
+            .accessibilityIdentifier("show-category-labels")
             .onChange(of: store.showCategoryLabels) { store.save() }
           Picker("App Language", selection: $store.appLanguage) {
             ForEach(AppLanguage.allCases) {
               language in Text(LocalizedStringKey(language.title)).tag(language)
             }
-          }.onChange(of: store.appLanguage) { store.save() }
+          }
+          .accessibilityIdentifier("app-language-picker")
+          .onChange(of: store.appLanguage) { store.save() }
         }
         Section("Shopping Lists") {
           ForEach(store.lists) { list in
             Button(list.name) { editedList = list }.foregroundStyle(.primary)
           }
           Button("Add List", systemImage: "plus") { addingList = true }
+            .accessibilityIdentifier("add-list-button")
         }
         Section("Stores") {
           ForEach(store.stores) { value in
             Button(value.name) { editedStore = value }.foregroundStyle(.primary)
           }
           Button("Add Store", systemImage: "plus") { addingStore = true }
+            .accessibilityIdentifier("add-store-button")
         }
         Section {
           Picker("Product Language", selection: $store.lookupPreferences.language) {
@@ -42,11 +49,13 @@ struct SettingsScreen: View {
               Text(LocalizedStringKey(language.title)).tag(language)
             }
           }
+          .accessibilityIdentifier("product-language-picker")
           Picker("Item Label", selection: $store.lookupPreferences.labelStyle) {
             ForEach(ProductLabelStyle.allCases) { style in
               Text(LocalizedStringKey(style.title)).tag(style)
             }
           }
+          .accessibilityIdentifier("item-label-picker")
           Button {
             customBarcodesPresented = true
           } label: {
@@ -57,6 +66,7 @@ struct SettingsScreen: View {
               Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
             }
           }
+          .accessibilityIdentifier("custom-barcodes-button")
         } header: {
           Text("Product Lookup")
         } footer: {
@@ -96,6 +106,7 @@ struct SettingsScreen: View {
         }
       }
       .navigationTitle("Settings")
+      .navigationBarTitleDisplayMode(.inline)
       .sheet(item: $editedList) { ListEditor(list: $0) }
       .sheet(item: $editedStore) { StoreEditor(store: $0) }
       .sheet(isPresented: $addingList) {
@@ -128,12 +139,16 @@ private struct CustomBarcodeManager: View {
           TextField("Barcode", text: $barcode)
             .keyboardType(.numberPad)
             .textContentType(.none)
+            .accessibilityIdentifier("custom-barcode-field")
           TextField("Product name", text: $label)
+            .accessibilityIdentifier("custom-product-name-field")
           Button("Save Barcode") {
             store.saveCustomBarcode(barcode: barcode, label: label)
             barcode = ""
             label = ""
-          }.disabled(!canSave)
+          }
+          .accessibilityIdentifier("save-custom-barcode")
+          .disabled(!canSave)
         } header: {
           Text("Add Custom Barcode")
         } footer: {
@@ -209,7 +224,6 @@ private struct ProviderSection: View {
       Toggle(isOn: enabled) {
         Text("Enable \(kind.title) Sync")
           .contentShape(Rectangle())
-          .onTapGesture { enabled.wrappedValue.toggle() }
       }
       .accessibilityIdentifier("enable-\(kind.rawValue)-sync")
       if config.wrappedValue.enabled {
@@ -244,7 +258,10 @@ private struct ListEditor: View {
   var body: some View {
     NavigationStack {
       Form {
-        Section { TextField("List name", text: $list.name) }
+        Section {
+          TextField("List name", text: $list.name)
+            .accessibilityIdentifier("list-name-field")
+        }
         Section("Synced List") {
           Picker(
             "Provider",
@@ -355,7 +372,10 @@ private struct StoreEditor: View {
   var body: some View {
     NavigationStack {
       Form {
-        Section { TextField("Store name", text: $storeValue.name) }
+        Section {
+          TextField("Store name", text: $storeValue.name)
+            .accessibilityIdentifier("store-name-field")
+        }
         if !isNew {
           Section {
             Button("Delete Store", role: .destructive) {

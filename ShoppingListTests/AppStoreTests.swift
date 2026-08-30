@@ -289,12 +289,185 @@ final class AppStoreTests: XCTestCase {
 
     XCTAssertEqual(cached, metadata)
   }
+
+  func testSpecificOpenFoodFactsCategoriesOverrideBroadProduceParents() {
+    let cases: [(barcode: String, label: String, hints: [String], expected: GroceryCategory)] = [
+      (
+        "87157215", "Tomato Ketchup",
+        [
+          "en:plant-based-foods-and-beverages", "en:fruits-and-vegetables-based-foods",
+          "en:vegetables-based-foods", "en:condiments", "en:sauces", "en:ketchup",
+          "en:tomato-ketchup", "en:dressings-and-sauces",
+        ], .saucesCondiments
+      ),
+      (
+        "7613404584873", "Thousand island dressing",
+        ["en:condiments", "en:sauces", "en:salad-dressings", "en:dressings-and-sauces"],
+        .saucesCondiments
+      ),
+      (
+        "8710604723565", "Cornichons Extra",
+        [
+          "en:fruits-and-vegetables-based-foods", "en:vegetables-based-foods",
+          "en:canned-foods", "en:pickles", "en:pickled-vegetables", "en:pickled-cucumbers",
+          "en:pickled-gherkins",
+        ], .cannedJarred
+      ),
+    ]
+
+    for value in cases {
+      let item = ShoppingItem(
+        barcode: value.barcode, label: value.label, categoryHints: value.hints,
+        sourceListID: UUID())
+      XCTAssertEqual(GroceryCategoryCatalog.category(for: item), value.expected, value.barcode)
+    }
+  }
+
+  func testVerifiedEANCorrectionHandlesMissingProviderCategory() {
+    let item = ShoppingItem(
+      barcode: "8002510020006", label: "Pomodoro San Marzano", brand: "Longobardi",
+      categoryHints: [], sourceListID: UUID())
+
+    XCTAssertEqual(GroceryCategoryCatalog.category(for: item), .cannedJarred)
+    XCTAssertEqual(
+      GroceryCategoryCatalog.category(for: "Pomodoro San Marzano"), .fruitsVegetables,
+      "The ambiguous product name must not make manually entered fresh tomatoes canned")
+  }
+
+  func testAddItemTrimsInputAndRetainsAllMetadata() async {
+    let store = AppStore(storageURL: fileURL)
+    await store.addItem(
+      label: "  Sparkling Water  ", barcode: "7610000000000",
+      imageURL: URL(string: "https://example.com/water.jpg"), brand: "Example", stores: ["Market"],
+      quantity: 4, unit: "bottles", exactLabel: "Sparkling Water 1L",
+      genericLabel: "Sparkling Water", productSource: "Test", productType: "food",
+      categoryHints: ["en:beverages"], metadataResolved: true)
+
+    let item = try! XCTUnwrap(store.activeItems.first)
+    XCTAssertEqual(item.label, "Sparkling Water")
+    XCTAssertEqual(item.quantity, 4)
+    XCTAssertEqual(item.unit, "bottles")
+    XCTAssertEqual(item.stores, ["Market"])
+    XCTAssertEqual(item.categoryHints, ["en:beverages"])
+    XCTAssertTrue(item.metadataResolved == true)
+  }
+
+  func testBlankItemIsRejected() async {
+    let store = AppStore(storageURL: fileURL)
+    await store.addItem(label: "   \n")
+    XCTAssertTrue(store.activeItems.isEmpty)
+  }
+
+  func testListUpdateDeleteAndLastListProtection() {
+    let store = AppStore(storageURL: fileURL)
+    store.createList(name: "Weekend")
+    var weekend = store.lists[1]
+    weekend.name = "Saturday"
+    store.updateList(weekend)
+    XCTAssertEqual(store.lists[1].name, "Saturday")
+
+    store.activeListID = weekend.id
+    store.deleteList(weekend)
+    XCTAssertEqual(store.lists.count, 1)
+    XCTAssertEqual(store.activeListID, store.lists[0].id)
+    store.deleteList(store.lists[0])
+    XCTAssertEqual(store.lists.count, 1)
+  }
+
+  func testStoreCreateRenameAndDelete() {
+    let store = AppStore(storageURL: fileURL)
+    store.createStore(name: "Market")
+    store.stores[0].name = "City Market"
+    store.save()
+    XCTAssertEqual(store.stores[0].name, "City Market")
+    store.deleteStore(store.stores[0])
+    XCTAssertTrue(store.stores.isEmpty)
+  }
+
+  func testCustomBarcodeValidationReplacementSortingAndDeletion() {
+    let store = AppStore(storageURL: fileURL)
+    store.saveCustomBarcode(barcode: "123", label: "Too short")
+    store.saveCustomBarcode(barcode: "7612345678901", label: " Zebra ")
+    store.saveCustomBarcode(barcode: "12345670", label: "Apple")
+    store.saveCustomBarcode(barcode: "7612345678901", label: "Updated")
+    XCTAssertEqual(store.customBarcodes.map(\.label), ["Apple", "Updated"])
+    store.deleteCustomBarcode(store.customBarcodes[0])
+    XCTAssertEqual(store.customBarcodes.map(\.label), ["Updated"])
+  }
+
+  func testRemoveCallsMappedProvider() async {
+    let provider = ProviderSpy()
+    let store = AppStore(storageURL: fileURL) { _, _ in provider }
+    store.providerConfigurations[.mealie] = ProviderConfiguration(enabled: true)
+    var list = store.activeList
+    list.syncTarget = SyncTarget(
+      provider: .mealie, remoteListID: "remote", remoteListName: "Remote")
+    store.updateList(list)
+    let item = ShoppingItem(label: "Milk", remoteItemID: "remote-milk", sourceListID: list.id)
+    store.items[list.id] = [item]
+
+    await store.remove(item)
+
+    XCTAssertTrue(store.items[list.id, default: []].isEmpty)
+    let removedLabels = await provider.removedLabels()
+    XCTAssertEqual(removedLabels, ["Milk"])
+  }
+
+  func testSyncRemovesLocalItemsMissingFromProvider() async {
+    let provider = ProviderSpy(initialItems: [ProviderItem(id: "remote-bread", label: "Bread")])
+    let store = AppStore(storageURL: fileURL) { _, _ in provider }
+    store.providerConfigurations[.bring] = ProviderConfiguration(enabled: true)
+    var list = store.activeList
+    list.syncTarget = SyncTarget(provider: .bring, remoteListID: "remote", remoteListName: "Remote")
+    store.updateList(list)
+    store.items[list.id] = [
+      ShoppingItem(label: "Bread", remoteItemID: "remote-bread", sourceListID: list.id),
+      ShoppingItem(label: "Removed remotely", remoteItemID: "gone", sourceListID: list.id),
+    ]
+
+    await store.sync(list)
+
+    XCTAssertEqual(store.items[list.id]?.map(\.label), ["Bread"])
+  }
+
+  func testShoppingAcrossMultipleListsAndHistoryLifecycle() async {
+    let store = AppStore(storageURL: fileURL)
+    let firstList = store.activeListID
+    await store.addItem(label: "Bread")
+    store.createList(name: "Pharmacy")
+    let secondList = store.lists[1].id
+    store.activeListID = secondList
+    await store.addItem(label: "Soap")
+    store.createStore(name: "Town Centre")
+    store.startShopping(store: store.stores[0], listIDs: [firstList, secondList])
+    XCTAssertEqual(Set(store.activeSession?.listIDs ?? []), [firstList, secondList])
+
+    let soap = store.items[secondList]![0]
+    await store.purchase(soap)
+    XCTAssertEqual(store.activeSession?.purchasedItems.map(\.item.label), ["Soap"])
+    store.finishShopping()
+    XCTAssertNil(store.activeSession)
+    XCTAssertNotNil(store.sessions.last?.completedAt)
+  }
+
+  func testModelTitlesAndProviderErrorsAreStable() {
+    XCTAssertEqual(AppLanguage.allCases.map(\.title).count, 7)
+    XCTAssertEqual(
+      ProductLanguage.allCases.map(\.title),
+      ["Automatic", "German", "English", "French", "Italian"])
+    XCTAssertEqual(
+      ProductLabelStyle.allCases.map(\.title), ["Generic name", "Exact product", "Ask every time"])
+    XCTAssertEqual(ProviderKind.allCases.map(\.title), ["Bring", "Mealie"])
+    XCTAssertNotNil(ProviderError.notConfigured.errorDescription)
+    XCTAssertTrue(ProviderError.requestFailed(503).errorDescription?.contains("503") == true)
+  }
 }
 
 private actor ProviderSpy: ShoppingProvider {
   private var remoteItems: [ProviderItem]
   private var adds: [String] = []
   private var restores: [String] = []
+  private var removes: [String] = []
 
   init(initialItems: [ProviderItem] = []) { remoteItems = initialItems }
 
@@ -309,6 +482,7 @@ private actor ProviderSpy: ShoppingProvider {
     return remote
   }
   func removeItem(_ item: ShoppingItem, from listID: String) async throws {
+    removes.append(item.label)
     remoteItems.removeAll { $0.id == item.remoteItemID }
   }
   func restoreItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem {
@@ -319,6 +493,7 @@ private actor ProviderSpy: ShoppingProvider {
   }
   func addedLabels() -> [String] { adds }
   func restoredLabels() -> [String] { restores }
+  func removedLabels() -> [String] { removes }
 }
 
 private struct FailingProvider: ShoppingProvider {

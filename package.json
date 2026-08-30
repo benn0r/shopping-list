@@ -6,7 +6,7 @@
   "scripts": {
     "project:generate": "bash scripts/generate-project.sh",
     "ios": "npm run project:generate && open ShoppingList.xcodeproj",
-    "test": "npm run project:generate && xcodebuild test -project ShoppingList.xcodeproj -scheme ShoppingList -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .build/DerivedData",
+    "test": "npm run project:generate && xcodebuild test -project ShoppingList.xcodeproj -scheme ShoppingList -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath .build/DerivedData -enableCodeCoverage YES",
     "test:unit": "npm test",
     "test:e2e": "bash scripts/run-e2e.sh",
     "mock:providers": "node mocks/provider-server.mjs --port 8787",

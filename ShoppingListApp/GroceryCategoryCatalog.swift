@@ -90,6 +90,12 @@ enum GroceryCategoryCatalog {
     let category: GroceryCategory
   }
 
+  /// Corrections for provider records that have been manually verified but contain no usable
+  /// category or packaging metadata. Keep these narrow: product names alone may be ambiguous.
+  private static let barcodeCategoryCorrections: [String: GroceryCategory] = [
+    "8002510020006": .cannedJarred
+  ]
+
   /// Categorizing an icon first makes every one of the icon catalog's multilingual aliases
   /// automatically resolve to the same category (for example Apple, Apfel, pomme and maçã).
   private static let iconCategories: [String: GroceryCategory] = [
@@ -512,6 +518,11 @@ enum GroceryCategoryCatalog {
   }
 
   static func category(for item: ShoppingItem) -> GroceryCategory {
+    if let barcode = item.barcode?.filter(\.isNumber),
+      let corrected = barcodeCategoryCorrections[barcode]
+    {
+      return corrected
+    }
     if let hints = item.categoryHints, !hints.isEmpty {
       let normalizedHints = hints.map(normalize).filter {
         !ignoredProviderTags.contains($0)
@@ -545,6 +556,9 @@ enum GroceryCategoryCatalog {
     "en beverages and beverages preparations", "beverages and beverages preparations",
     "en plant based foods", "plant based foods",
     "en plant based foods and beverages", "plant based foods and beverages",
+    "en fruits and vegetables based foods", "fruits and vegetables based foods",
+    "en vegetable based foods and beverages", "vegetable based foods and beverages",
+    "en vegetables based foods", "vegetables based foods",
   ]
 
   /// Ordered from specific families to broad families. Open Food Facts category tags include
@@ -582,6 +596,11 @@ enum GroceryCategoryCatalog {
         "marmalade",
       ]
     ),
+    (.cannedJarred, ["canned", "preserved food", "pickled", "in brine", "in oil", "jarred"]),
+    (
+      .saucesCondiments,
+      ["sauce", "condiment", "dressing", "mustard", "mayonnaise", "ketchup", "vinegar", "pesto"]
+    ),
     (
       .fruitsVegetables,
       ["fruit", "fruits", "vegetable", "vegetables", "legume", "mushroom", "fresh herb", "salad"]
@@ -589,11 +608,6 @@ enum GroceryCategoryCatalog {
     (
       .pastaRiceGrains,
       ["pasta", "noodle", "rice", "grain", "grains", "couscous", "quinoa", "bulgur", "polenta"]
-    ),
-    (.cannedJarred, ["canned", "preserved food", "pickled", "in brine", "in oil", "jarred"]),
-    (
-      .saucesCondiments,
-      ["sauce", "condiment", "dressing", "mustard", "mayonnaise", "ketchup", "vinegar", "pesto"]
     ),
     (
       .bakingSpices,
