@@ -1,0 +1,40 @@
+appId: ch.benn0r.shoppinglist
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: "add-item-field"
+- inputText: "Apples"
+- pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Sourdough Bread"
+- pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Sparkling Water"
+- pressKey: Enter
+- tapOn: "Settings"
+- tapOn:
+    id: "list-view-picker"
+- tapOn: "Tiles"
+- tapOn:
+    id: "add-store-button"
+- tapOn:
+    id: "store-name-field"
+- inputText: "Alpine Market"
+- tapOn: "Save"
+- tapOn: "Shopping List"
+- hideKeyboard
+- takeScreenshot: "screenshots/ios-shopping-list"
+- tapOn:
+    id: "scan-item-button"
+- tapOn:
+    text: "Allow"
+    optional: true
+- takeScreenshot: "screenshots/ios-scanner"
+- tapOn: "Cancel"
+- tapOn: "Shopping"
+- takeScreenshot: "screenshots/ios-shopping"
+- tapOn: "Settings"
+- takeScreenshot: "screenshots/ios-settings"

@@ -1,0 +1,103 @@
+appId: ch.benn0r.shoppinglist
+---
+- launchApp:
+    clearState: true
+- tapOn: "Settings"
+- assertVisible: "Appearance"
+- tapOn:
+    id: "list-view-picker"
+- tapOn: "Tiles"
+- tapOn: "Shopping List"
+- tapOn:
+    id: "add-item-field"
+- inputText: "Apple"
+- pressKey: Enter
+- assertVisible: "Fruits & Vegetables"
+- tapOn: "Settings"
+- tapOn:
+    id: "show-category-labels"
+    point: "90%,50%"
+- tapOn: "Shopping List"
+- assertVisible: "Apple"
+- assertNotVisible: "Fruits & Vegetables"
+- tapOn: "Settings"
+- tapOn:
+    id: "app-language-picker"
+- tapOn: "Deutsch"
+- tapOn: "Einkaufsliste"
+- assertVisible:
+    id: "add-item-field"
+- tapOn: "Einstellungen"
+- tapOn:
+    id: "app-language-picker"
+- tapOn: "Englisch"
+- tapOn:
+    id: "product-language-picker"
+- tapOn: "French"
+- tapOn:
+    id: "item-label-picker"
+- tapOn: "Exact product"
+- tapOn:
+    id: "custom-barcodes-button"
+- tapOn:
+    id: "custom-barcode-field"
+- inputText: "12345670"
+- tapOn:
+    id: "custom-product-name-field"
+- inputText: "Fantasy Product"
+- tapOn:
+    id: "save-custom-barcode"
+- assertVisible: "Fantasy Product"
+- tapOn: "Done"
+- tapOn:
+    id: "add-list-button"
+- tapOn:
+    id: "list-name-field"
+- inputText: "Weekend"
+- tapOn: "Save"
+- assertVisible: "Weekend"
+- tapOn: "Weekend"
+- tapOn:
+    id: "list-name-field"
+- eraseText
+- inputText: "Saturday"
+- tapOn: "Save"
+- assertVisible: "Saturday"
+- tapOn:
+    id: "add-store-button"
+- tapOn:
+    id: "store-name-field"
+- inputText: "Fantasy Market"
+- tapOn: "Save"
+- assertVisible: "Fantasy Market"
+- tapOn: "Fantasy Market"
+- tapOn:
+    id: "store-name-field"
+- eraseText
+- inputText: "Town Market"
+- tapOn: "Save"
+- assertVisible: "Town Market"
+- scrollUntilVisible:
+    element:
+      id: "enable-bring-sync"
+    direction: DOWN
+- tapOn:
+    id: "enable-bring-sync"
+    point: "90%,50%"
+- assertVisible: "API URL (optional)"
+- assertVisible: "Email"
+- assertVisible: "Password"
+- tapOn:
+    id: "enable-bring-sync"
+    point: "90%,50%"
+- assertNotVisible: "API URL (optional)"
+- tapOn:
+    id: "enable-mealie-sync"
+    point: "90%,50%"
+- assertVisible: "Server URL"
+- assertVisible: "Username"
+- assertVisible: "API Token"
+- tapOn:
+    id: "enable-mealie-sync"
+    point: "90%,50%"
+- assertNotVisible: "Server URL"

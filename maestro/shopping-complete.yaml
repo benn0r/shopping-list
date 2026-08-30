@@ -1,0 +1,57 @@
+appId: ch.benn0r.shoppinglist
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: "scan-item-button"
+- assertVisible: "Scan Product"
+- assertVisible: "EAN-8, EAN-13, UPC-A and UPC-E"
+- tapOn: "Cancel"
+- tapOn:
+    id: "add-item-field"
+- inputText: "Bread"
+- pressKey: Enter
+- inputText: "Apples"
+- pressKey: Enter
+- assertVisible: "Bread"
+- tapOn: "Bread"
+- assertVisible: "Category"
+- assertVisible: "Bakery"
+- tapOn: "Done"
+- tapOn: "Settings"
+- tapOn:
+    id: "add-store-button"
+- tapOn:
+    id: "store-name-field"
+- inputText: "Fantasy Market"
+- tapOn: "Save"
+- tapOn: "Shopping"
+- assertVisible: "No Shopping History"
+- tapOn:
+    id: "shopping-store-picker"
+- tapOn: "Fantasy Market"
+- tapOn:
+    id: "start-shopping-button"
+- assertVisible: "Bread"
+- tapOn: "Bread"
+- assertVisible: "Purchased Items"
+- assertVisible: "Bread"
+- tapOn: "Bread"
+- assertVisible: "Bread"
+- tapOn: "Bread"
+- tapOn:
+    id: "finish-shopping-button"
+- assertVisible: "Shopping History"
+- assertVisible: "Fantasy Market"
+- tapOn:
+    id: "shopping-history-row"
+- assertVisible: "Purchased Items"
+- assertVisible: "Bread"
+- swipe:
+    direction: DOWN
+- assertVisible: "Shopping History"
+- swipe:
+    start: "90%,56%"
+    end: "10%,56%"
+    duration: 500
+- assertVisible: "No Shopping History"

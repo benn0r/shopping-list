@@ -1,17 +1,18 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
-node_modules/
+# generated Swift build products
+.build/
+ShoppingList.xcodeproj/
 
-# Expo
+# Legacy/generated JavaScript and Expo output
 .expo/
-dist/
 coverage/
-web-build/
+dist/
+node_modules/
 playwright-report/
 test-results/
-blob-report/
-expo-env.d.ts
+ios/
+android/
 
 # Native
 .kotlin/
@@ -21,9 +22,6 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
-
-# Metro
-.metro-health-check*
 
 # debug
 npm-debug.*
@@ -38,10 +36,3 @@ yarn-error.*
 .env*.local
 .env
 bring-shopping-*.tgz
-
-# typescript
-*.tsbuildinfo
-
-# generated native folders
-/ios
-/android

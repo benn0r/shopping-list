@@ -1,0 +1,44 @@
+appId: ch.benn0r.shoppinglist
+---
+- launchApp:
+    clearState: true
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "enable-mealie-sync"
+    direction: DOWN
+- tapOn:
+    id: "enable-mealie-sync"
+    point: "90%,50%"
+- scrollUntilVisible:
+    element:
+      text: "Server URL"
+    direction: DOWN
+- tapOn:
+    id: "mealie-server-url"
+- inputText: "http://127.0.0.1:8787"
+- tapOn:
+    point: "50%,10%"
+- scrollUntilVisible:
+    element:
+      id: "add-list-button"
+    direction: UP
+- tapOn:
+    id: "add-list-button"
+- tapOn:
+    id: "list-name-field"
+- inputText: "Synced"
+- tapOn: "Provider"
+- tapOn: "Mealie"
+- extendedWaitUntil:
+    visible: "Mock Groceries"
+    timeout: 5000
+- tapOn: "Save"
+- tapOn: "Shopping List"
+- tapOn: "Choose list"
+- tapOn: "Synced"
+- swipe:
+    direction: DOWN
+- extendedWaitUntil:
+    visible: ".*Bread.*"
+    timeout: 5000

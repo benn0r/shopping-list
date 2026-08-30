@@ -1,0 +1,59 @@
+appId: ch.benn0r.shoppinglist
+---
+- launchApp:
+    clearState: true
+- tapOn: "Settings"
+- tapOn:
+    id: "add-list-button"
+- assertVisible: "Add List"
+- tapOn: "Cancel"
+- assertNotVisible: "List name"
+- tapOn:
+    id: "add-list-button"
+- tapOn:
+    id: "list-name-field"
+- inputText: "Temporary List"
+- tapOn: "Save"
+- assertVisible: "Temporary List"
+- tapOn: "Temporary List"
+- tapOn: "Delete List"
+- assertNotVisible: "Temporary List"
+- tapOn:
+    id: "add-store-button"
+- assertVisible: "Add Store"
+- tapOn: "Cancel"
+- assertNotVisible: "Store name"
+- tapOn:
+    id: "add-store-button"
+- tapOn:
+    id: "store-name-field"
+- inputText: "Temporary Market"
+- tapOn: "Save"
+- assertVisible: "Temporary Market"
+- tapOn: "Temporary Market"
+- tapOn: "Delete Store"
+- assertNotVisible: "Temporary Market"
+- scrollUntilVisible:
+    element:
+      text: "Product Data Providers"
+    direction: DOWN
+- assertVisible: "Open Food Facts"
+- assertVisible: "Open Products Facts"
+- assertVisible: "Open Beauty Facts"
+- assertVisible: "Open Pet Food Facts"
+- scrollUntilVisible:
+    element:
+      text: "Food Icon Pack"
+    direction: DOWN
+- assertVisible: "Food Icon Pack"
+- tapOn: "Shopping List"
+- tapOn:
+    id: "add-item-field"
+- inputText: "Milk"
+- pressKey: Enter
+- assertVisible: "Milk"
+- tapOn: "Milk"
+- assertVisible: "Added"
+- assertVisible: "Stores"
+- tapOn: "Remove"
+- assertNotVisible: "Milk"

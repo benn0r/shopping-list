@@ -7,10 +7,10 @@ no advertising, tracking, analytics SDKs, or developer-operated server.
 
 ## About this policy
 
-This policy describes the data practices of Shopping List, an iOS and Android app. Shopping List is
+This policy describes the data practices of Shopping List, an iPhone app. Shopping List is
 an independent app for scanning product barcodes and maintaining a local shopping list, with
-optional synchronization to a Bring shopping list. It is not affiliated with, endorsed by, or
-sponsored by Bring! Labs AG or the Open Facts projects.
+optional synchronization to Bring and self-hosted Mealie servers. It is not affiliated with,
+endorsed by, or sponsored by Bring! Labs AG, the Mealie project, or the Open Facts projects.
 
 ## Data collected by the developer
 
@@ -30,10 +30,9 @@ The app stores only the information needed to work:
 
 - your local shopping lists and their items, including barcode, label, brand and stores when
   available, quantity when selected, and scan time;
-- whether Bring synchronization is enabled;
-- your Bring email address and password in platform secure storage when Bring synchronization is
-  configured;
-- the Bring shopping-list mapping selected for each local list;
+- which synchronization providers are enabled;
+- your Bring or Mealie credentials in the iOS Keychain when synchronization is configured;
+- the provider and remote shopping-list mapping selected for each local list;
 - custom barcode labels; and
 - product-lookup and language preferences.
 
@@ -41,20 +40,18 @@ This information remains in private app storage on your device and is not availa
 developer. Store names shown for products are community-contributed metadata and may be incomplete
 or outdated.
 
-## Communication with Bring
+## Communication with synchronization providers
 
-Bring synchronization is disabled by default. When you enable it and sign in, retrieve shopping
-lists, or add an item, the app communicates directly with Bring's services over HTTPS. Depending on
-your action, it sends your Bring email address and password, user and session identifiers,
-shopping-list identifier, item label, and an optional quantity. The scanned barcode is not sent to
-Bring unless the item originated from a barcode scan. For scanned items, the barcode is included in
-the Bring item specification as an `EAN:` marker so another Shopping List installation can retrieve
-the same public product metadata. Bring controls its own processing, retention, and deletion of this
-information.
+Provider synchronization is disabled by default. When you configure Bring or Mealie, the app
+communicates directly with that provider. Depending on the provider and your action, it sends the
+configured server address, credentials, list identifier, item label, quantity, unit, and optional
+barcode metadata. For scanned items, the barcode may be included so another Shopping List
+installation can retrieve the same public product metadata. Each provider controls its own
+processing, retention, and deletion of this information.
 
 ## Product-information lookups
 
-For a direct scan, and when a Bring item contains a barcode marker added by Shopping List, the app
+For a direct scan, and when a synchronized item contains a barcode marker added by Shopping List, the app
 may send the barcode and a language and country code derived from your device locale to the Open
 Facts product-information services. These include Open Food Facts, Open Products Facts, Open Beauty
 Facts, and Open Pet Food Facts. Those services and their hosting providers may also receive standard
@@ -64,21 +61,21 @@ privacy notices govern that processing.
 ## Sharing, sale, and tracking
 
 The developer does not sell personal information, use it for advertising, create advertising
-profiles, share it with data brokers, or track users. Information is sent only to Bring and Open
-Facts when necessary to perform an action you request.
+profiles, share it with data brokers, or track users. Information is sent only to a provider you
+configure and to Open Facts when necessary to perform an action you request.
 
 ## Retention and deletion
 
-The developer retains no user information. Logging out removes your Bring credentials from the
-app. Custom labels can be deleted in Settings. Using an item's Remove button removes it from its
+The developer retains no user information. Disconnecting a provider removes its credentials from
+the app. Custom labels can be deleted in Settings. Using an item's Remove button removes it from its
 local shopping list. Deleting the app removes its other local data,
-subject to your operating system's storage and backup behavior. Information sent to Bring or Open
-Facts is subject to those services' retention and deletion practices. Bring account requests must
-be directed to Bring because the developer cannot access or delete that account data.
+subject to iOS storage and backup behavior. Information sent to a configured provider or Open Facts
+is subject to those services' retention and deletion practices. Provider account requests must be
+directed to that provider because the developer cannot access or delete that account data.
 
 ## Security
 
-Bring credentials use platform secure storage. Other local records use the app's private
+Provider credentials use the iOS Keychain. Other local records use the app's private
 application storage, and network requests use HTTPS. No storage or transmission method can be
 guaranteed to be completely secure.
 
@@ -89,7 +86,7 @@ does not knowingly collect children's personal information on a developer-contro
 
 ## International processing
 
-Bring and Open Facts may process information outside your country. Their respective privacy notices
+Configured providers and Open Facts may process information outside your country. Their respective privacy notices
 describe their processing locations and safeguards.
 
 ## Changes to this policy
@@ -99,5 +96,4 @@ at the top of this page will be updated when material changes are made.
 
 ## Contact
 
-For privacy questions, use the developer support contact listed on Shopping List's App Store or
-Google Play product page.
+For privacy questions, use the developer support contact listed on Shopping List's App Store page.
