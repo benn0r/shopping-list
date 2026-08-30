@@ -33,6 +33,15 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     scheme:
       testTargets: [ShoppingListTests]
+    postBuildScripts:
+      - name: Install Debug Screenshot Fixtures
+        script: |
+          if [ "$CONFIGURATION" = "Debug" ]; then
+            fixture_destination="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+            cp "$SRCROOT/maestro/fixtures/DemoFridge.png" "$fixture_destination/DemoFridge.png"
+            cp "$SRCROOT/maestro/fixtures/DemoProduct.png" "$fixture_destination/DemoProduct.png"
+          fi
+        basedOnDependencyAnalysis: false
   ShoppingListTests:
     type: bundle.unit-test
     platform: iOS
