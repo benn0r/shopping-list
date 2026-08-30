@@ -1,0 +1,14 @@
+appId: ch.benn0r.shoppinglist
+---
+- launchApp
+- tapOn: "Settings"
+- tapOn: "Add Store"
+- tapOn: "Store name"
+- inputText: "Mock Market"
+- tapOn: "Save"
+- tapOn: "Shopping"
+- tapOn: "Store"
+- tapOn: "Mock Market"
+- tapOn: "Groceries"
+- tapOn: "Start Shopping"
+- assertVisible: "Mock Market"

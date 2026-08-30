@@ -1,0 +1,15 @@
+appId: ch.benn0r.shoppinglist
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Groceries"
+- tapOn:
+    id: "add-item-field"
+- inputText: "Bread"
+- pressKey: Enter
+- assertVisible: "Bread"
+- tapOn: "Settings"
+- tapOn: "List View"
+- tapOn: "Tiles"
+- tapOn: "Shopping List"
+- assertVisible: "Bread"

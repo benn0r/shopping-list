@@ -1,0 +1,34 @@
+appId: ch.benn0r.shoppinglist
+---
+- launchApp:
+    clearState: true
+- tapOn: "Settings"
+- tapOn:
+    id: "enable-bring-sync"
+    point: "25%,50%"
+- scrollUntilVisible:
+    element:
+      text: "API URL (optional)"
+    direction: DOWN
+- tapOn:
+    id: "bring-api-url"
+- inputText: "http://127.0.0.1:8787/rest/v2"
+- tapOn:
+    point: "50%,10%"
+- tapOn: "Add List"
+- tapOn: "List name"
+- inputText: "Bring Synced"
+- tapOn: "Provider"
+- tapOn: "Bring"
+- extendedWaitUntil:
+    visible: "Mock Groceries"
+    timeout: 5000
+- tapOn: "Save"
+- tapOn: "Shopping List"
+- tapOn: "Choose list"
+- tapOn: "Bring Synced"
+- swipe:
+    direction: DOWN
+- extendedWaitUntil:
+    visible: ".*Bread.*"
+    timeout: 5000

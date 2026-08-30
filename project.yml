@@ -1,0 +1,47 @@
+name: ShoppingList
+options:
+  bundleIdPrefix: ch.benn0r
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+    TARGETED_DEVICE_FAMILY: 1
+    SUPPORTS_MACCATALYST: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+targets:
+  ShoppingList:
+    type: application
+    platform: iOS
+    sources:
+      - path: ShoppingListApp
+      - path: assets/icon.png
+        buildPhase: resources
+      - path: assets/food-icons
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ch.benn0r.shoppinglist
+        PRODUCT_NAME: Shopping List
+        PRODUCT_MODULE_NAME: ShoppingList
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ${IOS_DEVELOPMENT_TEAM}
+        BRING_API_KEY: ${BRING_API_KEY}
+        MARKETING_VERSION: 1.0.0
+        CURRENT_PROJECT_VERSION: 3
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: ShoppingListApp/Info.plist
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    scheme:
+      testTargets: [ShoppingListTests]
+  ShoppingListTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: ShoppingListTests
+    dependencies:
+      - target: ShoppingList
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Shopping List.app/Shopping List"
+        BUNDLE_LOADER: "$(TEST_HOST)"

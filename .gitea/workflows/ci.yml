@@ -1,4 +1,4 @@
-name: CI
+name: Native iOS CI
 on:
   push:
   pull_request:
@@ -8,282 +8,69 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: macos
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
-      - run: npm run check:expo
+      - name: Install XcodeGen
+        run: command -v xcodegen || brew install xcodegen
       - run: npm run format:check
       - run: npm run lint
-      - run: npm run typecheck
-  build:
-    needs: quality
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
       - run: npm run build
       - uses: actions/upload-artifact@v4
         with:
-          name: ios-js-bundle
-          path: dist/ios
+          name: ios-release-build
+          path: .build/DerivedData/Build/Products/Release-iphoneos/Shopping List.app
           if-no-files-found: error
+
   test:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: macos
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
+      - run: command -v xcodegen || brew install xcodegen
       - run: npm test
-  test-integration:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
-      - run: npm run test:integration
+
   test-e2e:
     needs: build
-    runs-on: ubuntu-latest
-    container:
-      image: ${{ vars.PLAYWRIGHT_IMAGE }}
-      credentials:
-        username: ${{ gitea.actor }}
-        password: ${{ gitea.token }}
-    timeout-minutes: 20
+    runs-on: macos
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Restore npm download cache
-        uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.npm
-          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            npm-${{ runner.os }}-
-      - run: npm ci
-      - run: npm run build:web:e2e
+          node-version: 22
+      - run: command -v xcodegen || brew install xcodegen
+      - name: Install Maestro
+        run: command -v maestro || brew install maestro
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
-          path: |
-            playwright-report
-            test-results
+          name: maestro-results
+          path: ~/.maestro/tests
           if-no-files-found: ignore
-  coverage:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
-      - run: npm run test:coverage
 
-  build-android-apk:
-    needs: [test, test-integration, test-e2e, coverage]
+  publish:
+    needs: [test, test-e2e]
     if: ${{ gitea.event_name == 'push' && gitea.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    container:
-      image: reactnativecommunity/react-native-android:v20.1
-    env:
-      CI: 'true'
-      NODE_ENV: production
-      CMAKE_BUILD_PARALLEL_LEVEL: '1'
+    runs-on: macos
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
-      - name: Validate Android build configuration
-        env:
-          EXPO_PUBLIC_BRING_API_KEY: ${{ secrets.EXPO_PUBLIC_BRING_API_KEY }}
-        run: test -n "$EXPO_PUBLIC_BRING_API_KEY"
-      - name: Generate the Expo Android project
-        run: npm run prebuild:android
-      - name: Restore Android SDK cache
-        id: android-sdk-cache
-        uses: actions/cache@v4
+      - run: command -v xcodegen || brew install xcodegen
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
         with:
-          path: |
-            ${{ env.ANDROID_HOME }}/platforms/android-36
-            ${{ env.ANDROID_HOME }}/build-tools/36.0.0
-            ${{ env.ANDROID_HOME }}/cmake/3.22.1
-            ${{ env.ANDROID_HOME }}/ndk/27.1.12297006
-          key: android-sdk-${{ runner.os }}-api36-build36-cmake3.22.1-ndk27.1.12297006
-      - name: Install Android build dependencies
-        if: ${{ steps.android-sdk-cache.outputs.cache-hit != 'true' }}
-        run: |
-          attempt=1
-          until "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            'platforms;android-36' \
-            'build-tools;36.0.0' \
-            'cmake;3.22.1' \
-            'ndk;27.1.12297006'; do
-            if [ "$attempt" -ge 3 ]; then
-              exit 1
-            fi
-            attempt=$((attempt + 1))
-            echo "Android SDK install failed; retrying (attempt $attempt of 3)."
-            sleep 10
-          done
-      - name: Restore Gradle cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            ~/.gradle/native
-          key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json', 'app.json', 'android/gradle/wrapper/gradle-wrapper.properties', 'android/**/*.gradle', 'android/**/*.gradle.kts') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
-      - name: Warm Gradle configuration
-        working-directory: android
-        run: |
-          attempt=1
-          until ./gradlew help \
-            --no-daemon --stacktrace \
-            --max-workers=1 \
-            -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=512m" \
-            -Dorg.gradle.parallel=false \
-            -Pkotlin.compiler.execution.strategy=in-process; do
-            if [ "$attempt" -ge 3 ]; then
-              exit 1
-            fi
-            attempt=$((attempt + 1))
-            echo "Gradle warm-up failed; retrying (attempt $attempt of 3)."
-            sleep 10
-          done
-      - name: Bundle Android JavaScript
-        working-directory: android
-        env:
-          NODE_OPTIONS: --max-old-space-size=384
-        run: |
-          attempt=1
-          until ./gradlew :app:createBundleReleaseJsAndAssets \
-            --no-daemon --stacktrace \
-            --max-workers=1 \
-            -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=512m" \
-            -Dorg.gradle.parallel=false \
-            -Pkotlin.compiler.execution.strategy=in-process; do
-            if [ "$attempt" -ge 3 ]; then
-              exit 1
-            fi
-            attempt=$((attempt + 1))
-            echo "Android bundle failed; retrying (attempt $attempt of 3)."
-            sleep 10
-          done
-      - name: Compile Android native code
-        working-directory: android
-        run: |
-          attempt=1
-          until ./gradlew :app:buildCMakeRelWithDebInfo \
-            --no-daemon --stacktrace \
-            --max-workers=1 \
-            -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=512m" \
-            -Dorg.gradle.parallel=false \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            -PreactNativeArchitectures=arm64-v8a; do
-            if [ "$attempt" -ge 3 ]; then
-              exit 1
-            fi
-            attempt=$((attempt + 1))
-            echo "Android native build failed; retrying (attempt $attempt of 3)."
-            sleep 10
-          done
-      - name: Merge Android dependency dex
-        working-directory: android
-        run: |
-          attempt=1
-          until ./gradlew :app:mergeExtDexRelease \
-            --no-daemon --stacktrace \
-            --max-workers=1 \
-            -Dorg.gradle.jvmargs="-Xmx1024m -XX:MaxMetaspaceSize=512m" \
-            -Dorg.gradle.parallel=false \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            -PreactNativeArchitectures=arm64-v8a; do
-            if [ "$attempt" -ge 3 ]; then
-              exit 1
-            fi
-            attempt=$((attempt + 1))
-            echo "Android dex merge failed; retrying (attempt $attempt of 3)."
-            sleep 10
-          done
-      - name: Merge Android application dex
-        working-directory: android
-        run: |
-          attempt=1
-          until ./gradlew :app:mergeDexRelease \
-            --no-daemon --stacktrace \
-            --max-workers=1 \
-            -Dorg.gradle.jvmargs="-Xmx1024m -XX:MaxMetaspaceSize=512m" \
-            -Dorg.gradle.parallel=false \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            -PreactNativeArchitectures=arm64-v8a; do
-            if [ "$attempt" -ge 3 ]; then
-              exit 1
-            fi
-            attempt=$((attempt + 1))
-            echo "Android application dex merge failed; retrying (attempt $attempt of 3)."
-            sleep 10
-          done
-      - name: Build standalone Android APK
-        working-directory: android
-        env:
-          EXPO_PUBLIC_BRING_API_KEY: ${{ secrets.EXPO_PUBLIC_BRING_API_KEY }}
-        run: |
-          attempt=1
-          until ./gradlew :app:assembleRelease \
-            --no-daemon --stacktrace \
-            --max-workers=1 \
-            -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=768m" \
-            -Dorg.gradle.parallel=false \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            -PreactNativeArchitectures=arm64-v8a; do
-            if [ "$attempt" -ge 3 ]; then
-              exit 1
-            fi
-            attempt=$((attempt + 1))
-            echo "Android APK build failed; retrying (attempt $attempt of 3)."
-            sleep 10
-          done
-      - name: Verify APK signature
-        run: >-
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs
-          android/app/build/outputs/apk/release/app-release.apk
-      - name: Upload Android APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: shopping-list-android-preview-${{ gitea.sha }}
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: shopping-list-ios-${{ gitea.sha }}
+          path: .build/DerivedData/Build/Products/Release-iphoneos/Shopping List.app
           if-no-files-found: error
           retention-days: 30
