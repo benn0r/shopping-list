@@ -6,12 +6,17 @@ struct ShoppingScreen: View {
   @State private var selectedLists: Set<UUID> = []
   @State private var history: ShoppingSession?
 
+  private var completedSessions: [ShoppingSession] {
+    store.sessions.filter { $0.completedAt != nil }
+  }
+
   var body: some View {
     NavigationStack {
       Group {
         if let session = store.activeSession { active(session) } else { setup }
       }
       .navigationTitle("Shopping")
+      .navigationBarTitleDisplayMode(.inline)
       .sheet(item: $history) { HistoryDetails(session: $0) }
     }
   }
@@ -58,50 +63,75 @@ struct ShoppingScreen: View {
     }
     return ScrollView {
       VStack(alignment: .leading, spacing: 22) {
-        VStack(alignment: .leading) {
-          Text(session.store.name).font(.title2.bold())
-          Text(session.listNames.joined(separator: ", ")).foregroundStyle(.secondary)
+        HStack(spacing: 12) {
+          Image(systemName: "storefront.fill")
+            .font(.title3)
+            .foregroundStyle(Color.shoppingAccent)
+            .frame(width: 40, height: 40)
+            .background(Color.shoppingAccent.opacity(0.12), in: Circle())
+          VStack(alignment: .leading, spacing: 2) {
+            Text(session.store.name).font(.title3.bold())
+            Text(session.listNames.joined(separator: ", "))
+              .font(.subheadline).foregroundStyle(.secondary)
+          }
         }
         if available.isEmpty {
           ContentUnavailableView(
             "No Items", systemImage: "cart", description: Text("No matching items remain."))
         } else {
-          ItemCollection(items: available, mode: store.viewMode) { item in
+          ItemCollection(
+            items: available, mode: store.viewMode, showCategoryLabels: store.showCategoryLabels
+          ) { item in
             Task { await store.purchase(item) }
           }
         }
-        Text("Purchased Items").font(.headline)
+        Label("Purchased Items", systemImage: "checkmark.circle.fill")
+          .font(.headline)
+          .foregroundStyle(Color.shoppingAccent)
         if session.purchasedItems.isEmpty {
           Text("Nothing purchased yet.").foregroundStyle(.secondary)
         } else {
-          ItemCollection(items: session.purchasedItems.map(\.item), mode: store.viewMode) { item in
+          ItemCollection(
+            items: session.purchasedItems.map(\.item), mode: store.viewMode,
+            showCategoryLabels: store.showCategoryLabels
+          ) { item in
             if let purchase = session.purchasedItems.first(where: { $0.item.id == item.id }) {
               Task { await store.restore(purchase) }
             }
           }
         }
-        Button("Finish Shopping") { store.finishShopping() }.buttonStyle(.borderedProminent).tint(
-          .teal)
+        Button("Finish Shopping") { store.finishShopping() }
+          .buttonStyle(.borderedProminent)
+          .tint(.shoppingAccent)
       }.padding(.horizontal, 16).padding(.vertical)
     }
   }
 
   private var historySection: some View {
     Section("Shopping History") {
-      ForEach(store.sessions.filter { $0.completedAt != nil }) { session in
-        Button {
-          history = session
-        } label: {
-          VStack(alignment: .leading) {
-            Text(session.store.name)
-            Text(session.completedAt?.formatted() ?? "").font(.caption).foregroundStyle(.secondary)
+      if completedSessions.isEmpty {
+        ContentUnavailableView(
+          "No Shopping History", systemImage: "clock.arrow.circlepath",
+          description: Text("Completed shopping trips will appear here.")
+        )
+        .listRowBackground(Color.clear)
+      } else {
+        ForEach(completedSessions) { session in
+          Button {
+            history = session
+          } label: {
+            VStack(alignment: .leading) {
+              Text(session.store.name)
+              Text(session.completedAt?.formatted() ?? "").font(.caption).foregroundStyle(
+                .secondary)
+            }
           }
-        }.foregroundStyle(.primary)
-      }.onDelete { offsets in
-        let complete = store.sessions.filter { $0.completedAt != nil }
-        let ids = offsets.map { complete[$0].id }
-        store.sessions.removeAll { ids.contains($0.id) }
-        store.save()
+          .foregroundStyle(.primary)
+        }.onDelete { offsets in
+          let ids = offsets.map { completedSessions[$0].id }
+          store.sessions.removeAll { ids.contains($0.id) }
+          store.save()
+        }
       }
     }
   }

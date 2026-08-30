@@ -19,6 +19,13 @@ final class AppStoreTests: XCTestCase {
     XCTAssertEqual(reloaded.activeItems.map(\.label), ["Bread"])
   }
 
+  func testCategoryLabelPreferencePersists() async {
+    let store = AppStore(storageURL: fileURL)
+    store.showCategoryLabels = false
+    await store.flushPersistence()
+    XCTAssertFalse(AppStore(storageURL: fileURL).showCategoryLabels)
+  }
+
   func testMultipleListsAndStores() {
     let store = AppStore(storageURL: fileURL)
     store.createList(name: "Home")
@@ -186,11 +193,101 @@ final class AppStoreTests: XCTestCase {
     XCTAssertEqual(GroceryCategoryCatalog.category(for: "completely unknown xyz"), .other)
   }
 
+  func testScannedProductTaxonomyOverridesAmbiguousLabel() {
+    let item = ShoppingItem(
+      barcode: "7610055103798", label: "Calanda Radler Peach",
+      categoryHints: [
+        "Non-alcoholic radler beers", "en:beverages", "en:non-alcoholic-beverages",
+        "en:sweetened-beverages",
+      ], sourceListID: UUID())
+    XCTAssertEqual(GroceryCategoryCatalog.category(for: item), .beverages)
+    XCTAssertEqual(GroceryCategoryCatalog.category(for: item.label), .fruitsVegetables)
+  }
+
+  func testBroadFoodAndBeverageParentDoesNotMakePsylliumADrink() {
+    let item = ShoppingItem(
+      barcode: "7613312115152", label: "Téguments de graines de Psyllium",
+      categoryHints: [
+        "en:plant-based-foods-and-beverages", "en:plant-based-foods", "en:cooking-helpers",
+        "en:psyllium",
+      ], sourceListID: UUID())
+    XCTAssertEqual(GroceryCategoryCatalog.category(for: item), .bakingSpices)
+    XCTAssertEqual(GroceryCategoryCatalog.category(for: "Flohsamenschalen"), .bakingSpices)
+  }
+
+  func testOpenFoodFactsCanonicalFamiliesMapToAppCategories() {
+    let cases: [([String], GroceryCategory)] = [
+      (["en:plant-based-foods-and-beverages", "en:fruits", "en:apples"], .fruitsVegetables),
+      (["en:foods", "en:breads", "en:wholemeal-breads"], .bakery),
+      (["en:dairies", "en:fermented-milk-products", "en:yogurts"], .dairyEggs),
+      (["en:seafood", "en:fishes", "en:salmons"], .fishSeafood),
+      (["en:groceries", "en:sauces", "en:mayonnaises"], .saucesCondiments),
+      (["en:snacks", "en:sweet-snacks", "en:chocolates"], .snacksSweets),
+      (["en:beverages", "en:teas", "en:green-teas"], .coffeeTea),
+      (["en:beverages", "en:alcoholic-beverages", "en:wines"], .alcohol),
+      (["en:frozen-foods", "en:frozen-pizzas"], .frozenFoods),
+    ]
+    for (hints, expected) in cases {
+      let item = ShoppingItem(
+        label: "Unhelpful product name", categoryHints: hints, sourceListID: UUID())
+      XCTAssertEqual(
+        GroceryCategoryCatalog.category(for: item), expected, hints.joined(separator: ","))
+    }
+    let beauty = ShoppingItem(
+      label: "Unknown", productType: "beauty", categoryHints: ["en:products"], sourceListID: UUID())
+    let petFood = ShoppingItem(
+      label: "Unknown", productType: "petfood", categoryHints: ["en:foods"], sourceListID: UUID())
+    XCTAssertEqual(GroceryCategoryCatalog.category(for: beauty), .personalCare)
+    XCTAssertEqual(GroceryCategoryCatalog.category(for: petFood), .pets)
+  }
+
+  func testBackgroundSyncSuppressesTransientProviderErrors() async {
+    let store = AppStore(storageURL: fileURL) { _, _ in FailingProvider() }
+    store.providerConfigurations[.bring]?.enabled = true
+    store.lists[0].syncTarget = SyncTarget(
+      provider: .bring, remoteListID: "remote", remoteListName: "Remote")
+
+    await store.backgroundSync()
+    XCTAssertNil(store.errorMessage)
+
+    await store.sync()
+    XCTAssertNotNil(store.errorMessage)
+  }
+
+  func testCancelledManualSyncDoesNotShowError() async {
+    let store = AppStore(storageURL: fileURL) { _, _ in CancelledProvider() }
+    store.providerConfigurations[.bring]?.enabled = true
+    store.lists[0].syncTarget = SyncTarget(
+      provider: .bring, remoteListID: "remote", remoteListName: "Remote")
+
+    await store.sync()
+
+    XCTAssertNil(store.errorMessage)
+  }
+
   func testGroceryCategoriesUseSupermarketOrder() {
     XCTAssertLessThan(GroceryCategory.fruitsVegetables.rawValue, GroceryCategory.bakery.rawValue)
     XCTAssertLessThan(
       GroceryCategory.beverages.rawValue, GroceryCategory.householdCleaning.rawValue)
     XCTAssertEqual(GroceryCategory.allCases.last, .other)
+  }
+
+  func testProductMetadataCachePersistsEANMetadata() async {
+    let cacheURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString)
+      .appendingPathComponent("ean-cache.json")
+    let metadata = ProductMetadata(
+      label: "Cached product", exactLabel: "Cached product", genericLabel: "Product",
+      brand: "Brand", imageURL: URL(string: "https://example.com/product.jpg"),
+      stores: ["Store"], source: "Open Food Facts", productType: "food",
+      categoryHints: ["en:beverages"])
+    let firstCache = ProductMetadataCache(storageURL: cacheURL)
+    await firstCache.store(metadata, for: "7613312115152|en|generic")
+
+    let reloadedCache = ProductMetadataCache(storageURL: cacheURL)
+    let cached = await reloadedCache.value(for: "7613312115152|en|generic")
+
+    XCTAssertEqual(cached, metadata)
   }
 }
 
@@ -222,4 +319,26 @@ private actor ProviderSpy: ShoppingProvider {
   }
   func addedLabels() -> [String] { adds }
   func restoredLabels() -> [String] { restores }
+}
+
+private struct FailingProvider: ShoppingProvider {
+  func lists() async throws -> [ProviderList] { throw URLError(.timedOut) }
+  func items(in listID: String) async throws -> [ProviderItem] { throw URLError(.timedOut) }
+  func addItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem {
+    throw URLError(.timedOut)
+  }
+  func removeItem(_ item: ShoppingItem, from listID: String) async throws {
+    throw URLError(.timedOut)
+  }
+}
+
+private struct CancelledProvider: ShoppingProvider {
+  func lists() async throws -> [ProviderList] { throw URLError(.cancelled) }
+  func items(in listID: String) async throws -> [ProviderItem] { throw URLError(.cancelled) }
+  func addItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem {
+    throw URLError(.cancelled)
+  }
+  func removeItem(_ item: ShoppingItem, from listID: String) async throws {
+    throw URLError(.cancelled)
+  }
 }

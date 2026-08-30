@@ -9,6 +9,7 @@ final class AppStore: ObservableObject {
   @Published var sessions: [ShoppingSession]
   @Published var activeListID: UUID
   @Published var viewMode: ListViewMode
+  @Published var showCategoryLabels: Bool
   @Published var providerConfigurations: [ProviderKind: ProviderConfiguration]
   @Published var lookupPreferences: ProductLookupPreferences
   @Published var customBarcodes: [CustomBarcode]
@@ -20,6 +21,7 @@ final class AppStore: ObservableObject {
   private let persistence = StatePersistence()
   private var persistenceTask: Task<Void, Never>?
   private var syncingListIDs: Set<UUID> = []
+  private var isBackgroundSyncing = false
 
   init(
     storageURL: URL = FileManager.default.urls(
@@ -39,6 +41,7 @@ final class AppStore: ObservableObject {
       sessions = snapshot.sessions
       activeListID = snapshot.activeListID
       viewMode = snapshot.viewMode
+      showCategoryLabels = snapshot.showCategoryLabels
       providerConfigurations = snapshot.providerConfigurations.mapValues { $0 }
       lookupPreferences = snapshot.lookupPreferences
       customBarcodes = snapshot.customBarcodes
@@ -54,6 +57,7 @@ final class AppStore: ObservableObject {
       sessions = []
       activeListID = initial.id
       viewMode = .list
+      showCategoryLabels = true
       providerConfigurations = [.bring: .init(), .mealie: .init()]
       lookupPreferences = .init()
       customBarcodes = []
@@ -104,7 +108,7 @@ final class AppStore: ObservableObject {
     }
     let snapshot = AppStateSnapshot(
       lists: lists, stores: stores, items: items, sessions: sessions,
-      activeListID: activeListID, viewMode: viewMode,
+      activeListID: activeListID, viewMode: viewMode, showCategoryLabels: showCategoryLabels,
       providerConfigurations: publicConfigurations, lookupPreferences: lookupPreferences,
       customBarcodes: customBarcodes, appLanguage: appLanguage
     )
@@ -115,14 +119,15 @@ final class AppStore: ObservableObject {
     label: String, barcode: String? = nil, imageURL: URL? = nil, brand: String? = nil,
     stores: [String] = [], quantity: Double? = nil, unit: String? = nil,
     exactLabel: String? = nil, genericLabel: String? = nil, productSource: String? = nil,
-    productType: String? = nil, metadataResolved: Bool? = nil
+    productType: String? = nil, categoryHints: [String]? = nil, metadataResolved: Bool? = nil
   ) async {
     let value = label.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !value.isEmpty else { return }
     var item = ShoppingItem(
       barcode: barcode, label: value, brand: brand, imageURL: imageURL, quantity: quantity,
       unit: unit, stores: stores, exactLabel: exactLabel, genericLabel: genericLabel,
-      productSource: productSource, productType: productType, metadataResolved: metadataResolved,
+      productSource: productSource, productType: productType, categoryHints: categoryHints,
+      metadataResolved: metadataResolved,
       sourceListID: activeListID)
     items[activeListID, default: []].append(item)
     save()
@@ -150,7 +155,7 @@ final class AppStore: ObservableObject {
     }
   }
 
-  func sync(_ list: ShoppingListDefinition? = nil) async {
+  func sync(_ list: ShoppingListDefinition? = nil, reportErrors: Bool = true) async {
     let list = list ?? activeList
     guard let target = list.syncTarget else { return }
     guard syncingListIDs.insert(list.id).inserted else { return }
@@ -209,17 +214,54 @@ final class AppStore: ObservableObject {
           item.genericLabel = metadata.genericLabel
           item.productSource = metadata.source
           item.productType = metadata.productType
+          item.categoryHints = metadata.categoryHints
           item.metadataResolved = true
         }
         synchronized.append(item)
       }
       items[list.id] = synchronized
       save()
-    } catch { errorMessage = error.localizedDescription }
+    } catch {
+      if reportErrors && !Self.isCancellation(error) {
+        errorMessage = error.localizedDescription
+      }
+    }
   }
 
-  func syncAll() async {
-    for list in lists where list.syncTarget != nil { await sync(list) }
+  func syncAll(reportErrors: Bool = true) async {
+    for list in lists where list.syncTarget != nil {
+      await sync(list, reportErrors: reportErrors)
+    }
+  }
+
+  func backgroundSync() async {
+    guard !isBackgroundSyncing else { return }
+    isBackgroundSyncing = true
+    defer { isBackgroundSyncing = false }
+    await syncAll(reportErrors: false)
+    await enrichMissingCategoryMetadata()
+  }
+
+  func enrichMissingCategoryMetadata() async {
+    var changed = false
+    for listID in lists.map(\.id) {
+      guard var listItems = items[listID] else { continue }
+      for index in listItems.indices {
+        guard let barcode = listItems[index].barcode, listItems[index].categoryHints == nil else {
+          continue
+        }
+        guard
+          let metadata = try? await ProductLookup().find(
+            barcode: barcode, preferences: lookupPreferences, customBarcodes: customBarcodes)
+        else { continue }
+        listItems[index].categoryHints = metadata.categoryHints
+        listItems[index].productType = metadata.productType
+        listItems[index].productSource = metadata.source
+        changed = true
+      }
+      items[listID] = listItems
+    }
+    if changed { save() }
   }
 
   func createList(name: String, target: SyncTarget? = nil) {
@@ -314,6 +356,10 @@ final class AppStore: ObservableObject {
       throw ProviderError.notConfigured
     }
     return providerFactory(kind, config)
+  }
+
+  private static func isCancellation(_ error: Error) -> Bool {
+    error is CancellationError || (error as? URLError)?.code == .cancelled
   }
 
   private static func normalized(_ value: String) -> String {

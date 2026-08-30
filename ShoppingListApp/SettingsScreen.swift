@@ -16,6 +16,8 @@ struct SettingsScreen: View {
             Text("List").tag(ListViewMode.list)
             Text("Tiles").tag(ListViewMode.tiles)
           }.onChange(of: store.viewMode) { store.save() }
+          Toggle("Show Category Labels", isOn: $store.showCategoryLabels)
+            .onChange(of: store.showCategoryLabels) { store.save() }
           Picker("App Language", selection: $store.appLanguage) {
             ForEach(AppLanguage.allCases) {
               language in Text(LocalizedStringKey(language.title)).tag(language)

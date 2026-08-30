@@ -87,6 +87,7 @@ struct ShoppingItem: Codable, Identifiable, Hashable, Sendable {
   var genericLabel: String?
   var productSource: String?
   var productType: String?
+  var categoryHints: [String]?
   var metadataResolved: Bool?
   var addedAt = Date()
   var remoteItemID: String?
@@ -138,19 +139,22 @@ struct AppStateSnapshot: Codable, Sendable {
   var sessions: [ShoppingSession]
   var activeListID: UUID
   var viewMode: ListViewMode
+  var showCategoryLabels: Bool = true
   var providerConfigurations: [ProviderKind: ProviderConfiguration]
   var lookupPreferences: ProductLookupPreferences = .init()
   var customBarcodes: [CustomBarcode] = []
   var appLanguage: AppLanguage = .automatic
 
   enum CodingKeys: String, CodingKey {
-    case lists, stores, items, sessions, activeListID, viewMode, providerConfigurations
+    case lists, stores, items, sessions, activeListID, viewMode, showCategoryLabels
+    case providerConfigurations
     case lookupPreferences, customBarcodes, appLanguage
   }
 
   init(
     lists: [ShoppingListDefinition], stores: [StoreDefinition], items: [UUID: [ShoppingItem]],
     sessions: [ShoppingSession], activeListID: UUID, viewMode: ListViewMode,
+    showCategoryLabels: Bool = true,
     providerConfigurations: [ProviderKind: ProviderConfiguration],
     lookupPreferences: ProductLookupPreferences = .init(), customBarcodes: [CustomBarcode] = [],
     appLanguage: AppLanguage = .automatic
@@ -161,6 +165,7 @@ struct AppStateSnapshot: Codable, Sendable {
     self.sessions = sessions
     self.activeListID = activeListID
     self.viewMode = viewMode
+    self.showCategoryLabels = showCategoryLabels
     self.providerConfigurations = providerConfigurations
     self.lookupPreferences = lookupPreferences
     self.customBarcodes = customBarcodes
@@ -175,6 +180,7 @@ struct AppStateSnapshot: Codable, Sendable {
     sessions = try values.decode([ShoppingSession].self, forKey: .sessions)
     activeListID = try values.decode(UUID.self, forKey: .activeListID)
     viewMode = try values.decode(ListViewMode.self, forKey: .viewMode)
+    showCategoryLabels = try values.decodeIfPresent(Bool.self, forKey: .showCategoryLabels) ?? true
     providerConfigurations = try values.decode(
       [ProviderKind: ProviderConfiguration].self, forKey: .providerConfigurations)
     lookupPreferences =

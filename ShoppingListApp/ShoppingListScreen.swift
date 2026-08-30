@@ -10,23 +10,26 @@ struct ShoppingListScreen: View {
   var body: some View {
     NavigationStack {
       ScrollView {
-        ItemCollection(items: store.activeItems, mode: store.viewMode) { selectedItem = $0 }
-          .padding(.horizontal, 16)
+        ItemCollection(
+          items: store.activeItems, mode: store.viewMode,
+          showCategoryLabels: store.showCategoryLabels
+        ) { selectedItem = $0 }
+        .padding(.horizontal, 16)
       }
       .refreshable { await store.sync() }
       .task {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
           return
         }
-        await store.sync()
         while !Task.isCancelled {
           try? await Task.sleep(for: .seconds(60))
           guard !Task.isCancelled else { return }
-          await store.sync()
+          await store.backgroundSync()
         }
       }
       .safeAreaInset(edge: .bottom) { composer }
       .navigationTitle(store.activeList.name)
+      .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
           Menu {
@@ -41,7 +44,12 @@ struct ShoppingListScreen: View {
       }
       .sheet(item: $selectedItem) { ItemDetails(item: $0) }
       .sheet(isPresented: $scannerPresented) { ScannerSheet() }
-      .alert("Sync Error", isPresented: .constant(store.errorMessage != nil)) {
+      .alert(
+        "Error",
+        isPresented: Binding(
+          get: { store.errorMessage != nil },
+          set: { if !$0 { store.errorMessage = nil } })
+      ) {
         Button("OK") { store.errorMessage = nil }
       } message: {
         Text(store.errorMessage ?? "")
@@ -52,7 +60,13 @@ struct ShoppingListScreen: View {
   private var composer: some View {
     HStack(spacing: 10) {
       TextField("Add…", text: $newItem)
-        .textFieldStyle(.roundedBorder).submitLabel(.done)
+        .padding(.horizontal, 16)
+        .frame(height: 46)
+        .background(.background, in: Capsule())
+        .overlay {
+          Capsule().stroke(Color.shoppingAccent.opacity(0.16), lineWidth: 1)
+        }
+        .submitLabel(.done)
         .onSubmit {
           let label = newItem
           newItem = ""
@@ -62,11 +76,27 @@ struct ShoppingListScreen: View {
       Button {
         scannerPresented = true
       } label: {
-        Image(systemName: "camera.fill").font(.title3).frame(width: 44, height: 44)
+        Image(systemName: "camera.fill")
+          .font(.system(size: 19, weight: .semibold))
+          .frame(width: 46, height: 46)
       }
-      .buttonStyle(.borderedProminent).buttonBorderShape(.circle).tint(.teal)
+      .buttonStyle(.borderedProminent).buttonBorderShape(.circle).tint(.shoppingAccent)
       .accessibilityIdentifier("scan-item-button")
-    }.padding().background(.ultraThinMaterial)
+    }
+    .padding(.horizontal, 16)
+    .padding(.top, 12)
+    .padding(.bottom, 10)
+    .background {
+      ZStack(alignment: .top) {
+        Rectangle().fill(.regularMaterial)
+        LinearGradient(
+          colors: [.shoppingAccent.opacity(0.10), .shoppingMint.opacity(0.04), .clear],
+          startPoint: .topLeading, endPoint: .bottomTrailing
+        )
+        Divider().overlay(Color.shoppingAccent.opacity(0.12))
+      }
+      .ignoresSafeArea(edges: .bottom)
+    }
   }
 }
 
@@ -74,6 +104,7 @@ private struct ItemDetails: View {
   @EnvironmentObject private var store: AppStore
   @Environment(\.dismiss) private var dismiss
   let item: ShoppingItem
+  private var category: GroceryCategory { GroceryCategoryCatalog.category(for: item) }
   var body: some View {
     NavigationStack {
       List {
@@ -92,6 +123,21 @@ private struct ItemDetails: View {
           LabeledContent("Added", value: item.addedAt.formatted())
           if let barcode = item.barcode { LabeledContent("Barcode", value: barcode) }
           if let brand = item.brand { LabeledContent("Brand", value: brand) }
+          LabeledContent {
+            HStack(spacing: 6) {
+              Image(systemName: category.symbol)
+                .font(.caption.weight(.semibold))
+                .frame(width: 16, height: 16)
+              Text(category.title)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .layoutPriority(1)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .foregroundStyle(category.accent)
+          } label: {
+            Text("Category")
+          }
           if let quantity = item.quantity {
             LabeledContent(
               "Quantity", value: "\(quantity.formatted())\(item.unit.map { " \($0)" } ?? "")")
@@ -173,6 +219,7 @@ private struct ScannerSheet: View {
               quantity: quantity, exactLabel: value.metadata?.exactLabel,
               genericLabel: value.metadata?.genericLabel,
               productSource: value.metadata?.source, productType: value.metadata?.productType,
+              categoryHints: value.metadata?.categoryHints,
               metadataResolved: true)
             dismiss()
           }
@@ -288,13 +335,17 @@ private struct ProductConfirmationSheet: View {
               if let quantity { self.quantity = quantity > 1 ? quantity - 1 : nil }
             } label: {
               Image(systemName: "minus.circle.fill")
-            }.disabled(quantity == nil)
+            }
+            .buttonStyle(.borderless)
+            .disabled(quantity == nil)
             Text(quantity.map(String.init) ?? "—").monospacedDigit().frame(minWidth: 28)
             Button {
               quantity = min(99, (quantity ?? 0) + 1)
             } label: {
               Image(systemName: "plus.circle.fill")
-            }.disabled(quantity == 99)
+            }
+            .buttonStyle(.borderless)
+            .disabled(quantity == 99)
           }
         }
         Section("Product information") {
@@ -327,22 +378,35 @@ private struct BarcodeScanner: UIViewControllerRepresentable {
   func makeCoordinator() -> Coordinator { Coordinator(code: $code) }
   func makeUIViewController(context: Context) -> UIViewController {
     let controller = ScannerViewController()
-    let session = AVCaptureSession()
+    let session = controller.captureSession
+    session.beginConfiguration()
+    session.sessionPreset = .high
+    defer { session.commitConfiguration() }
     guard let device = AVCaptureDevice.default(for: .video),
       let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input)
     else { return controller }
+    if device.isFocusModeSupported(.continuousAutoFocus) {
+      try? device.lockForConfiguration()
+      device.focusMode = .continuousAutoFocus
+      if device.isExposureModeSupported(.continuousAutoExposure) {
+        device.exposureMode = .continuousAutoExposure
+      }
+      device.unlockForConfiguration()
+    }
     session.addInput(input)
     let output = AVCaptureMetadataOutput()
     guard session.canAddOutput(output) else { return controller }
     session.addOutput(output)
     output.setMetadataObjectsDelegate(context.coordinator, queue: .main)
-    output.metadataObjectTypes = [.ean8, .ean13, .upce]
+    let desiredTypes: [AVMetadataObject.ObjectType] = [
+      .ean8, .ean13, .upce, .code128, .code39, .code93, .itf14,
+    ]
+    output.metadataObjectTypes = desiredTypes.filter(output.availableMetadataObjectTypes.contains)
     let preview = AVCaptureVideoPreviewLayer(session: session)
     preview.videoGravity = .resizeAspectFill
     controller.previewLayer = preview
     controller.metadataOutput = output
     controller.view.layer.addSublayer(preview)
-    DispatchQueue.global(qos: .userInitiated).async { session.startRunning() }
     return controller
   }
   func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
@@ -360,17 +424,34 @@ private struct BarcodeScanner: UIViewControllerRepresentable {
 }
 
 private final class ScannerViewController: UIViewController {
+  let captureSession = AVCaptureSession()
   var previewLayer: AVCaptureVideoPreviewLayer?
   var metadataOutput: AVCaptureMetadataOutput?
+
+  override func viewWillAppear(_ animated: Bool) {
+    super.viewWillAppear(animated)
+    startCapture()
+  }
+
+  override func viewDidDisappear(_ animated: Bool) {
+    super.viewDidDisappear(animated)
+    stopCapture()
+  }
+
+  func startCapture() {
+    let session = captureSession
+    guard !session.isRunning, !session.inputs.isEmpty else { return }
+    DispatchQueue.global(qos: .userInitiated).async { session.startRunning() }
+  }
+
+  private func stopCapture() {
+    let session = captureSession
+    guard session.isRunning else { return }
+    DispatchQueue.global(qos: .userInitiated).async { session.stopRunning() }
+  }
 
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
     previewLayer?.frame = view.bounds
-    let frameTop = min(CGFloat(154), max(112, view.bounds.height * 0.28))
-    let scanFrame = CGRect(x: 28, y: frameTop, width: view.bounds.width - 56, height: 126)
-    if let previewLayer {
-      metadataOutput?.rectOfInterest = previewLayer.metadataOutputRectConverted(
-        fromLayerRect: scanFrame)
-    }
   }
 }

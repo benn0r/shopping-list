@@ -1,6 +1,6 @@
 import Foundation
 
-struct ProductMetadata: Sendable {
+struct ProductMetadata: Codable, Hashable, Sendable {
   var label: String
   var exactLabel: String
   var genericLabel: String?
@@ -9,10 +9,16 @@ struct ProductMetadata: Sendable {
   var stores: [String]
   var source: String
   var productType: String?
+  var categoryHints: [String]
 }
 
 struct ProductLookup: Sendable {
   private static let supportedLanguages = ["de", "en", "fr", "it"]
+  private let cache: ProductMetadataCache
+
+  init(cache: ProductMetadataCache = .shared) {
+    self.cache = cache
+  }
 
   private struct Response: Decodable { var product: Product? }
   private struct Product: Decodable {
@@ -22,6 +28,13 @@ struct ProductLookup: Sendable {
     var imageFrontSmallURL: URL?
     var imageFrontURL: URL?
     var productType: String?
+    var categories: String?
+    var categoriesTags: [String]?
+    var categoriesHierarchy: [String]?
+    var foodGroups: String?
+    var foodGroupsTags: [String]?
+    var pnnsGroups1: String?
+    var pnnsGroups2: String?
     var stores: String?
     var storesTags: [String]?
     var localized: [String: String] = [:]
@@ -33,6 +46,13 @@ struct ProductLookup: Sendable {
       case imageFrontSmallURL = "image_front_small_url"
       case imageFrontURL = "image_front_url"
       case productType = "product_type"
+      case categories
+      case categoriesTags = "categories_tags"
+      case categoriesHierarchy = "categories_hierarchy"
+      case foodGroups = "food_groups"
+      case foodGroupsTags = "food_groups_tags"
+      case pnnsGroups1 = "pnns_groups_1"
+      case pnnsGroups2 = "pnns_groups_2"
       case stores
       case storesTags = "stores_tags"
     }
@@ -45,6 +65,13 @@ struct ProductLookup: Sendable {
       imageFrontSmallURL = try values.decodeIfPresent(URL.self, forKey: .imageFrontSmallURL)
       imageFrontURL = try values.decodeIfPresent(URL.self, forKey: .imageFrontURL)
       productType = try values.decodeIfPresent(String.self, forKey: .productType)
+      categories = try values.decodeIfPresent(String.self, forKey: .categories)
+      categoriesTags = try values.decodeIfPresent([String].self, forKey: .categoriesTags)
+      categoriesHierarchy = try values.decodeIfPresent([String].self, forKey: .categoriesHierarchy)
+      foodGroups = try values.decodeIfPresent(String.self, forKey: .foodGroups)
+      foodGroupsTags = try values.decodeIfPresent([String].self, forKey: .foodGroupsTags)
+      pnnsGroups1 = try values.decodeIfPresent(String.self, forKey: .pnnsGroups1)
+      pnnsGroups2 = try values.decodeIfPresent(String.self, forKey: .pnnsGroups2)
       stores = try values.decodeIfPresent(String.self, forKey: .stores)
       storesTags = try values.decodeIfPresent([String].self, forKey: .storesTags)
       let dynamic = try decoder.container(keyedBy: DynamicKey.self)
@@ -75,16 +102,21 @@ struct ProductLookup: Sendable {
     if let custom = customBarcodes.first(where: { $0.barcode == normalizedBarcode }) {
       return ProductMetadata(
         label: custom.label, exactLabel: custom.label, genericLabel: custom.label, brand: nil,
-        imageURL: nil, stores: [], source: "Custom barcode", productType: "custom")
+        imageURL: nil, stores: [], source: "Custom barcode", productType: "custom",
+        categoryHints: [])
     }
     let language = resolvedLanguage(preferences.language)
+    let cacheKey = "\(normalizedBarcode)|\(language)|\(preferences.labelStyle.rawValue)"
+    if let cached = await cache.value(for: cacheKey) { return cached }
     let localizedFields = Self.supportedLanguages.flatMap {
       ["product_name_\($0)", "generic_name_\($0)"]
     }
     let fields =
       [
         "product_name", "generic_name", "brands", "image_front_small_url", "image_front_url",
-        "product_type", "stores", "stores_tags",
+        "product_type", "stores", "stores_tags", "categories", "categories_tags",
+        "categories_hierarchy", "food_groups", "food_groups_tags", "pnns_groups_1",
+        "pnns_groups_2",
       ] + localizedFields
     guard
       var components = URLComponents(
@@ -114,14 +146,23 @@ struct ProductLookup: Sendable {
     let stores =
       (product.storesTags ?? [])
       + (product.stores?.split(separator: ",").map(String.init) ?? [])
-    return ProductMetadata(
+    let categoryHints =
+      [product.categories, product.foodGroups, product.pnnsGroups1, product.pnnsGroups2]
+      .compactMap { clean($0) } + (product.categoriesTags ?? [])
+      + (product.categoriesHierarchy ?? []) + (product.foodGroupsTags ?? [])
+    let metadata = ProductMetadata(
       label: label, exactLabel: exactLabel, genericLabel: genericLabel,
       brand: clean(product.brands),
       imageURL: product.imageFrontSmallURL ?? product.imageFrontURL,
       stores: Array(Set(stores.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })).filter {
         !$0.isEmpty
       }.sorted(),
-      source: sourceName(product.productType), productType: product.productType)
+      source: sourceName(product.productType), productType: product.productType,
+      categoryHints: categoryHints.reduce(into: []) { result, hint in
+        if !result.contains(hint) { result.append(hint) }
+      })
+    await cache.store(metadata, for: cacheKey)
+    return metadata
   }
 
   private func resolvedLanguage(_ preference: ProductLanguage) -> String {
@@ -151,5 +192,42 @@ struct ProductLookup: Sendable {
     case "product", "products": "Open Products Facts"
     default: "Open Food Facts"
     }
+  }
+}
+
+actor ProductMetadataCache {
+  static let shared = ProductMetadataCache()
+
+  private let storageURL: URL
+  private var values: [String: ProductMetadata]?
+
+  init(
+    storageURL: URL = FileManager.default.urls(
+      for: .cachesDirectory, in: .userDomainMask)[0]
+      .appendingPathComponent("product-metadata.json")
+  ) {
+    self.storageURL = storageURL
+  }
+
+  func value(for key: String) -> ProductMetadata? {
+    loadIfNeeded()
+    return values?[key]
+  }
+
+  func store(_ metadata: ProductMetadata, for key: String) {
+    loadIfNeeded()
+    values?[key] = metadata
+    guard let values, let data = try? JSONEncoder().encode(values) else { return }
+    try? FileManager.default.createDirectory(
+      at: storageURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try? data.write(to: storageURL, options: .atomic)
+  }
+
+  private func loadIfNeeded() {
+    guard values == nil else { return }
+    values =
+      (try? Data(contentsOf: storageURL)).flatMap {
+        try? JSONDecoder().decode([String: ProductMetadata].self, from: $0)
+      } ?? [:]
   }
 }

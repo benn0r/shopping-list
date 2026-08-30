@@ -278,7 +278,11 @@ enum GroceryCategoryCatalog {
         "zimt", "pfeffer", "gewurz", "gewurze", "wurzmittel", "patisserie maison", "levure",
         "vanille", "cacao", "cannelle", "poivre", "epice", "epices", "assaisonnement", "lievito",
         "vaniglia", "cacao", "cannella", "pepe", "spezie", "condimento", "fermento", "baunilha",
-        "cacau", "canela", "pimenta", "especiaria", "especiarias",
+        "cacau", "canela", "pimenta", "especiaria", "especiarias", "psyllium", "psyllium husk",
+        "psyllium husks", "flea seed husk", "flohsamen", "flohsamenschalen", "plantago husk",
+        "teguments de psyllium", "graines de psyllium", "teguments de graines de psyllium",
+        "bucce di psillio", "semi di psillio", "casca de psyllium", "cascas de psyllium",
+        "sementes de psyllium",
       ]
     ),
     (
@@ -506,6 +510,118 @@ enum GroceryCategoryCatalog {
     }
     return .other
   }
+
+  static func category(for item: ShoppingItem) -> GroceryCategory {
+    if let hints = item.categoryHints, !hints.isEmpty {
+      let normalizedHints = hints.map(normalize).filter {
+        !ignoredProviderTags.contains($0)
+      }
+      let metadata = normalizedHints.joined(separator: " ")
+      switch item.productType?.lowercased() {
+      case "beauty": return .personalCare
+      case "petfood", "pet-food": return .pets
+      default: break
+      }
+      let isNonAlcoholic = metadata.contains("non alcoholic") || metadata.contains("alcohol free")
+      if isNonAlcoholic { return .beverages }
+      for rule in providerRules where containsAny(metadata, rule.terms) {
+        return rule.category
+      }
+      for hint in normalizedHints.reversed() {
+        let metadataCategory = category(for: hint)
+        if metadataCategory != .other { return metadataCategory }
+      }
+    }
+    return category(for: item.label)
+  }
+
+  private static func containsAny(_ value: String, _ terms: [String]) -> Bool {
+    terms.contains(where: value.contains)
+  }
+
+  private static let ignoredProviderTags: Set<String> = [
+    "en foods", "foods", "en groceries", "groceries",
+    "en foods and beverages", "foods and beverages",
+    "en beverages and beverages preparations", "beverages and beverages preparations",
+    "en plant based foods", "plant based foods",
+    "en plant based foods and beverages", "plant based foods and beverages",
+  ]
+
+  /// Ordered from specific families to broad families. Open Food Facts category tags include
+  /// parent nodes, so a specific match must win over generic parents such as beverages.
+  private static let providerRules: [(category: GroceryCategory, terms: [String])] = [
+    (.baby, ["baby food", "infant food", "infant formula", "follow on milk"]),
+    (.coffeeTea, ["coffee", "coffees", "tea", "teas", "herbal tea", "infusion"]),
+    (
+      .alcohol,
+      ["alcoholic beverage", "beer", "beers", "wine", "wines", "spirit", "liqueur", "cider"]
+    ),
+    (.beverages, ["juice", "soft drink", "soda", "water", "lemonade", "limonade", "nectar"]),
+    (.frozenFoods, ["frozen food", "frozen foods", "frozen meal", "ice cream", "sorbet"]),
+    (.cheese, ["cheese", "cheeses", "fromage", "formaggio", "queijo"]),
+    (.fishSeafood, ["fish", "fishes", "seafood", "crustacean", "mollusc", "shellfish"]),
+    (
+      .meatPoultry,
+      ["meat", "meats", "poultry", "beef", "pork", "veal", "lamb", "chicken", "turkey"]
+    ),
+    (
+      .dairyEggs,
+      [
+        "dairy", "milk product", "fermented milk", "yogurt", "yoghurt", "egg", "eggs", "butter",
+        "cream",
+      ]
+    ),
+    (
+      .bakery,
+      ["bread", "breads", "bakery", "pastry", "pastries", "viennoiserie", "rolls", "baguette"]
+    ),
+    (
+      .breakfast,
+      [
+        "breakfast", "cereal", "cereals", "muesli", "granola", "porridge", "oat flakes", "jam",
+        "marmalade",
+      ]
+    ),
+    (
+      .fruitsVegetables,
+      ["fruit", "fruits", "vegetable", "vegetables", "legume", "mushroom", "fresh herb", "salad"]
+    ),
+    (
+      .pastaRiceGrains,
+      ["pasta", "noodle", "rice", "grain", "grains", "couscous", "quinoa", "bulgur", "polenta"]
+    ),
+    (.cannedJarred, ["canned", "preserved food", "pickled", "in brine", "in oil", "jarred"]),
+    (
+      .saucesCondiments,
+      ["sauce", "condiment", "dressing", "mustard", "mayonnaise", "ketchup", "vinegar", "pesto"]
+    ),
+    (
+      .bakingSpices,
+      [
+        "baking", "cooking helper", "spice", "spices", "seasoning", "flour", "yeast", "psyllium",
+        "sugar", "salt",
+      ]
+    ),
+    (
+      .snacksSweets,
+      [
+        "snack", "snacks", "sweet", "sweets", "confectionery", "chocolate", "candy", "biscuit",
+        "cookie", "chips", "crisps",
+      ]
+    ),
+    (
+      .deliConvenience,
+      ["prepared meal", "ready meal", "sandwich", "pizza", "deli", "charcuterie", "instant meal"]
+    ),
+    (
+      .plantBased,
+      [
+        "meat analogue", "meat substitute", "plant based milk", "vegan cheese", "tofu", "tempeh",
+        "seitan",
+      ]
+    ),
+    (.beverages, ["beverage", "beverages", "drink", "drinks"]),
+  ]
 
   private static func fuzzyCategory(for normalized: String) -> GroceryCategory? {
     let words = normalized.split(separator: " ").map(String.init)
