@@ -54,7 +54,7 @@ struct ShoppingScreen: View {
   private func active(_ session: ShoppingSession) -> some View {
     let available = session.listIDs.flatMap { store.items[$0, default: []] }.filter { item in
       item.stores.isEmpty
-        || item.stores.contains(where: { $0.localizedCaseInsensitiveContains(session.store.name) })
+        || item.stores.contains(where: { storeNamesMatch($0, session.store.name) })
     }
     return ScrollView {
       VStack(alignment: .leading, spacing: 22) {
@@ -108,13 +108,46 @@ struct ShoppingScreen: View {
   private func toggle(_ id: UUID) {
     if selectedLists.contains(id) { selectedLists.remove(id) } else { selectedLists.insert(id) }
   }
+
+}
+
+func storeNamesMatch(_ candidate: String, _ configured: String) -> Bool {
+  let normalize: (String) -> String = { value in
+    value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+      .components(separatedBy: CharacterSet.alphanumerics.inverted)
+      .filter { !$0.isEmpty }.joined(separator: " ")
+  }
+  let left = normalize(candidate)
+  let right = normalize(configured)
+  return !left.isEmpty && !right.isEmpty
+    && (left == right || left.contains(right) || right.contains(left))
 }
 
 private struct HistoryDetails: View {
   let session: ShoppingSession
   var body: some View {
     NavigationStack {
-      List(session.purchasedItems) { Text($0.item.label) }.navigationTitle(session.store.name)
+      List {
+        Section {
+          LabeledContent("Started", value: session.startedAt.formatted())
+          if let completedAt = session.completedAt {
+            LabeledContent("Completed", value: completedAt.formatted())
+          }
+          LabeledContent("Shopping Lists", value: session.listNames.joined(separator: ", "))
+        }
+        Section("Purchased Items") {
+          ForEach(session.purchasedItems) { purchase in
+            VStack(alignment: .leading, spacing: 3) {
+              Text(
+                purchase.item.quantity.map {
+                  "\($0.formatted())\(purchase.item.unit.map { " \($0)" } ?? "") \(purchase.item.label)"
+                } ?? purchase.item.label)
+              Text(purchase.purchasedAt.formatted())
+                .font(.caption).foregroundStyle(.secondary)
+            }
+          }
+        }
+      }.navigationTitle(session.store.name)
     }
   }
 }

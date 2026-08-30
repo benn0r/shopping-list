@@ -10,12 +10,16 @@ final class AppStore: ObservableObject {
   @Published var activeListID: UUID
   @Published var viewMode: ListViewMode
   @Published var providerConfigurations: [ProviderKind: ProviderConfiguration]
+  @Published var lookupPreferences: ProductLookupPreferences
+  @Published var customBarcodes: [CustomBarcode]
+  @Published var appLanguage: AppLanguage
   @Published var errorMessage: String?
 
   private let storageURL: URL
   private let providerFactory: (ProviderKind, ProviderConfiguration) -> ShoppingProvider
   private let persistence = StatePersistence()
   private var persistenceTask: Task<Void, Never>?
+  private var syncingListIDs: Set<UUID> = []
 
   init(
     storageURL: URL = FileManager.default.urls(
@@ -36,6 +40,9 @@ final class AppStore: ObservableObject {
       activeListID = snapshot.activeListID
       viewMode = snapshot.viewMode
       providerConfigurations = snapshot.providerConfigurations.mapValues { $0 }
+      lookupPreferences = snapshot.lookupPreferences
+      customBarcodes = snapshot.customBarcodes
+      appLanguage = snapshot.appLanguage
       for provider in ProviderKind.allCases {
         providerConfigurations[provider]?.secret = CredentialVault.read(provider)
       }
@@ -48,6 +55,9 @@ final class AppStore: ObservableObject {
       activeListID = initial.id
       viewMode = .list
       providerConfigurations = [.bring: .init(), .mealie: .init()]
+      lookupPreferences = .init()
+      customBarcodes = []
+      appLanguage = .automatic
     }
   }
 
@@ -95,20 +105,24 @@ final class AppStore: ObservableObject {
     let snapshot = AppStateSnapshot(
       lists: lists, stores: stores, items: items, sessions: sessions,
       activeListID: activeListID, viewMode: viewMode,
-      providerConfigurations: publicConfigurations
+      providerConfigurations: publicConfigurations, lookupPreferences: lookupPreferences,
+      customBarcodes: customBarcodes, appLanguage: appLanguage
     )
     return (snapshot, secrets)
   }
 
   func addItem(
     label: String, barcode: String? = nil, imageURL: URL? = nil, brand: String? = nil,
-    stores: [String] = [], quantity: Double? = nil, unit: String? = nil
+    stores: [String] = [], quantity: Double? = nil, unit: String? = nil,
+    exactLabel: String? = nil, genericLabel: String? = nil, productSource: String? = nil,
+    productType: String? = nil, metadataResolved: Bool? = nil
   ) async {
     let value = label.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !value.isEmpty else { return }
     var item = ShoppingItem(
       barcode: barcode, label: value, brand: brand, imageURL: imageURL, quantity: quantity,
-      unit: unit, stores: stores,
+      unit: unit, stores: stores, exactLabel: exactLabel, genericLabel: genericLabel,
+      productSource: productSource, productType: productType, metadataResolved: metadataResolved,
       sourceListID: activeListID)
     items[activeListID, default: []].append(item)
     save()
@@ -139,15 +153,41 @@ final class AppStore: ObservableObject {
   func sync(_ list: ShoppingListDefinition? = nil) async {
     let list = list ?? activeList
     guard let target = list.syncTarget else { return }
+    guard syncingListIDs.insert(list.id).inserted else { return }
+    defer { syncingListIDs.remove(list.id) }
     do {
-      let remote = try await provider(for: target.provider).items(in: target.remoteListID)
-      let existing = items[list.id, default: []]
+      let adapter = try provider(for: target.provider)
+      var existing = items[list.id, default: []]
+      var remote = try await adapter.items(in: target.remoteListID)
+      var uploadedItem = false
+      for index in existing.indices where existing[index].remoteItemID == nil {
+        if let match = remote.first(where: {
+          (existing[index].barcode != nil && existing[index].barcode == $0.barcode)
+            || Self.normalized(existing[index].label) == Self.normalized($0.label)
+        }) {
+          existing[index].remoteItemID = match.id
+          existing[index].remoteSpecification = match.specification
+        } else {
+          let added = try await adapter.addItem(existing[index], to: target.remoteListID)
+          existing[index].remoteItemID = added.id
+          existing[index].remoteSpecification = added.specification
+          uploadedItem = true
+        }
+      }
+      if uploadedItem { remote = try await adapter.items(in: target.remoteListID) }
       var synchronized: [ShoppingItem] = []
       for remoteItem in remote {
-        if let local = existing.first(where: {
+        if var local = existing.first(where: {
           $0.remoteItemID == remoteItem.id
             || ($0.barcode != nil && $0.barcode == remoteItem.barcode)
+            || Self.normalized($0.label) == Self.normalized(remoteItem.label)
         }) {
+          local.remoteItemID = remoteItem.id
+          local.remoteSpecification = remoteItem.specification
+          local.barcode = remoteItem.barcode ?? local.barcode
+          local.quantity = remoteItem.quantity ?? local.quantity
+          local.unit = remoteItem.unit ?? local.unit
+          if local.imageURL == nil && local.brand == nil { local.label = remoteItem.label }
           synchronized.append(local)
           continue
         }
@@ -158,18 +198,28 @@ final class AppStore: ObservableObject {
           sourceListID: list.id
         )
         if let barcode = remoteItem.barcode,
-          let metadata = try? await ProductLookup().find(barcode: barcode)
+          let metadata = try? await ProductLookup().find(
+            barcode: barcode, preferences: lookupPreferences, customBarcodes: customBarcodes)
         {
           item.label = metadata.label
           item.brand = metadata.brand
           item.imageURL = metadata.imageURL
           item.stores = metadata.stores
+          item.exactLabel = metadata.exactLabel
+          item.genericLabel = metadata.genericLabel
+          item.productSource = metadata.source
+          item.productType = metadata.productType
+          item.metadataResolved = true
         }
         synchronized.append(item)
       }
       items[list.id] = synchronized
       save()
     } catch { errorMessage = error.localizedDescription }
+  }
+
+  func syncAll() async {
+    for list in lists where list.syncTarget != nil { await sync(list) }
   }
 
   func createList(name: String, target: SyncTarget? = nil) {
@@ -200,6 +250,21 @@ final class AppStore: ObservableObject {
     save()
   }
 
+  func saveCustomBarcode(barcode: String, label: String) {
+    let code = barcode.filter(\.isNumber)
+    let value = label.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard (8...14).contains(code.count), !value.isEmpty else { return }
+    customBarcodes.removeAll { $0.barcode == code }
+    customBarcodes.append(CustomBarcode(barcode: code, label: value))
+    customBarcodes.sort { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+    save()
+  }
+
+  func deleteCustomBarcode(_ value: CustomBarcode) {
+    customBarcodes.removeAll { $0.barcode == value.barcode }
+    save()
+  }
+
   func startShopping(store: StoreDefinition, listIDs: Set<UUID>) {
     sessions.append(
       ShoppingSession(
@@ -217,13 +282,23 @@ final class AppStore: ObservableObject {
   func restore(_ purchase: PurchasedItem) async {
     guard let index = sessions.firstIndex(where: { $0.completedAt == nil }) else { return }
     sessions[index].purchasedItems.removeAll(where: { $0.id == purchase.id })
-    items[purchase.item.sourceListID, default: []].append(purchase.item)
+    var restoredItem = purchase.item
+    items[purchase.item.sourceListID, default: []].append(restoredItem)
     save()
     if let list = lists.first(where: { $0.id == purchase.item.sourceListID }),
       let target = list.syncTarget
     {
       do {
-        _ = try await provider(for: target.provider).addItem(purchase.item, to: target.remoteListID)
+        let remote = try await provider(for: target.provider).restoreItem(
+          purchase.item, to: target.remoteListID)
+        restoredItem.remoteItemID = remote.id
+        restoredItem.remoteSpecification = remote.specification
+        if let itemIndex = items[purchase.item.sourceListID]?.firstIndex(where: {
+          $0.id == restoredItem.id
+        }) {
+          items[purchase.item.sourceListID]?[itemIndex] = restoredItem
+          save()
+        }
       } catch { errorMessage = error.localizedDescription }
     }
   }
@@ -239,5 +314,9 @@ final class AppStore: ObservableObject {
       throw ProviderError.notConfigured
     }
     return providerFactory(kind, config)
+  }
+
+  private static func normalized(_ value: String) -> String {
+    value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
   }
 }

@@ -14,6 +14,17 @@ struct ShoppingListScreen: View {
           .padding(.horizontal, 16)
       }
       .refreshable { await store.sync() }
+      .task {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
+          return
+        }
+        await store.sync()
+        while !Task.isCancelled {
+          try? await Task.sleep(for: .seconds(60))
+          guard !Task.isCancelled else { return }
+          await store.sync()
+        }
+      }
       .safeAreaInset(edge: .bottom) { composer }
       .navigationTitle(store.activeList.name)
       .toolbar {
@@ -25,6 +36,7 @@ struct ShoppingListScreen: View {
           } label: {
             Label("Choose list", systemImage: "list.bullet")
           }
+          .onChange(of: store.activeListID) { store.save() }
         }
       }
       .sheet(item: $selectedItem) { ItemDetails(item: $0) }
@@ -65,10 +77,33 @@ private struct ItemDetails: View {
   var body: some View {
     NavigationStack {
       List {
+        if let imageURL = item.imageURL {
+          Section {
+            AsyncImage(url: imageURL) { image in
+              image.resizable().scaledToFit()
+            } placeholder: {
+              ProgressView()
+            }
+            .frame(maxWidth: .infinity).frame(height: 180)
+            .listRowBackground(Color.clear)
+          }
+        }
         Section {
           LabeledContent("Added", value: item.addedAt.formatted())
           if let barcode = item.barcode { LabeledContent("Barcode", value: barcode) }
           if let brand = item.brand { LabeledContent("Brand", value: brand) }
+          if let quantity = item.quantity {
+            LabeledContent(
+              "Quantity", value: "\(quantity.formatted())\(item.unit.map { " \($0)" } ?? "")")
+          }
+          if let source = item.productSource { LabeledContent("Source", value: source) }
+          if let type = item.productType { LabeledContent("Product Type", value: type) }
+          if let specification = item.remoteSpecification, !specification.isEmpty {
+            LabeledContent("Provider Details", value: specification)
+          }
+          if let list = store.lists.first(where: { $0.id == item.sourceListID }) {
+            LabeledContent("Shopping List", value: list.name)
+          }
         }
         Section("Stores") {
           Text(item.stores.isEmpty ? "Unknown" : item.stores.joined(separator: ", "))
@@ -92,7 +127,7 @@ private struct ScannerSheet: View {
   @State private var code: String?
   @State private var product: ScannedProduct?
   @State private var isLookingUp = false
-  @State private var lookupError: String?
+  @State private var lookupError: LookupFailure?
 
   var body: some View {
     NavigationStack {
@@ -106,8 +141,26 @@ private struct ScannerSheet: View {
         guard let value, !isLookingUp, product == nil else { return }
         isLookingUp = true
         Task {
-          let metadata = try? await ProductLookup().find(barcode: value)
-          product = ScannedProduct(barcode: value, metadata: metadata)
+          do {
+            guard
+              let metadata = try await ProductLookup().find(
+                barcode: value, preferences: store.lookupPreferences,
+                customBarcodes: store.customBarcodes)
+            else {
+              lookupError = LookupFailure(
+                title: "Product Not Found",
+                message: "No product was found for this barcode.")
+              code = nil
+              isLookingUp = false
+              return
+            }
+            product = ScannedProduct(barcode: value, metadata: metadata)
+          } catch {
+            lookupError = LookupFailure(
+              title: "Product Lookup Failed",
+              message: "Check your connection and try again.")
+            code = nil
+          }
           isLookingUp = false
         }
       }
@@ -117,7 +170,10 @@ private struct ScannerSheet: View {
             await store.addItem(
               label: label, barcode: value.barcode, imageURL: value.metadata?.imageURL,
               brand: value.metadata?.brand, stores: value.metadata?.stores ?? [],
-              quantity: quantity)
+              quantity: quantity, exactLabel: value.metadata?.exactLabel,
+              genericLabel: value.metadata?.genericLabel,
+              productSource: value.metadata?.source, productType: value.metadata?.productType,
+              metadataResolved: true)
             dismiss()
           }
         } onRescan: {
@@ -125,16 +181,23 @@ private struct ScannerSheet: View {
         }
         .presentationDetents([.large])
       }
-      .alert("Product lookup failed", isPresented: .constant(lookupError != nil)) {
-        Button("Try Again") {
-          lookupError = nil
-          code = nil
-        }
-      } message: {
-        Text(lookupError ?? "")
+      .alert(item: $lookupError) { failure in
+        Alert(
+          title: Text(LocalizedStringKey(failure.title)),
+          message: Text(LocalizedStringKey(failure.message)),
+          dismissButton: .default(Text("Try Again")) {
+            lookupError = nil
+            code = nil
+          })
       }
     }
   }
+}
+
+private struct LookupFailure: Identifiable {
+  let id = UUID()
+  let title: String
+  let message: String
 }
 
 private struct ScannedProduct: Identifiable {
@@ -182,7 +245,7 @@ private struct ProductConfirmationSheet: View {
   let onAdd: (String, Double?) -> Void
   let onRescan: () -> Void
   @State private var label: String
-  @State private var quantity = 1
+  @State private var quantity: Int?
 
   init(
     product: ScannedProduct, onAdd: @escaping (String, Double?) -> Void,
@@ -218,7 +281,21 @@ private struct ProductConfirmationSheet: View {
         }
         Section("Item") {
           TextField("Label", text: $label)
-          Stepper("Quantity: \(quantity)", value: $quantity, in: 1...99)
+          HStack {
+            Text("Quantity")
+            Spacer()
+            Button {
+              if let quantity { self.quantity = quantity > 1 ? quantity - 1 : nil }
+            } label: {
+              Image(systemName: "minus.circle.fill")
+            }.disabled(quantity == nil)
+            Text(quantity.map(String.init) ?? "—").monospacedDigit().frame(minWidth: 28)
+            Button {
+              quantity = min(99, (quantity ?? 0) + 1)
+            } label: {
+              Image(systemName: "plus.circle.fill")
+            }.disabled(quantity == 99)
+          }
         }
         Section("Product information") {
           LabeledContent("Barcode", value: product.barcode)
@@ -237,7 +314,7 @@ private struct ProductConfirmationSheet: View {
           }
         }
         ToolbarItem(placement: .confirmationAction) {
-          Button("Add") { onAdd(label, Double(quantity)) }
+          Button("Add") { onAdd(label, quantity.map(Double.init)) }
             .disabled(label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
       }
@@ -249,7 +326,7 @@ private struct BarcodeScanner: UIViewControllerRepresentable {
   @Binding var code: String?
   func makeCoordinator() -> Coordinator { Coordinator(code: $code) }
   func makeUIViewController(context: Context) -> UIViewController {
-    let controller = UIViewController()
+    let controller = ScannerViewController()
     let session = AVCaptureSession()
     guard let device = AVCaptureDevice.default(for: .video),
       let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input)
@@ -262,7 +339,8 @@ private struct BarcodeScanner: UIViewControllerRepresentable {
     output.metadataObjectTypes = [.ean8, .ean13, .upce]
     let preview = AVCaptureVideoPreviewLayer(session: session)
     preview.videoGravity = .resizeAspectFill
-    preview.frame = UIScreen.main.bounds
+    controller.previewLayer = preview
+    controller.metadataOutput = output
     controller.view.layer.addSublayer(preview)
     DispatchQueue.global(qos: .userInitiated).async { session.startRunning() }
     return controller
@@ -277,6 +355,22 @@ private struct BarcodeScanner: UIViewControllerRepresentable {
     ) {
       guard code == nil else { return }
       code = (objects.first as? AVMetadataMachineReadableCodeObject)?.stringValue
+    }
+  }
+}
+
+private final class ScannerViewController: UIViewController {
+  var previewLayer: AVCaptureVideoPreviewLayer?
+  var metadataOutput: AVCaptureMetadataOutput?
+
+  override func viewDidLayoutSubviews() {
+    super.viewDidLayoutSubviews()
+    previewLayer?.frame = view.bounds
+    let frameTop = min(CGFloat(154), max(112, view.bounds.height * 0.28))
+    let scanFrame = CGRect(x: 28, y: frameTop, width: view.bounds.width - 56, height: 126)
+    if let previewLayer {
+      metadataOutput?.rectOfInterest = previewLayer.metadataOutputRectConverted(
+        fromLayerRect: scanFrame)
     }
   }
 }

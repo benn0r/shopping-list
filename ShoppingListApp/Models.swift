@@ -1,6 +1,56 @@
 import Foundation
 
 enum ListViewMode: String, Codable, CaseIterable, Sendable { case list, tiles }
+enum AppLanguage: String, Codable, CaseIterable, Identifiable, Sendable {
+  case automatic, en, de, fr, it, pt
+  case ptBR = "pt-BR"
+  var id: String { rawValue }
+  var localeIdentifier: String { self == .automatic ? Locale.current.identifier : rawValue }
+  var title: String {
+    switch self {
+    case .automatic: "Automatic"
+    case .en: "English"
+    case .de: "Deutsch"
+    case .fr: "Français"
+    case .it: "Italiano"
+    case .pt: "Português"
+    case .ptBR: "Português (Brasil)"
+    }
+  }
+}
+enum ProductLanguage: String, Codable, CaseIterable, Identifiable, Sendable {
+  case automatic, de, en, fr, it
+  var id: String { rawValue }
+  var title: String {
+    switch self {
+    case .automatic: "Automatic"
+    case .de: "German"
+    case .en: "English"
+    case .fr: "French"
+    case .it: "Italian"
+    }
+  }
+}
+enum ProductLabelStyle: String, Codable, CaseIterable, Identifiable, Sendable {
+  case generic, exact, ask
+  var id: String { rawValue }
+  var title: String {
+    switch self {
+    case .generic: "Generic name"
+    case .exact: "Exact product"
+    case .ask: "Ask every time"
+    }
+  }
+}
+struct ProductLookupPreferences: Codable, Hashable, Sendable {
+  var language: ProductLanguage = .automatic
+  var labelStyle: ProductLabelStyle = .generic
+}
+struct CustomBarcode: Codable, Identifiable, Hashable, Sendable {
+  var barcode: String
+  var label: String
+  var id: String { barcode }
+}
 enum ProviderKind: String, Codable, CaseIterable, Identifiable, Sendable {
   case bring, mealie
   var id: String { rawValue }
@@ -33,6 +83,11 @@ struct ShoppingItem: Codable, Identifiable, Hashable, Sendable {
   var quantity: Double?
   var unit: String?
   var stores: [String] = []
+  var exactLabel: String?
+  var genericLabel: String?
+  var productSource: String?
+  var productType: String?
+  var metadataResolved: Bool?
   var addedAt = Date()
   var remoteItemID: String?
   var remoteSpecification: String?
@@ -84,4 +139,48 @@ struct AppStateSnapshot: Codable, Sendable {
   var activeListID: UUID
   var viewMode: ListViewMode
   var providerConfigurations: [ProviderKind: ProviderConfiguration]
+  var lookupPreferences: ProductLookupPreferences = .init()
+  var customBarcodes: [CustomBarcode] = []
+  var appLanguage: AppLanguage = .automatic
+
+  enum CodingKeys: String, CodingKey {
+    case lists, stores, items, sessions, activeListID, viewMode, providerConfigurations
+    case lookupPreferences, customBarcodes, appLanguage
+  }
+
+  init(
+    lists: [ShoppingListDefinition], stores: [StoreDefinition], items: [UUID: [ShoppingItem]],
+    sessions: [ShoppingSession], activeListID: UUID, viewMode: ListViewMode,
+    providerConfigurations: [ProviderKind: ProviderConfiguration],
+    lookupPreferences: ProductLookupPreferences = .init(), customBarcodes: [CustomBarcode] = [],
+    appLanguage: AppLanguage = .automatic
+  ) {
+    self.lists = lists
+    self.stores = stores
+    self.items = items
+    self.sessions = sessions
+    self.activeListID = activeListID
+    self.viewMode = viewMode
+    self.providerConfigurations = providerConfigurations
+    self.lookupPreferences = lookupPreferences
+    self.customBarcodes = customBarcodes
+    self.appLanguage = appLanguage
+  }
+
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    lists = try values.decode([ShoppingListDefinition].self, forKey: .lists)
+    stores = try values.decode([StoreDefinition].self, forKey: .stores)
+    items = try values.decode([UUID: [ShoppingItem]].self, forKey: .items)
+    sessions = try values.decode([ShoppingSession].self, forKey: .sessions)
+    activeListID = try values.decode(UUID.self, forKey: .activeListID)
+    viewMode = try values.decode(ListViewMode.self, forKey: .viewMode)
+    providerConfigurations = try values.decode(
+      [ProviderKind: ProviderConfiguration].self, forKey: .providerConfigurations)
+    lookupPreferences =
+      try values.decodeIfPresent(ProductLookupPreferences.self, forKey: .lookupPreferences)
+      ?? .init()
+    customBarcodes = try values.decodeIfPresent([CustomBarcode].self, forKey: .customBarcodes) ?? []
+    appLanguage = try values.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .automatic
+  }
 }

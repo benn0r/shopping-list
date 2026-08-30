@@ -6,6 +6,7 @@ struct SettingsScreen: View {
   @State private var editedStore: StoreDefinition?
   @State private var addingList = false
   @State private var addingStore = false
+  @State private var customBarcodesPresented = false
 
   var body: some View {
     NavigationStack {
@@ -15,6 +16,11 @@ struct SettingsScreen: View {
             Text("List").tag(ListViewMode.list)
             Text("Tiles").tag(ListViewMode.tiles)
           }.onChange(of: store.viewMode) { store.save() }
+          Picker("App Language", selection: $store.appLanguage) {
+            ForEach(AppLanguage.allCases) {
+              language in Text(LocalizedStringKey(language.title)).tag(language)
+            }
+          }.onChange(of: store.appLanguage) { store.save() }
         }
         Section("Shopping Lists") {
           ForEach(store.lists) { list in
@@ -28,6 +34,33 @@ struct SettingsScreen: View {
           }
           Button("Add Store", systemImage: "plus") { addingStore = true }
         }
+        Section {
+          Picker("Product Language", selection: $store.lookupPreferences.language) {
+            ForEach(ProductLanguage.allCases) { language in
+              Text(LocalizedStringKey(language.title)).tag(language)
+            }
+          }
+          Picker("Item Label", selection: $store.lookupPreferences.labelStyle) {
+            ForEach(ProductLabelStyle.allCases) { style in
+              Text(LocalizedStringKey(style.title)).tag(style)
+            }
+          }
+          Button {
+            customBarcodesPresented = true
+          } label: {
+            HStack {
+              Text("Custom Barcodes").foregroundStyle(.primary)
+              Spacer()
+              Text("\(store.customBarcodes.count)").foregroundStyle(.secondary)
+              Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            }
+          }
+        } header: {
+          Text("Product Lookup")
+        } footer: {
+          Text("Custom labels take priority over online product databases.")
+        }
+        .onChange(of: store.lookupPreferences) { store.save() }
         ProviderSection(kind: .bring)
         ProviderSection(kind: .mealie)
         Section {
@@ -69,7 +102,63 @@ struct SettingsScreen: View {
       .sheet(isPresented: $addingStore) {
         StoreEditor(store: StoreDefinition(name: ""), isNew: true)
       }
+      .sheet(isPresented: $customBarcodesPresented) { CustomBarcodeManager() }
     }
+  }
+}
+
+private struct CustomBarcodeManager: View {
+  @EnvironmentObject private var store: AppStore
+  @Environment(\.dismiss) private var dismiss
+  @State private var barcode = ""
+  @State private var label = ""
+
+  private var normalizedBarcode: String { barcode.filter(\.isNumber) }
+  private var canSave: Bool {
+    (8...14).contains(normalizedBarcode.count)
+      && !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  var body: some View {
+    NavigationStack {
+      Form {
+        Section {
+          TextField("Barcode", text: $barcode)
+            .keyboardType(.numberPad)
+            .textContentType(.none)
+          TextField("Product name", text: $label)
+          Button("Save Barcode") {
+            store.saveCustomBarcode(barcode: barcode, label: label)
+            barcode = ""
+            label = ""
+          }.disabled(!canSave)
+        } header: {
+          Text("Add Custom Barcode")
+        } footer: {
+          Text("Enter an EAN or UPC barcode containing 8–14 digits.")
+        }
+        if !store.customBarcodes.isEmpty {
+          Section("Saved Barcodes") {
+            ForEach(store.customBarcodes) { value in
+              VStack(alignment: .leading, spacing: 3) {
+                Text(value.label)
+                Text(value.barcode).font(.footnote).foregroundStyle(.secondary)
+              }
+            }
+            .onDelete { offsets in
+              let values = offsets.map { store.customBarcodes[$0] }
+              values.forEach(store.deleteCustomBarcode)
+            }
+          }
+        }
+      }
+      .navigationTitle("Custom Barcodes")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+      }
+    }
+    .presentationDetents([.large])
   }
 }
 
@@ -166,7 +255,9 @@ private struct ListEditor: View {
               })
           ) {
             Text("None").tag(nil as ProviderKind?)
-            ForEach(ProviderKind.allCases) { Text($0.title).tag(Optional($0)) }
+            ForEach(ProviderKind.allCases.filter { providerEnabled($0) }) {
+              Text($0.title).tag(Optional($0))
+            }
           }
           if let target = list.syncTarget, !remoteLists.isEmpty {
             Picker(
@@ -219,12 +310,17 @@ private struct ListEditor: View {
     }.presentationDetents([.medium, .large])
   }
 
+  private func providerEnabled(_ provider: ProviderKind) -> Bool {
+    store.providerConfigurations[provider]?.enabled == true
+      || list.syncTarget?.provider == provider
+  }
+
   private func loadRemoteLists() async {
     guard let kind = list.syncTarget?.provider, let config = store.providerConfigurations[kind],
       config.enabled
     else {
       remoteLists = []
-      remoteListError = nil
+      remoteListError = list.syncTarget == nil ? nil : "Enable and configure this provider first."
       return
     }
     loadingRemoteLists = true

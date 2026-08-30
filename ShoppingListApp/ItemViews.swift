@@ -6,33 +6,52 @@ struct ItemCollection: View {
   let mode: ListViewMode
   let action: (ShoppingItem) -> Void
 
+  private var sections: [(category: GroceryCategory, items: [ShoppingItem])] {
+    let grouped = Dictionary(grouping: items) { GroceryCategoryCatalog.category(for: $0.label) }
+    return GroceryCategory.allCases.compactMap { category in
+      guard let categoryItems = grouped[category], !categoryItems.isEmpty else { return nil }
+      return (category, categoryItems)
+    }
+  }
+
   var body: some View {
-    if mode == .tiles {
-      LazyVGrid(
-        columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 3), spacing: 16
-      ) {
-        ForEach(items) { item in
-          Button {
-            action(item)
-          } label: {
-            ItemTile(item: item)
+    LazyVStack(alignment: .leading, spacing: 18) {
+      ForEach(sections, id: \.category) { section in
+        VStack(alignment: .leading, spacing: 9) {
+          Text(section.category.title)
+            .font(.headline)
+            .foregroundStyle(.secondary)
+            .accessibilityAddTraits(.isHeader)
+          if mode == .tiles {
+            LazyVGrid(
+              columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 3), spacing: 16
+            ) {
+              ForEach(section.items) { item in
+                Button {
+                  action(item)
+                } label: {
+                  ItemTile(item: item)
+                }
+                .buttonStyle(.plain)
+                .aspectRatio(1, contentMode: .fit)
+              }
+            }
+          } else {
+            LazyVStack(spacing: 0) {
+              ForEach(section.items) { item in
+                Button {
+                  action(item)
+                } label: {
+                  ItemRow(item: item)
+                }.buttonStyle(.plain)
+                Divider().padding(.leading, 58)
+              }
+            }
           }
-          .buttonStyle(.plain)
-          .aspectRatio(1, contentMode: .fit)
-        }
-      }
-    } else {
-      LazyVStack(spacing: 0) {
-        ForEach(items) { item in
-          Button {
-            action(item)
-          } label: {
-            ItemRow(item: item)
-          }.buttonStyle(.plain)
-          Divider().padding(.leading, 58)
         }
       }
     }
+    .animation(.snappy(duration: 0.32, extraBounce: 0.12), value: items.map(\.id))
   }
 }
 

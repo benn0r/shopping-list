@@ -19,6 +19,13 @@ protocol ShoppingProvider: Sendable {
   func items(in listID: String) async throws -> [ProviderItem]
   func addItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem
   func removeItem(_ item: ShoppingItem, from listID: String) async throws
+  func restoreItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem
+}
+
+extension ShoppingProvider {
+  func restoreItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem {
+    try await addItem(item, to: listID)
+  }
 }
 
 enum ProviderFactory {
@@ -103,6 +110,34 @@ struct MealieProvider: ShoppingProvider {
     var put = try request("api/households/shopping/items/\(id)", method: "PUT")
     try put.jsonBody(value)
     _ = try await client.request(put)
+  }
+
+  func restoreItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem {
+    let raw = try await rawItems(in: listID)
+    let normalizedLabel = item.label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    if var match = raw.first(where: {
+      $0.checked
+        && ($0.id == item.remoteItemID
+          || ($0.note ?? $0.display ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() == normalizedLabel)
+    }) {
+      match.checked = false
+      var put = try request("api/households/shopping/items/\(match.id)", method: "PUT")
+      try put.jsonBody(match)
+      _ = try await client.request(put)
+      return ProviderItem(
+        id: match.id, label: match.food?.name ?? match.note ?? match.display ?? item.label,
+        barcode: match.extras?.barcode ?? item.barcode, quantity: match.quantity,
+        unit: match.unit?.name, specification: match.display)
+    }
+    return try await addItem(item, to: listID)
+  }
+
+  private func rawItems(in listID: String) async throws -> [MealieItem] {
+    let data = try await client.request(
+      try request("api/households/shopping/items?queryFilter=shoppingListId%3D\(listID)&perPage=-1")
+    )
+    return try decodeCollection(data, as: MealieItem.self).filter { $0.shoppingListId == listID }
   }
 }
 
@@ -240,7 +275,13 @@ struct BringProvider: ShoppingProvider {
       "remove=", "sender=null",
     ].joined(separator: "&").data(using: .utf8)
     _ = try await client.request(request)
-    return ProviderItem(id: item.label, label: item.label, barcode: item.barcode)
+    let candidates = try await items(in: listID)
+    return candidates.first(where: {
+      $0.barcode != nil && $0.barcode == item.barcode
+    }) ?? candidates.last(where: {
+      $0.label.trimmingCharacters(in: .whitespacesAndNewlines).localizedCaseInsensitiveCompare(
+        item.label.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
+    }) ?? ProviderItem(id: item.label, label: item.label, barcode: item.barcode)
   }
   func removeItem(_ item: ShoppingItem, from listID: String) async throws {
     let auth = try await session()
@@ -266,6 +307,37 @@ struct BringProvider: ShoppingProvider {
             itemId: item.label, uuid: item.remoteItemID, spec: item.remoteSpecification ?? "")
         ]))
     _ = try await client.request(request)
+  }
+
+  func restoreItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem {
+    let auth = try await session()
+    var request = try authorized("bringlists/\(listID)/items", method: "PUT", session: auth)
+    struct Change: Encodable {
+      var itemId: String
+      var uuid: String?
+      var spec: String
+      var operation = "TO_PURCHASE"
+      var accuracy = "0.0"
+      var altitude = "0.0"
+      var latitude = "0.0"
+      var longitude = "0.0"
+    }
+    struct Body: Encodable {
+      var changes: [Change]
+      var sender = ""
+    }
+    try request.jsonBody(
+      Body(
+        changes: [
+          Change(
+            itemId: item.label, uuid: item.remoteItemID, spec: item.remoteSpecification ?? "")
+        ]))
+    _ = try await client.request(request)
+    return try await items(in: listID).first(where: {
+      $0.id == item.remoteItemID
+        || $0.label.localizedCaseInsensitiveCompare(item.label) == .orderedSame
+    })
+      ?? ProviderItem(id: item.remoteItemID ?? item.label, label: item.label, barcode: item.barcode)
   }
 
   private static func barcode(from specification: String) -> String? {
