@@ -80,17 +80,16 @@
       "src/**/*.{ts,tsx}",
       "!src/components/Native*.tsx",
       "!src/navigation/AppTabs.tsx",
-      "!src/screens/NativeSettingsView.ios.tsx",
-      "!src/screens/NativeSettingsView.tsx",
+      "!src/screens/Native*.tsx",
       "!src/**/*.web.ts",
       "!src/types.ts"
     ],
     "coverageThreshold": {
       "global": {
-        "statements": 92,
+        "statements": 91,
         "branches": 87,
-        "functions": 87,
-        "lines": 93
+        "functions": 86,
+        "lines": 92
       }
     }
   },

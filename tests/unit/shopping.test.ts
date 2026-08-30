@@ -3,6 +3,7 @@ import {
   animateShoppingItemTransfer,
   historySwipeOffset,
   itemMatchesStore,
+  nativeCollectionHeight,
   shoppingSessionListIds,
   shoppingSessionListNames,
   shouldCaptureHistorySwipe,
@@ -54,6 +55,12 @@ it('decides when shopping-history rows reveal or close their delete action', () 
   expect(shouldOpenHistorySwipe(false, -20, 0)).toBe(false);
   expect(shouldOpenHistorySwipe(true, 20, 0)).toBe(true);
   expect(shouldOpenHistorySwipe(true, 40, 0)).toBe(false);
+});
+
+it('sizes native list and three-column tile collections consistently', () => {
+  expect(nativeCollectionHeight(3, 'list')).toBe(192);
+  expect(nativeCollectionHeight(1, 'tiles')).toBe(148);
+  expect(nativeCollectionHeight(4, 'tiles')).toBe(272);
 });
 const store = { id: 'migros', name: 'Migros' };
 

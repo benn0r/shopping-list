@@ -11,7 +11,9 @@ export function AppTabs({ dark }: { dark: boolean }) {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        headerLargeTitleEnabled: true,
+        headerLargeTitleShadowVisible: false,
         tabBarActiveTintColor: dark ? '#72D5CA' : '#237F78',
         tabBarInactiveTintColor: dark ? '#A7B1AF' : '#74817E',
         tabBarControllerMode: 'tabBar',
@@ -24,6 +26,7 @@ export function AppTabs({ dark }: { dark: boolean }) {
         options={{
           tabBarLabel: t('shoppingList'),
           tabBarIcon: { type: 'sfSymbol', name: 'checklist' },
+          title: t('shoppingList'),
         }}
       />
       <Tab.Screen
@@ -32,6 +35,7 @@ export function AppTabs({ dark }: { dark: boolean }) {
         options={{
           tabBarLabel: t('shopping'),
           tabBarIcon: { type: 'sfSymbol', name: 'cart.fill' },
+          title: t('shopping'),
         }}
       />
       <Tab.Screen
@@ -41,6 +45,7 @@ export function AppTabs({ dark }: { dark: boolean }) {
           tabBarLabel: t('settings'),
           tabBarIcon: { type: 'sfSymbol', name: 'gearshape.fill' },
           headerShown: true,
+          headerLargeTitleEnabled: true,
           title: t('settings'),
         }}
       />

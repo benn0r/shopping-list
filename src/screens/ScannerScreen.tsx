@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import {
   ActivityIndicator,
@@ -29,6 +29,8 @@ import {
   ui,
 } from '../components/ui';
 import { NativeSheet } from '../components/NativeSheet';
+import { NativeItemCollection } from '../components/NativeItemCollection';
+import { NativePageHeader } from '../components/NativePageHeader';
 import { groceryIconForLabel } from '../services/groceryIcons';
 import { lookupProduct } from '../services/productLookup';
 import {
@@ -62,7 +64,11 @@ export function getComposerKeyboardInset(keyboardHeight: number) {
   return Math.max(0, keyboardHeight);
 }
 
-export function ScannerScreen() {
+export function ScannerScreen({
+  navigation = { setOptions: () => undefined },
+}: {
+  navigation?: { setOptions: (options: Record<string, unknown>) => void };
+}) {
   const { t } = useI18n();
   const [permission, requestPermission] = useCameraPermissions();
   const [syncEnabled, setSyncEnabled] = useState(false);
@@ -314,6 +320,32 @@ export function ScannerScreen() {
     }
   }
 
+  useLayoutEffect(() => {
+    if (Platform.OS !== 'ios' || process.env.NODE_ENV === 'test') return;
+    navigation.setOptions({
+      title: activeList.name,
+      headerLargeTitleEnabled: true,
+      headerLargeTitleShadowVisible: false,
+      unstable_headerRightItems: () => [
+        {
+          type: 'menu',
+          label: t('chooseList'),
+          icon: { type: 'sfSymbol', name: 'list.bullet' },
+          changesSelectionAsPrimaryAction: true,
+          menu: {
+            title: t('chooseList'),
+            items: lists.map((list) => ({
+              type: 'action',
+              label: list.name,
+              state: list.id === activeList.id ? 'on' : 'off',
+              onPress: () => void switchList(list),
+            })),
+          },
+        },
+      ],
+    });
+  }, [activeList.id, activeList.name, lists, navigation, t]);
+
   async function removeSelectedItem() {
     if (!selectedItem) return;
     try {
@@ -369,54 +401,76 @@ export function ScannerScreen() {
     </View>
   );
   return (
-    <SafeAreaView edges={['top']} style={ui.safe}>
+    <SafeAreaView edges={Platform.OS === 'ios' ? [] : ['top']} style={ui.safe}>
       <View style={styles.screenBody}>
-        <View style={ui.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${t('chooseList')}: ${activeList.name}`}
+        {Platform.OS !== 'ios' || process.env.NODE_ENV === 'test' ? (
+          <NativePageHeader
+            title={activeList.name}
+            accessibilityText={`${t('chooseList')}: ${activeList.name}`}
             testID="active-list-title"
             onPress={() => setListPickerOpen(true)}
-            style={({ pressed }) => [styles.listTitleButton, pressed && styles.scanButtonPressed]}
-          >
-            <Text accessibilityRole="header" numberOfLines={2} style={styles.listTitleText}>
-              {activeList.name}
-            </Text>
-            <GlassSurface style={styles.listTitleChevronBadge}>
-              <ChevronIcon direction="down" size={9} color={colors.tint} />
-            </GlassSurface>
-          </Pressable>
-        </View>
+            fallback={
+              <View style={ui.header}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t('chooseList')}: ${activeList.name}`}
+                  testID="active-list-title"
+                  onPress={() => setListPickerOpen(true)}
+                  style={({ pressed }) => [
+                    styles.listTitleButton,
+                    pressed && styles.scanButtonPressed,
+                  ]}
+                >
+                  <Text accessibilityRole="header" numberOfLines={2} style={styles.listTitleText}>
+                    {activeList.name}
+                  </Text>
+                  <GlassSurface style={styles.listTitleChevronBadge}>
+                    <ChevronIcon direction="down" size={9} color={colors.tint} />
+                  </GlassSurface>
+                </Pressable>
+              </View>
+            }
+          />
+        ) : null}
         <View style={[ui.screen, ui.content, styles.scannerContent]}>
           <View style={historyStyles.history}>
-            <ScrollView
-              bounces={syncEnabled}
-              contentContainerStyle={[
-                historyStyles.list,
-                listViewMode === 'tiles' && historyStyles.tiles,
-              ]}
-              testID="shopping-list-scroll"
-              refreshControl={
-                syncEnabled ? (
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={() => void refreshFromProvider()}
-                    tintColor={colors.tint}
-                    colors={[colors.tint]}
-                    testID="bring-refresh-control"
-                  />
-                ) : undefined
+            <NativeItemCollection
+              items={items}
+              viewMode={listViewMode}
+              onPress={setSelectedItem}
+              accessibilityLabelForItem={(item) => `${item.label}, ${t('itemDetails')}`}
+              onRefresh={syncEnabled ? refreshFromProvider : undefined}
+              fallback={
+                <ScrollView
+                  bounces={syncEnabled}
+                  contentContainerStyle={[
+                    historyStyles.list,
+                    listViewMode === 'tiles' && historyStyles.tiles,
+                  ]}
+                  testID="shopping-list-scroll"
+                  refreshControl={
+                    syncEnabled ? (
+                      <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={() => void refreshFromProvider()}
+                        tintColor={colors.tint}
+                        colors={[colors.tint]}
+                        testID="bring-refresh-control"
+                      />
+                    ) : undefined
+                  }
+                >
+                  {items.map((item) => (
+                    <ShoppingListCard
+                      key={item.barcode}
+                      item={item}
+                      onPress={() => setSelectedItem(item)}
+                      viewMode={listViewMode}
+                    />
+                  ))}
+                </ScrollView>
               }
-            >
-              {items.map((item) => (
-                <ShoppingListCard
-                  key={item.barcode}
-                  item={item}
-                  onPress={() => setSelectedItem(item)}
-                  viewMode={listViewMode}
-                />
-              ))}
-            </ScrollView>
+            />
           </View>
         </View>
         <View

@@ -25,6 +25,9 @@ import {
   ui,
 } from '../components/ui';
 import { NativeSheet } from '../components/NativeSheet';
+import { NativeItemCollection } from '../components/NativeItemCollection';
+import { NativePageHeader } from '../components/NativePageHeader';
+import { NativeShoppingControls } from './NativeShoppingControls';
 import { useI18n } from '../i18n';
 import {
   completeShoppingSession,
@@ -54,6 +57,9 @@ type PickerKind = 'store' | 'list' | null;
 type ShoppingCandidate = ShoppingListItem & { sourceListId: string; sourceListName: string };
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase();
+
+export const nativeCollectionHeight = (count: number, viewMode: ListViewMode) =>
+  viewMode === 'tiles' ? Math.max(124, Math.ceil(count / 3) * 124 + 24) : Math.max(64, count * 64);
 
 export const shoppingSessionListIds = (session: ShoppingSession) =>
   session.listIds?.length ? session.listIds : [session.listId];
@@ -274,10 +280,17 @@ export function ShoppingScreen() {
     new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'short' }).format(value);
 
   return (
-    <SafeAreaView edges={['top']} style={ui.safe}>
-      <View style={ui.header}>
-        <LargeTitle>{t('shopping')}</LargeTitle>
-      </View>
+    <SafeAreaView edges={Platform.OS === 'ios' ? [] : ['top']} style={ui.safe}>
+      {Platform.OS !== 'ios' || process.env.NODE_ENV === 'test' ? (
+        <NativePageHeader
+          title={t('shopping')}
+          fallback={
+            <View style={ui.header}>
+              <LargeTitle>{t('shopping')}</LargeTitle>
+            </View>
+          }
+        />
+      ) : null}
       <ScrollView contentContainerStyle={ui.content} style={ui.screen}>
         {error ? <Notice>{error}</Notice> : null}
         {active ? (
@@ -290,16 +303,31 @@ export function ShoppingScreen() {
             </View>
             <View>
               {eligibleItems.length ? (
-                <View style={[styles.shoppingItems, viewMode === 'tiles' && styles.shoppingTiles]}>
-                  {eligibleItems.map((item) => (
-                    <ShoppingListCard
-                      key={item.barcode}
-                      item={item}
-                      viewMode={viewMode}
-                      accessibilityLabel={t('markPurchased', { name: item.label })}
-                      onPress={() => void purchase(item)}
-                    />
-                  ))}
+                <View style={{ height: nativeCollectionHeight(eligibleItems.length, viewMode) }}>
+                  <NativeItemCollection
+                    items={eligibleItems.map((item) => ({
+                      ...item,
+                      nativeKey: `${item.sourceListId}:${item.barcode}`,
+                    }))}
+                    viewMode={viewMode}
+                    onPress={(item) => void purchase(item as ShoppingCandidate)}
+                    accessibilityLabelForItem={(item) => t('markPurchased', { name: item.label })}
+                    fallback={
+                      <View
+                        style={[styles.shoppingItems, viewMode === 'tiles' && styles.shoppingTiles]}
+                      >
+                        {eligibleItems.map((item) => (
+                          <ShoppingListCard
+                            key={item.barcode}
+                            item={item}
+                            viewMode={viewMode}
+                            accessibilityLabel={t('markPurchased', { name: item.label })}
+                            onPress={() => void purchase(item)}
+                          />
+                        ))}
+                      </View>
+                    }
+                  />
                 </View>
               ) : (
                 <Text style={styles.empty}>{t('noItemsForStore')}</Text>
@@ -308,79 +336,134 @@ export function ShoppingScreen() {
             <View style={styles.purchasedSection}>
               <Text style={styles.collectionTitle}>{t('purchasedItems')}</Text>
               {active.purchasedItems.length ? (
-                <View style={[styles.shoppingItems, viewMode === 'tiles' && styles.shoppingTiles]}>
-                  {active.purchasedItems.map((item) => (
-                    <ShoppingListCard
-                      key={`${item.barcode}-${item.purchasedAt}`}
-                      item={item}
-                      viewMode={viewMode}
-                      testIDPrefix="purchased-item"
-                      accessibilityLabel={t('restorePurchased', { name: item.label })}
-                      onPress={() => void restorePurchase(item)}
-                    />
-                  ))}
+                <View
+                  style={{ height: nativeCollectionHeight(active.purchasedItems.length, viewMode) }}
+                >
+                  <NativeItemCollection
+                    items={active.purchasedItems.map((item) => ({
+                      ...item,
+                      nativeKey: `${item.barcode}:${item.purchasedAt}`,
+                    }))}
+                    viewMode={viewMode}
+                    testIDPrefix="purchased-item"
+                    onPress={restorePurchase}
+                    accessibilityLabelForItem={(item) =>
+                      t('restorePurchased', { name: item.label })
+                    }
+                    fallback={
+                      <View
+                        style={[styles.shoppingItems, viewMode === 'tiles' && styles.shoppingTiles]}
+                      >
+                        {active.purchasedItems.map((item) => (
+                          <ShoppingListCard
+                            key={`${item.barcode}-${item.purchasedAt}`}
+                            item={item}
+                            viewMode={viewMode}
+                            testIDPrefix="purchased-item"
+                            accessibilityLabel={t('restorePurchased', { name: item.label })}
+                            onPress={() => void restorePurchase(item)}
+                          />
+                        ))}
+                      </View>
+                    }
+                  />
                 </View>
               ) : (
                 <Text style={styles.empty}>{t('noPurchasedItemsYet')}</Text>
               )}
             </View>
-            <ActionButton title={t('finishShopping')} onPress={() => void finishShopping()} />
           </>
-        ) : (
-          <Section footer={!stores.length ? t('createStoreFirst') : undefined}>
-            <ListRow
-              title={t('store')}
-              detail={selectedStore?.name || t('chooseStore')}
-              onPress={() => setPicker('store')}
-              trailing={<ChevronIcon direction="down" color={colors.tint} />}
-              testID="shopping-store-select"
-            />
-            <Separator />
-            <ListRow
-              title={t('shoppingLists')}
-              detail={
-                selectedLists.length
-                  ? selectedLists.map((list) => list.name).join(', ')
-                  : t('chooseList')
-              }
-              onPress={() => setPicker('list')}
-              trailing={<ChevronIcon direction="down" color={colors.tint} />}
-              testID="shopping-list-select"
-            />
-            <Separator />
-            <ActionButton
-              title={t('startShopping')}
-              disabled={!selectedStore || !selectedLists.length}
-              onPress={() => void startShopping()}
-            />
-          </Section>
-        )}
-        <Section title={t('shoppingHistory')}>
-          {sessions.filter((session) => session.completedAt).length ? (
-            sessions
-              .filter((session) => session.completedAt)
-              .map((session, index) => (
-                <View key={session.id}>
-                  {index ? <Separator /> : null}
-                  <SwipeToDelete
-                    deleteLabel={t('delete')}
-                    onDelete={() => void deleteHistorySession(session.id)}
-                    testID={`delete-shopping-${session.id}`}
-                  >
-                    <ListRow
-                      title={session.storeName}
-                      detail={`${formatDate(session.completedAt || session.startedAt)} · ${t('itemCount', { count: String(session.purchasedItems.length) })}`}
-                      onPress={() => setDetails(session)}
-                      trailing={<ChevronIcon color={colors.tint} />}
-                      testID={`shopping-history-${session.id}`}
-                    />
-                  </SwipeToDelete>
-                </View>
-              ))
-          ) : (
-            <Text style={styles.empty}>{t('noShoppingHistory')}</Text>
-          )}
-        </Section>
+        ) : null}
+        <NativeShoppingControls
+          active={active}
+          stores={stores}
+          lists={lists}
+          selectedStoreId={selectedStoreId}
+          selectedListIds={selectedListIds}
+          storesAvailable={Boolean(stores.length)}
+          canStart={Boolean(selectedStore && selectedLists.length)}
+          completedSessions={sessions.filter((session) => session.completedAt)}
+          labels={{
+            store: t('store'),
+            shoppingLists: t('shoppingLists'),
+            chooseStore: t('chooseStore'),
+            chooseList: t('chooseList'),
+            startShopping: t('startShopping'),
+            finishShopping: t('finishShopping'),
+            shoppingHistory: t('shoppingHistory'),
+            delete: t('delete'),
+            createStoreFirst: t('createStoreFirst'),
+            itemCount: (count) => t('itemCount', { count: String(count) }),
+          }}
+          formatDate={formatDate}
+          onSelectStore={(id) => setSelectedStoreId(id || null)}
+          onSelectLists={setSelectedListIds}
+          onStart={() => void startShopping()}
+          onFinish={() => void finishShopping()}
+          onOpenSession={setDetails}
+          onDeleteSession={(session) => void deleteHistorySession(session.id)}
+          fallback={
+            <>
+              {active ? (
+                <ActionButton title={t('finishShopping')} onPress={() => void finishShopping()} />
+              ) : (
+                <Section footer={!stores.length ? t('createStoreFirst') : undefined}>
+                  <ListRow
+                    title={t('store')}
+                    detail={selectedStore?.name || t('chooseStore')}
+                    onPress={() => setPicker('store')}
+                    trailing={<ChevronIcon direction="down" color={colors.tint} />}
+                    testID="shopping-store-select"
+                  />
+                  <Separator />
+                  <ListRow
+                    title={t('shoppingLists')}
+                    detail={
+                      selectedLists.length
+                        ? selectedLists.map((list) => list.name).join(', ')
+                        : t('chooseList')
+                    }
+                    onPress={() => setPicker('list')}
+                    trailing={<ChevronIcon direction="down" color={colors.tint} />}
+                    testID="shopping-list-select"
+                  />
+                  <Separator />
+                  <ActionButton
+                    title={t('startShopping')}
+                    disabled={!selectedStore || !selectedLists.length}
+                    onPress={() => void startShopping()}
+                  />
+                </Section>
+              )}
+              <Section title={t('shoppingHistory')}>
+                {sessions.filter((session) => session.completedAt).length ? (
+                  sessions
+                    .filter((session) => session.completedAt)
+                    .map((session, index) => (
+                      <View key={session.id}>
+                        {index ? <Separator /> : null}
+                        <SwipeToDelete
+                          deleteLabel={t('delete')}
+                          onDelete={() => void deleteHistorySession(session.id)}
+                          testID={`delete-shopping-${session.id}`}
+                        >
+                          <ListRow
+                            title={session.storeName}
+                            detail={`${formatDate(session.completedAt || session.startedAt)} · ${t('itemCount', { count: String(session.purchasedItems.length) })}`}
+                            onPress={() => setDetails(session)}
+                            trailing={<ChevronIcon color={colors.tint} />}
+                            testID={`shopping-history-${session.id}`}
+                          />
+                        </SwipeToDelete>
+                      </View>
+                    ))
+                ) : (
+                  <Text style={styles.empty}>{t('noShoppingHistory')}</Text>
+                )}
+              </Section>
+            </>
+          }
+        />
       </ScrollView>
       <PickerSheet
         kind={picker}
