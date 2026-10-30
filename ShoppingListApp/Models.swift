@@ -93,7 +93,18 @@ struct ShoppingItem: Codable, Identifiable, Hashable, Sendable {
   var remoteItemID: String?
   var remoteSpecification: String?
   var iconName: String?
+  var iconURL: URL?
+  var providerCategory: String?
   var sourceListID: UUID
+}
+
+extension ShoppingItem {
+  /// Takes the provider's icon and category; nil values fall back to the app's own matching.
+  mutating func adoptPresentation(of remote: ProviderItem) {
+    iconName = remote.icon
+    iconURL = remote.iconURL
+    providerCategory = remote.category
+  }
 }
 
 struct PurchasedItem: Codable, Identifiable, Hashable, Sendable {
@@ -124,7 +135,11 @@ struct ProviderItem: Codable, Identifiable, Hashable, Sendable {
   var quantity: Double?
   var unit: String?
   var specification: String?
+  /// Name of a bundled food icon, or of a server-generated one that only `iconURL` can load.
   var icon: String?
+  var iconURL: URL?
+  /// A `GroceryCategory` key such as `dairyEggs`.
+  var category: String?
 }
 
 struct ProviderConfiguration: Codable, Hashable, Sendable {

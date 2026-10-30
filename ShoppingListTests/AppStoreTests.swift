@@ -145,6 +145,37 @@ final class AppStoreTests: XCTestCase {
     XCTAssertNil(store.items[list.id]?.first?.iconName)
   }
 
+  func testSyncKeepsGeneratedIconURLAndServerCategory() async {
+    let url = URL(string: "https://lists.example.com/static/icons/gen-kombucha.png")!
+    let provider = ProviderSpy(initialItems: [
+      ProviderItem(
+        id: "k", label: "Kombucha", icon: "gen-kombucha", iconURL: url, category: "beverages")
+    ])
+    let store = AppStore(storageURL: fileURL) { _, _ in provider }
+    store.providerConfigurations[.server] = ProviderConfiguration(enabled: true)
+    var list = store.activeList
+    list.syncTarget = SyncTarget(provider: .server, remoteListID: "remote", remoteListName: "Remote")
+    store.updateList(list)
+
+    await store.sync(list)
+
+    let item = store.items[list.id]?.first
+    XCTAssertEqual(item?.iconName, "gen-kombucha")
+    XCTAssertEqual(item?.iconURL, url)
+    XCTAssertEqual(item.map(GroceryCategoryCatalog.category(for:)), .beverages)
+  }
+
+  func testProviderCategoryOverridesLabelMatching() {
+    var item = ShoppingItem(label: "Bread", providerCategory: "frozenFoods", sourceListID: UUID())
+    XCTAssertEqual(GroceryCategoryCatalog.category(for: item), .frozenFoods)
+    item.providerCategory = "other"
+    XCTAssertEqual(GroceryCategoryCatalog.category(for: item), .bakery)
+    item.providerCategory = "notACategory"
+    XCTAssertEqual(GroceryCategoryCatalog.category(for: item), .bakery)
+    XCTAssertEqual(GroceryCategory(key: "dairyEggs"), .dairyEggs)
+    XCTAssertEqual(GroceryCategory.allCases.compactMap { GroceryCategory(key: $0.key) }.count, 30)
+  }
+
   func testAddedItemTakesIconReturnedByProvider() async {
     let provider = ProviderSpy(addedIcon: "milk")
     let store = AppStore(storageURL: fileURL) { _, _ in provider }

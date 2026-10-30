@@ -138,25 +138,34 @@ private struct ItemImage: View {
   private var fallback: some View {
     ZStack {
       Circle().fill(accent.opacity(0.12))
-      if let image = iconImage {
-        Image(uiImage: image.withRenderingMode(.alwaysTemplate))
-          .resizable()
-          .scaledToFit()
-          .foregroundStyle(accent)
-          .padding(size * 0.14)
+      if let name = item.iconName, let image = UIImage(named: name) {
+        icon(image)
+      } else if let url = item.iconURL {
+        RemoteIcon(url: url, render: icon, fallback: localIcon)
       } else {
-        Text(initial)
-          .font(.system(size: size * 0.48, weight: .regular, design: .rounded))
-          .foregroundStyle(accent)
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
+        localIcon
       }
     }
   }
 
-  /// The provider's icon wins when it names a bundled asset; otherwise the label is matched locally.
-  private var iconImage: UIImage? {
-    if let name = item.iconName, let image = UIImage(named: name) { return image }
-    return GroceryIconCatalog.imageName(for: item.label).flatMap { UIImage(named: $0) }
+  /// The label matched against the bundled icons, or its initial.
+  @ViewBuilder private var localIcon: some View {
+    if let image = GroceryIconCatalog.imageName(for: item.label).flatMap({ UIImage(named: $0) }) {
+      icon(image)
+    } else {
+      Text(initial)
+        .font(.system(size: size * 0.48, weight: .regular, design: .rounded))
+        .foregroundStyle(accent)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+  }
+
+  private func icon(_ image: UIImage) -> some View {
+    Image(uiImage: image.withRenderingMode(.alwaysTemplate))
+      .resizable()
+      .scaledToFit()
+      .foregroundStyle(accent)
+      .padding(size * 0.14)
   }
 
   private var initial: String {
@@ -175,6 +184,25 @@ private struct CachedRemoteImage<Fallback: View>: View {
     Group {
       if let image = loader.image {
         Image(uiImage: image).resizable().scaledToFit()
+      } else {
+        fallback
+      }
+    }
+    .task(id: url) { await loader.load(url) }
+  }
+}
+
+/// A provider icon that is not bundled with the app (e.g. one the server generated), cached on disk.
+private struct RemoteIcon<Icon: View, Fallback: View>: View {
+  let url: URL
+  let render: (UIImage) -> Icon
+  let fallback: Fallback
+  @StateObject private var loader = ProductImageLoader()
+
+  var body: some View {
+    Group {
+      if let image = loader.image {
+        render(image)
       } else {
         fallback
       }

@@ -34,7 +34,8 @@ can synchronize individual lists without changing the core app.
   self-hosted [Shopping List Server](https://git.benn0r.cloud/benn0r/shopping-list-server); all can
   be enabled together, while each local list maps to at most one provider list
 - Shopping List Server sync uses its URL and an API key from its web interface (Settings → API
-  Tokens); the grocery icon the server returns for an item replaces the app's own label matching
+  Tokens); the icon and category the server returns for an item replace the app's own label
+  matching, and icons the server generated are downloaded once and cached
 - Local JSON persistence with no React Native, Expo, JavaScript runtime, CocoaPods, or Android
   target
 

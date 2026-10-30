@@ -48,7 +48,13 @@ enum GroceryCategory: Int, CaseIterable, Identifiable {
     }
   }
 
-  private var key: String {
+  init?(key: String) {
+    guard let category = Self.allCases.first(where: { $0.key == key }) else { return nil }
+    self = category
+  }
+
+  /// Stable identifier, shared with the Shopping List Server's `category` field.
+  var key: String {
     switch self {
     case .fruitsVegetables: "fruitsVegetables"
     case .bakery: "bakery"
@@ -542,6 +548,11 @@ enum GroceryCategoryCatalog {
         let metadataCategory = category(for: hint)
         if metadataCategory != .other { return metadataCategory }
       }
+    }
+    if let key = item.providerCategory, let provided = GroceryCategory(key: key),
+      provided != .other
+    {
+      return provided
     }
     return category(for: item.label)
   }

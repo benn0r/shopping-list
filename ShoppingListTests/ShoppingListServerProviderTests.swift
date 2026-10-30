@@ -34,7 +34,10 @@ final class ShoppingListServerProviderTests: XCTestCase {
         {"id":"i1","listId":"l1","label":"Hafermilch","quantity":2,"unit":"l","barcode":null,
          "note":null,"checked":false,"icon":"oat_milk"},
         {"id":"i2","listId":"l1","label":"Mystery","quantity":null,"unit":null,"barcode":null,
-         "note":null,"checked":false,"icon":null}
+         "note":null,"checked":false,"icon":null},
+        {"id":"i3","listId":"l1","label":"Kombucha","quantity":null,"unit":null,"barcode":null,
+         "note":null,"checked":false,"icon":"gen-kombucha","category":"beverages",
+         "iconUrl":"https://lists.example.com/static/icons/gen-kombucha.png"}
       ]}
       """#)
 
@@ -43,7 +46,11 @@ final class ShoppingListServerProviderTests: XCTestCase {
     XCTAssertEqual(
       StubURLProtocol.requests.first?.url?.absoluteString,
       "https://lists.example.com/api/v1/lists/l1/items?filter=open")
-    XCTAssertEqual(items.map(\.icon), ["oat_milk", nil])
+    XCTAssertEqual(items.map(\.icon), ["oat_milk", nil, "gen-kombucha"])
+    XCTAssertEqual(
+      items.last?.iconURL?.absoluteString,
+      "https://lists.example.com/static/icons/gen-kombucha.png")
+    XCTAssertEqual(items.map(\.category), [nil, nil, "beverages"])
     XCTAssertEqual(items.first?.quantity, 2)
     XCTAssertEqual(items.first?.unit, "l")
   }

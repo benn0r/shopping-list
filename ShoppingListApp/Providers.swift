@@ -244,10 +244,12 @@ private struct ServerItem: Codable {
   var note: String?
   var checked: Bool
   var icon: String?
+  var iconUrl: String?
+  var category: String?
   var providerItem: ProviderItem {
     ProviderItem(
       id: id, label: label, barcode: barcode, quantity: quantity, unit: unit, specification: note,
-      icon: icon)
+      icon: icon, iconURL: iconUrl.flatMap(URL.init(string:)), category: category)
   }
 }
 
