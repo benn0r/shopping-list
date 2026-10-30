@@ -30,8 +30,11 @@ can synchronize individual lists without changing the core app.
   quantity, stores, source, and product type
 - Custom barcode labels and configurable product language and label style
 - Store management, multi-list shopping sessions, reversible purchases, and deletable history
-- Pull-to-refresh synchronization through provider-neutral adapters for Bring and Mealie; both can
+- Pull-to-refresh synchronization through provider-neutral adapters for Bring, Mealie, and the
+  self-hosted [Shopping List Server](https://git.benn0r.cloud/benn0r/shopping-list-server); all can
   be enabled together, while each local list maps to at most one provider list
+- Shopping List Server sync uses its URL and an API key from its web interface (Settings → API
+  Tokens); the grocery icon the server returns for an item replaces the app's own label matching
 - Local JSON persistence with no React Native, Expo, JavaScript runtime, CocoaPods, or Android
   target
 
@@ -79,7 +82,8 @@ tab instead of merely checking their settings controls.
 ## Mock provider tests
 
 `npm run mock:providers` starts a dependency-free local server on port 8787. It implements the
-Bring authentication/list/item endpoints and Mealie shopping-list/item endpoints used by the app.
+Bring authentication/list/item endpoints, Mealie shopping-list/item endpoints, and the Shopping
+List Server `/api/v1` list/item endpoints (API key `slt_mock`) used by the app.
 Maestro starts this server automatically, so E2E tests never contact live provider accounts.
 
 The mock data is fictional. Provider URLs and credentials are entered at runtime and must never be

@@ -80,3 +80,6 @@
 "category.seasonal" = "Sazonal";
 "category.checkout" = "Caixa";
 "category.other" = "Outros";
+
+"API Key" = "Chave de API";
+"Create an API key in the server's web interface under Settings → API Tokens." = "Crie uma chave de API na interface web do servidor em Definições → Tokens de API.";

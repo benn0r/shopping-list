@@ -33,6 +33,7 @@ enum ProviderFactory {
     switch kind {
     case .bring: BringProvider(configuration: configuration)
     case .mealie: MealieProvider(configuration: configuration)
+    case .server: ShoppingListServerProvider(configuration: configuration)
     }
   }
 }
@@ -166,6 +167,88 @@ private struct MealieItem: Codable {
   var quantity: Double?
   var unit: MealieUnit?
   var extras: MealieExtras?
+}
+
+/// Self-hosted Shopping List Server (`/api/v1`), authenticated with a personal API token.
+struct ShoppingListServerProvider: ShoppingProvider {
+  let configuration: ProviderConfiguration
+  var client = HTTPClient()
+  private var baseURL: URL? {
+    let value = configuration.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    return URL(string: value.hasSuffix("/") ? String(value.dropLast()) : value)
+  }
+  private func request(_ path: String, method: String = "GET", query: [URLQueryItem] = []) throws
+    -> URLRequest
+  {
+    guard let baseURL, baseURL.scheme != nil, !configuration.secret.isEmpty else {
+      throw ProviderError.notConfigured
+    }
+    let url = baseURL.appending(path: "api/v1/\(path)")
+    var request = URLRequest(url: query.isEmpty ? url : url.appending(queryItems: query))
+    request.httpMethod = method
+    request.setValue("Bearer \(configuration.secret)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    return request
+  }
+  func lists() async throws -> [ProviderList] {
+    let data = try await client.request(try request("lists"))
+    return try decodeCollection(data, as: ProviderList.self)
+  }
+  func items(in listID: String) async throws -> [ProviderItem] {
+    let data = try await client.request(
+      try request("lists/\(listID)/items", query: [URLQueryItem(name: "filter", value: "open")]))
+    return try decodeCollection(data, as: ServerItem.self).filter { !$0.checked }.map(\.providerItem)
+  }
+  func addItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem {
+    var request = try request("lists/\(listID)/items", method: "POST")
+    try request.jsonBody(
+      ServerItemInput(
+        label: item.label, quantity: item.quantity, unit: item.unit, barcode: item.barcode))
+    let data = try await client.request(request)
+    return try JSONDecoder().decode(ServerItem.self, from: data).providerItem
+  }
+  func removeItem(_ item: ShoppingItem, from listID: String) async throws {
+    guard let id = item.remoteItemID else { return }
+    _ = try await setChecked(true, itemID: id)
+  }
+  func restoreItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem {
+    if let id = item.remoteItemID {
+      do {
+        return try await setChecked(false, itemID: id)
+      } catch ProviderError.requestFailed(404) {
+        // Deleted on the server in the meantime: add it again.
+      }
+    }
+    return try await addItem(item, to: listID)
+  }
+  private func setChecked(_ checked: Bool, itemID: String) async throws -> ProviderItem {
+    var request = try request("items/\(itemID)", method: "PATCH")
+    try request.jsonBody(["checked": checked])
+    let data = try await client.request(request)
+    return try JSONDecoder().decode(ServerItem.self, from: data).providerItem
+  }
+}
+
+private struct ServerItemInput: Encodable {
+  var label: String
+  var quantity: Double?
+  var unit: String?
+  var barcode: String?
+}
+private struct ServerItem: Codable {
+  var id: String
+  var label: String
+  var quantity: Double?
+  var unit: String?
+  var barcode: String?
+  var note: String?
+  var checked: Bool
+  var icon: String?
+  var providerItem: ProviderItem {
+    ProviderItem(
+      id: id, label: label, barcode: barcode, quantity: quantity, unit: unit, specification: note,
+      icon: icon)
+  }
 }
 
 struct BringProvider: ShoppingProvider {

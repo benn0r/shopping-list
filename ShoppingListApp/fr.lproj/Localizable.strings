@@ -84,3 +84,6 @@
 "category.seasonal" = "Saisonnier";
 "category.checkout" = "Caisse";
 "category.other" = "Autres";
+
+"API Key" = "Clé API";
+"Create an API key in the server's web interface under Settings → API Tokens." = "Créez une clé API dans l’interface web du serveur sous Réglages → Jetons API.";

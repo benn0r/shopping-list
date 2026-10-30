@@ -128,6 +128,36 @@ final class AppStoreTests: XCTestCase {
     XCTAssertEqual(store.items[list.id]?.first?.remoteItemID, "existing")
   }
 
+  func testSyncStoresProviderIconAndClearsItWhenServerHasNone() async {
+    let provider = ProviderSpy(
+      initialItems: [ProviderItem(id: "oat", label: "Haferdrink", icon: "oat_milk")])
+    let store = AppStore(storageURL: fileURL) { _, _ in provider }
+    store.providerConfigurations[.server] = ProviderConfiguration(enabled: true)
+    var list = store.activeList
+    list.syncTarget = SyncTarget(provider: .server, remoteListID: "remote", remoteListName: "Remote")
+    store.updateList(list)
+
+    await store.sync(list)
+    XCTAssertEqual(store.items[list.id]?.first?.iconName, "oat_milk")
+
+    await provider.replaceItems([ProviderItem(id: "oat", label: "Haferdrink")])
+    await store.sync(list)
+    XCTAssertNil(store.items[list.id]?.first?.iconName)
+  }
+
+  func testAddedItemTakesIconReturnedByProvider() async {
+    let provider = ProviderSpy(addedIcon: "milk")
+    let store = AppStore(storageURL: fileURL) { _, _ in provider }
+    store.providerConfigurations[.server] = ProviderConfiguration(enabled: true)
+    var list = store.activeList
+    list.syncTarget = SyncTarget(provider: .server, remoteListID: "remote", remoteListName: "Remote")
+    store.updateList(list)
+
+    await store.addItem(label: "Vollmilch")
+
+    XCTAssertEqual(store.items[list.id]?.first?.iconName, "milk")
+  }
+
   func testRestoreUsesProviderRestoreAndStoresReturnedID() async {
     let provider = ProviderSpy()
     let store = AppStore(storageURL: fileURL) { _, _ in provider }
@@ -457,7 +487,8 @@ final class AppStoreTests: XCTestCase {
       ["Automatic", "German", "English", "French", "Italian"])
     XCTAssertEqual(
       ProductLabelStyle.allCases.map(\.title), ["Generic name", "Exact product", "Ask every time"])
-    XCTAssertEqual(ProviderKind.allCases.map(\.title), ["Bring", "Mealie"])
+    XCTAssertEqual(
+      ProviderKind.allCases.map(\.title), ["Bring", "Mealie", "Shopping List Server"])
     XCTAssertNotNil(ProviderError.notConfigured.errorDescription)
     XCTAssertTrue(ProviderError.requestFailed(503).errorDescription?.contains("503") == true)
   }
@@ -468,8 +499,13 @@ private actor ProviderSpy: ShoppingProvider {
   private var adds: [String] = []
   private var restores: [String] = []
   private var removes: [String] = []
+  private let addedIcon: String?
 
-  init(initialItems: [ProviderItem] = []) { remoteItems = initialItems }
+  init(initialItems: [ProviderItem] = [], addedIcon: String? = nil) {
+    remoteItems = initialItems
+    self.addedIcon = addedIcon
+  }
+  func replaceItems(_ items: [ProviderItem]) { remoteItems = items }
 
   func lists() async throws -> [ProviderList] { [] }
   func items(in listID: String) async throws -> [ProviderItem] { remoteItems }
@@ -477,7 +513,7 @@ private actor ProviderSpy: ShoppingProvider {
     adds.append(item.label)
     let remote = ProviderItem(
       id: "remote-\(item.label)", label: item.label, barcode: item.barcode,
-      quantity: item.quantity, unit: item.unit)
+      quantity: item.quantity, unit: item.unit, icon: addedIcon)
     remoteItems.append(remote)
     return remote
   }

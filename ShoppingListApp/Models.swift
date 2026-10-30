@@ -52,9 +52,9 @@ struct CustomBarcode: Codable, Identifiable, Hashable, Sendable {
   var id: String { barcode }
 }
 enum ProviderKind: String, Codable, CaseIterable, Identifiable, Sendable {
-  case bring, mealie
+  case bring, mealie, server
   var id: String { rawValue }
-  var title: String { rawValue.capitalized }
+  var title: String { self == .server ? "Shopping List Server" : rawValue.capitalized }
 }
 
 struct SyncTarget: Codable, Hashable, Sendable {
@@ -92,6 +92,7 @@ struct ShoppingItem: Codable, Identifiable, Hashable, Sendable {
   var addedAt = Date()
   var remoteItemID: String?
   var remoteSpecification: String?
+  var iconName: String?
   var sourceListID: UUID
 }
 
@@ -123,6 +124,7 @@ struct ProviderItem: Codable, Identifiable, Hashable, Sendable {
   var quantity: Double?
   var unit: String?
   var specification: String?
+  var icon: String?
 }
 
 struct ProviderConfiguration: Codable, Hashable, Sendable {

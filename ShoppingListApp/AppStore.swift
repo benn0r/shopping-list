@@ -58,7 +58,7 @@ final class AppStore: ObservableObject {
       activeListID = initial.id
       viewMode = .list
       showCategoryLabels = true
-      providerConfigurations = [.bring: .init(), .mealie: .init()]
+      providerConfigurations = [.bring: .init(), .mealie: .init(), .server: .init()]
       lookupPreferences = .init()
       customBarcodes = []
       appLanguage = .automatic
@@ -135,6 +135,7 @@ final class AppStore: ObservableObject {
       do {
         let remote = try await provider(for: target.provider).addItem(item, to: target.remoteListID)
         item.remoteItemID = remote.id
+        item.iconName = remote.icon
         if let index = items[activeListID]?.firstIndex(where: { $0.id == item.id }) {
           items[activeListID]?[index] = item
           save()
@@ -172,10 +173,12 @@ final class AppStore: ObservableObject {
         }) {
           existing[index].remoteItemID = match.id
           existing[index].remoteSpecification = match.specification
+          existing[index].iconName = match.icon
         } else {
           let added = try await adapter.addItem(existing[index], to: target.remoteListID)
           existing[index].remoteItemID = added.id
           existing[index].remoteSpecification = added.specification
+          existing[index].iconName = added.icon
           uploadedItem = true
         }
       }
@@ -192,6 +195,7 @@ final class AppStore: ObservableObject {
           local.barcode = remoteItem.barcode ?? local.barcode
           local.quantity = remoteItem.quantity ?? local.quantity
           local.unit = remoteItem.unit ?? local.unit
+          local.iconName = remoteItem.icon
           if local.imageURL == nil && local.brand == nil { local.label = remoteItem.label }
           synchronized.append(local)
           continue
@@ -200,7 +204,7 @@ final class AppStore: ObservableObject {
           barcode: remoteItem.barcode, label: remoteItem.label,
           quantity: remoteItem.quantity, unit: remoteItem.unit,
           remoteItemID: remoteItem.id, remoteSpecification: remoteItem.specification,
-          sourceListID: list.id
+          iconName: remoteItem.icon, sourceListID: list.id
         )
         if let barcode = remoteItem.barcode,
           let metadata = try? await ProductLookup().find(
@@ -335,6 +339,7 @@ final class AppStore: ObservableObject {
           purchase.item, to: target.remoteListID)
         restoredItem.remoteItemID = remote.id
         restoredItem.remoteSpecification = remote.specification
+        restoredItem.iconName = remote.icon
         if let itemIndex = items[purchase.item.sourceListID]?.firstIndex(where: {
           $0.id == restoredItem.id
         }) {

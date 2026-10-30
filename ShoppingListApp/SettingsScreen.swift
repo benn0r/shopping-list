@@ -75,6 +75,7 @@ struct SettingsScreen: View {
         .onChange(of: store.lookupPreferences) { store.save() }
         ProviderSection(kind: .bring)
         ProviderSection(kind: .mealie)
+        ProviderSection(kind: .server)
         Section {
           ProviderLink(
             title: "Open Food Facts", detail: "Food, drinks, ingredients, and nutrition",
@@ -220,29 +221,46 @@ private struct ProviderSection: View {
     )
   }
   var body: some View {
-    Section("\(kind.title) Sync") {
+    Section {
       Toggle(isOn: enabled) {
         Text("Enable \(kind.title) Sync")
           .contentShape(Rectangle())
       }
       .accessibilityIdentifier("enable-\(kind.rawValue)-sync")
       if config.wrappedValue.enabled {
-        if kind == .mealie {
+        switch kind {
+        case .mealie, .server:
           TextField("Server URL", text: config.serverURL).textInputAutocapitalization(.never)
             .keyboardType(.URL)
-            .accessibilityIdentifier("mealie-server-url")
-        } else {
+            .autocorrectionDisabled()
+            .accessibilityIdentifier("\(kind.rawValue)-server-url")
+        case .bring:
           TextField("API URL (optional)", text: config.serverURL).textInputAutocapitalization(
             .never
           ).keyboardType(.URL)
             .accessibilityIdentifier("bring-api-url")
         }
-        TextField(kind == .bring ? "Email" : "Username", text: config.username)
-          .textInputAutocapitalization(.never)
-          .accessibilityIdentifier("\(kind.rawValue)-username")
-        SecureField(kind == .bring ? "Password" : "API Token", text: config.secret)
+        if kind != .server {
+          TextField(kind == .bring ? "Email" : "Username", text: config.username)
+            .textInputAutocapitalization(.never)
+            .accessibilityIdentifier("\(kind.rawValue)-username")
+        }
+        SecureField(secretTitle, text: config.secret)
           .accessibilityIdentifier("\(kind.rawValue)-secret")
       }
+    } header: {
+      Text("\(kind.title) Sync")
+    } footer: {
+      if kind == .server && config.wrappedValue.enabled {
+        Text("Create an API key in the server's web interface under Settings → API Tokens.")
+      }
+    }
+  }
+  private var secretTitle: LocalizedStringKey {
+    switch kind {
+    case .bring: "Password"
+    case .mealie: "API Token"
+    case .server: "API Key"
     }
   }
 }

@@ -138,8 +138,7 @@ private struct ItemImage: View {
   private var fallback: some View {
     ZStack {
       Circle().fill(accent.opacity(0.12))
-      if let name = GroceryIconCatalog.imageName(for: item.label), let image = UIImage(named: name)
-      {
+      if let image = iconImage {
         Image(uiImage: image.withRenderingMode(.alwaysTemplate))
           .resizable()
           .scaledToFit()
@@ -152,6 +151,12 @@ private struct ItemImage: View {
           .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
     }
+  }
+
+  /// The provider's icon wins when it names a bundled asset; otherwise the label is matched locally.
+  private var iconImage: UIImage? {
+    if let name = item.iconName, let image = UIImage(named: name) { return image }
+    return GroceryIconCatalog.imageName(for: item.label).flatMap { UIImage(named: $0) }
   }
 
   private var initial: String {
