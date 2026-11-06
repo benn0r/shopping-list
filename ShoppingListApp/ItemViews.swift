@@ -25,6 +25,10 @@ struct ItemCollection: View {
     }.map(\.element)
   }
 
+  // Tiles and rows are identified by the whole item, not just its ID: when an item changes (its
+  // icon arrives, its category moves it to another section), the lazy grids otherwise kept
+  // drawing the old tile, with the sparkle, the old icon and the old category colour. Items have
+  // unique IDs, so the whole item is unique too.
   var body: some View {
     Group {
       if showCategoryLabels && mode == .tiles {
@@ -33,7 +37,7 @@ struct ItemCollection: View {
         ) {
           ForEach(sections, id: \.category) { section in
             Section {
-              ForEach(section.items) { item in
+              ForEach(section.items, id: \.self) { item in
                 Button {
                   action(item)
                 } label: {
@@ -96,7 +100,7 @@ struct ItemCollection: View {
       LazyVGrid(
         columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 3), spacing: 16
       ) {
-        ForEach(values) { item in
+        ForEach(values, id: \.self) { item in
           Button {
             action(item)
           } label: {
@@ -108,7 +112,7 @@ struct ItemCollection: View {
       }
     } else {
       LazyVStack(spacing: 0) {
-        ForEach(values) { item in
+        ForEach(values, id: \.self) { item in
           Button {
             action(item)
           } label: {
