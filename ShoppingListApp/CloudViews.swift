@@ -264,7 +264,8 @@ struct CloudInfoSheet: View {
           Text(
             "Your lists and their items, and your name from your Apple ID. Your email address is not requested."
           )
-          Text("Bring and Mealie lists stay with those services. In offline mode nothing is uploaded.")
+          Text(
+            "Bring and Mealie lists stay with those services. In offline mode nothing is uploaded.")
         }
         Section("Your control") {
           Text(
@@ -417,7 +418,8 @@ struct ModeChoiceScreen: View {
               LinearGradient(
                 colors: [.shoppingAccent, .shoppingMint], startPoint: .topLeading,
                 endPoint: .bottomTrailing),
-              in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+              in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
             .padding(.bottom, 6)
             .accessibilityHidden(true)
           Text("Welcome to Shopping List").font(.largeTitle.bold())
@@ -426,7 +428,8 @@ struct ModeChoiceScreen: View {
         }
         VStack(spacing: 12) {
           StorageOptionCard(
-            symbol: "icloud.fill", title: "Online", subtitle: "Shopping List Cloud with your Apple ID.",
+            symbol: "icloud.fill", title: "Online",
+            subtitle: "Shopping List Cloud with your Apple ID.",
             badge: "FREE", isSelected: choice == .online, identifier: "mode-online"
           ) {
             choice = .online

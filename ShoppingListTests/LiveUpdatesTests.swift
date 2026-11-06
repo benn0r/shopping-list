@@ -114,7 +114,8 @@ final class LiveUpdatesStoreTests: XCTestCase {
     let store = makeStore()
     StubURLProtocol.respond(#"{"items":[]}"#)
     for _ in 0..<5 {
-      await store.handle(event("item.updated", #"{"item":{"id":"i1","listId":"r1"}}"#), from: .cloud)
+      await store.handle(
+        event("item.updated", #"{"item":{"id":"i1","listId":"r1"}}"#), from: .cloud)
     }
     try await Task.sleep(for: .milliseconds(600))
     XCTAssertEqual(StubURLProtocol.requests.count, 1)
@@ -131,7 +132,8 @@ final class LiveUpdatesStoreTests: XCTestCase {
   func testListEventsRenameAndDeleteCloudLists() async throws {
     let store = makeStore()
     let party = store.createList(
-      name: "Party", target: SyncTarget(provider: .cloud, remoteListID: "r2", remoteListName: "Party"))
+      name: "Party",
+      target: SyncTarget(provider: .cloud, remoteListID: "r2", remoteListName: "Party"))
 
     await store.handle(
       event("list.updated", #"{"list":{"id":"r2","name":"Fest"}}"#), from: .cloud)

@@ -26,7 +26,11 @@ struct SettingsScreen: View {
               language in
               // Languages are listed by their own names; only "Automatic" is translated.
               Group {
-                if language == .automatic { Text("Automatic") } else { Text(verbatim: language.title) }
+                if language == .automatic {
+                  Text("Automatic")
+                } else {
+                  Text(verbatim: language.title)
+                }
               }
               .tag(language)
             }

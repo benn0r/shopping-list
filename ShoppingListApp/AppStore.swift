@@ -421,7 +421,8 @@ final class AppStore: ObservableObject {
       } else {
         let added = ShoppingListDefinition(
           name: list.name,
-          syncTarget: SyncTarget(provider: .cloud, remoteListID: list.id, remoteListName: list.name))
+          syncTarget: SyncTarget(provider: .cloud, remoteListID: list.id, remoteListName: list.name)
+        )
         lists.append(added)
         items[added.id] = []
         changed = true

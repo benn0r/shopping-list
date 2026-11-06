@@ -134,7 +134,8 @@ final class AppStoreTests: XCTestCase {
     let store = AppStore(storageURL: fileURL) { _, _ in provider }
     store.providerConfigurations[.server] = ProviderConfiguration(enabled: true)
     var list = store.activeList
-    list.syncTarget = SyncTarget(provider: .server, remoteListID: "remote", remoteListName: "Remote")
+    list.syncTarget = SyncTarget(
+      provider: .server, remoteListID: "remote", remoteListName: "Remote")
     store.updateList(list)
 
     await store.sync(list)
@@ -154,7 +155,8 @@ final class AppStoreTests: XCTestCase {
     let store = AppStore(storageURL: fileURL) { _, _ in provider }
     store.providerConfigurations[.server] = ProviderConfiguration(enabled: true)
     var list = store.activeList
-    list.syncTarget = SyncTarget(provider: .server, remoteListID: "remote", remoteListName: "Remote")
+    list.syncTarget = SyncTarget(
+      provider: .server, remoteListID: "remote", remoteListName: "Remote")
     store.updateList(list)
 
     await store.sync(list)
@@ -181,7 +183,8 @@ final class AppStoreTests: XCTestCase {
     let store = AppStore(storageURL: fileURL) { _, _ in provider }
     store.providerConfigurations[.server] = ProviderConfiguration(enabled: true)
     var list = store.activeList
-    list.syncTarget = SyncTarget(provider: .server, remoteListID: "remote", remoteListName: "Remote")
+    list.syncTarget = SyncTarget(
+      provider: .server, remoteListID: "remote", remoteListName: "Remote")
     store.updateList(list)
 
     await store.addItem(label: "Vollmilch")

@@ -86,7 +86,8 @@ final class ShoppingListServerProviderTests: XCTestCase {
     let restored = try await provider().restoreItem(item, to: "l1")
 
     XCTAssertEqual(StubURLProtocol.requests.map(\.httpMethod), ["PATCH", "PATCH"])
-    XCTAssertEqual(StubURLProtocol.requests.map(\.url?.path), ["/api/v1/items/i1", "/api/v1/items/i1"])
+    XCTAssertEqual(
+      StubURLProtocol.requests.map(\.url?.path), ["/api/v1/items/i1", "/api/v1/items/i1"])
     let bodies = try StubURLProtocol.bodies.map {
       try XCTUnwrap(JSONSerialization.jsonObject(with: $0) as? [String: Bool])
     }

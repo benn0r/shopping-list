@@ -139,7 +139,8 @@ struct ServerEventStream: Sendable {
         failures += 1
       }
       // Back off after repeated failures: 1 s, 2 s, 4 s … up to 60 s, or the server's `retry`.
-      let delay = failures == 0 ? retry : min(retry * Int(pow(2, Double(failures - 1))), .seconds(60))
+      let delay =
+        failures == 0 ? retry : min(retry * Int(pow(2, Double(failures - 1))), .seconds(60))
       try? await Task.sleep(for: delay)
     }
   }
