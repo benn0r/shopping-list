@@ -80,6 +80,10 @@ final class AppStore: ObservableObject {
     lists.first(where: { $0.id == activeListID }) ?? lists[0]
   }
   var activeItems: [ShoppingItem] { items[activeListID, default: []] }
+  /// Whether the active list has items whose icon the server is still making.
+  var activeListHasPendingIcons: Bool {
+    activeList.syncTarget != nil && activeItems.contains { $0.iconPending == true }
+  }
   var activeSession: ShoppingSession? { sessions.first(where: { $0.completedAt == nil }) }
 
   func save() {

@@ -257,10 +257,13 @@ private struct ServerItem: Codable {
   var icon: String?
   var iconUrl: String?
   var category: String?
+  /// `pending`, `ready`, or `none`; older servers omit it.
+  var iconStatus: String?
   var providerItem: ProviderItem {
     ProviderItem(
       id: id, label: label, barcode: barcode, quantity: quantity, unit: unit, specification: note,
-      icon: icon, iconURL: iconUrl.flatMap(URL.init(string:)), category: category)
+      icon: icon, iconURL: iconUrl.flatMap(URL.init(string:)), category: category,
+      iconPending: iconStatus == "pending")
   }
 }
 

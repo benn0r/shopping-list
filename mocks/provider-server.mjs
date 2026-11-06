@@ -7,8 +7,16 @@ const lists = [{ id: 'mock-list', name: 'Mock Groceries' }];
 // Shopping List Server returns a bundled icon name, or a generated `gen-…` icon that the app must
 // load from `iconUrl`. The generated one is served from a bundled PNG that differs from the app's
 // own match for "Bread" (cornbread), so screenshots show which one won.
-const serverIcons = { bread: { icon: 'gen-sourdough', category: 'bakery' } };
-const generatedIcons = { 'gen-sourdough': new URL('../assets/food-icons/pancakes.png', import.meta.url) };
+// "Kombucha" pretends to be generated: it reports iconStatus "pending" for a few seconds after it
+// is added, then "ready", so the app's sparkle and crossfade can be tested.
+const serverIcons = {
+  bread: { icon: 'gen-sourdough', category: 'bakery' },
+  kombucha: { icon: 'gen-kombucha', category: 'beverages', generateMs: 4000 },
+};
+const generatedIcons = {
+  'gen-sourdough': new URL('../assets/food-icons/pancakes.png', import.meta.url),
+  'gen-kombucha': new URL('../assets/food-icons/energy_drink.png', import.meta.url),
+};
 let items = [{ id: 'remote-bread', shoppingListId: 'mock-list', checked: false, note: 'Bread', quantity: 2, unit: { name: 'loaves' }, extras: {} }];
 
 const json = (res, value, status = 200) => {
@@ -49,8 +57,10 @@ http.createServer(async (req, res) => {
     if (!['Bearer slt_mock', 'Bearer slt_cloud_mock'].includes(req.headers.authorization)) return json(res, { error: 'unauthorized', message: 'Invalid API token.' }, 401);
     const serverItem = (item) => {
       const match = serverIcons[item.note?.toLowerCase()];
+      const base = { id: item.id, listId: item.shoppingListId, label: item.note, quantity: item.quantity ?? null, unit: item.unit?.name ?? null, barcode: item.extras?.barcode ?? null, note: null, checked: item.checked };
+      if (item.iconReadyAt && Date.now() < item.iconReadyAt) return { ...base, icon: null, iconUrl: null, category: null, iconStatus: 'pending' };
       const iconUrl = match ? `http://${req.headers.host}/static/icons/${match.icon}.png` : null;
-      return { id: item.id, listId: item.shoppingListId, label: item.note, quantity: item.quantity ?? null, unit: item.unit?.name ?? null, barcode: item.extras?.barcode ?? null, note: null, checked: item.checked, icon: match?.icon ?? null, iconUrl, category: match?.category ?? null };
+      return { ...base, icon: match?.icon ?? null, iconUrl, category: match?.category ?? null, iconStatus: match ? 'ready' : 'none' };
     };
     if (url.pathname === '/api/v1/me' && req.method === 'DELETE') { res.writeHead(204); return res.end(); }
     if (url.pathname === '/api/v1/me') return json(res, { user: { name: 'Mock' } });
@@ -59,7 +69,7 @@ http.createServer(async (req, res) => {
     const listItems = url.pathname.match(/^\/api\/v1\/lists\/([^/]+)\/items$/);
     if (listItems && !lists.some((list) => list.id === listItems[1])) return json(res, { error: 'not_found', message: 'List not found.' }, 404);
     if (listItems && req.method === 'GET') return json(res, { items: items.filter((item) => item.shoppingListId === listItems[1] && (url.searchParams.get('filter') !== 'open' || !item.checked)).map(serverItem) });
-    if (listItems && req.method === 'POST') { const value = JSON.parse(await body(req)); const item = { id: `server-${Date.now()}-${items.length}`, shoppingListId: listItems[1], checked: false, note: value.label, quantity: value.quantity ?? null, unit: value.unit ? { name: value.unit } : undefined, extras: { barcode: value.barcode } }; items.push(item); return json(res, serverItem(item), 201); }
+    if (listItems && req.method === 'POST') { const value = JSON.parse(await body(req)); const item = { id: `server-${Date.now()}-${items.length}`, shoppingListId: listItems[1], checked: false, note: value.label, quantity: value.quantity ?? null, unit: value.unit ? { name: value.unit } : undefined, extras: { barcode: value.barcode } }; const generateMs = serverIcons[value.label?.toLowerCase()]?.generateMs; if (generateMs) item.iconReadyAt = Date.now() + generateMs; items.push(item); return json(res, serverItem(item), 201); }
     const itemMatch = url.pathname.match(/^\/api\/v1\/items\/([^/]+)$/);
     const item = itemMatch && items.find((candidate) => candidate.id === itemMatch[1]);
     if (itemMatch && req.method === 'PATCH') { if (!item) return json(res, { error: 'not_found', message: 'Item not found.' }, 404); Object.assign(item, { checked: JSON.parse(await body(req)).checked ?? item.checked }); return json(res, serverItem(item)); }

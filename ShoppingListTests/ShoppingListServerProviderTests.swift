@@ -106,6 +106,22 @@ final class ShoppingListServerProviderTests: XCTestCase {
     XCTAssertEqual(StubURLProtocol.requests.map(\.httpMethod), ["PATCH", "POST"])
   }
 
+  func testIconStatusMarksPendingIcons() async throws {
+    StubURLProtocol.respond(
+      #"""
+      {"items":[
+        {"id":"i1","listId":"l1","label":"Kombucha","checked":false,"icon":null,"iconStatus":"pending"},
+        {"id":"i2","listId":"l1","label":"Milk","checked":false,"icon":"milk","iconStatus":"ready"},
+        {"id":"i3","listId":"l1","label":"Mystery","checked":false,"icon":null,"iconStatus":"none"},
+        {"id":"i4","listId":"l1","label":"Old server","checked":false,"icon":null}
+      ]}
+      """#)
+
+    let items = try await provider().items(in: "l1")
+
+    XCTAssertEqual(items.map(\.iconPending), [true, false, false, false])
+  }
+
   func testMissingURLOrKeyIsNotConfigured() async {
     for value in [provider(url: ""), provider(secret: "")] {
       do {

@@ -194,6 +194,36 @@ final class CloudTests: XCTestCase {
     XCTAssertTrue(store.isCloudSignedIn)
   }
 
+  func testPendingIconClearsWhenServerFinishes() async throws {
+    let store = makeStore()
+    try await signIn(store)
+    StubURLProtocol.respond(#"{"id":"r1","name":"Groceries"}"#, status: 201)
+    StubURLProtocol.respond(#"{"items":[]}"#)
+    try await store.completeWelcome(name: "Groceries", inCloud: true)
+
+    StubURLProtocol.respond(
+      #"{"id":"k1","listId":"r1","label":"Kombucha","checked":false,"icon":null,"iconStatus":"pending"}"#,
+      status: 201)
+    await store.addItem(label: "Kombucha")
+    XCTAssertEqual(store.activeItems.first?.iconPending, true)
+    XCTAssertTrue(store.activeListHasPendingIcons)
+
+    StubURLProtocol.respond(
+      #"{"items":[{"id":"k1","listId":"r1","label":"Kombucha","checked":false,"icon":"gen-kombucha","iconUrl":"https://cloud.example.com/static/icons/gen-kombucha.png","category":"beverages","iconStatus":"ready"}]}"#
+    )
+    await store.sync()
+    XCTAssertNil(store.activeItems.first?.iconPending)
+    XCTAssertEqual(store.activeItems.first?.iconName, "gen-kombucha")
+    XCTAssertFalse(store.activeListHasPendingIcons)
+  }
+
+  func testLocalListsNeverReportPendingIcons() async {
+    let store = makeStore()
+    await store.addItem(label: "Kombucha")
+    store.items[store.activeListID]?[0].iconPending = true
+    XCTAssertFalse(store.activeListHasPendingIcons, "Only synced lists can be polled")
+  }
+
   func testCloudAccountPersistsWithTokenInKeychain() async throws {
     let store = makeStore()
     try await signIn(store)

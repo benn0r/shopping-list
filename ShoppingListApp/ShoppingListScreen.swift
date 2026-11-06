@@ -35,6 +35,20 @@ struct ShoppingListScreen: View {
           await store.backgroundSync()
         }
       }
+      // While the server matches or generates icons, check that list every 3 s for up to 30 s.
+      .task(
+        id: PendingIconPoll(listID: store.activeListID, pending: store.activeListHasPendingIcons)
+      ) {
+        guard store.activeListHasPendingIcons,
+          ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
+        else { return }
+        for _ in 0..<10 {
+          try? await Task.sleep(for: .seconds(3))
+          guard !Task.isCancelled else { return }
+          await store.sync(reportErrors: false)
+          if !store.activeListHasPendingIcons { return }
+        }
+      }
       .safeAreaInset(edge: .bottom) { composer }
       .navigationTitle(store.activeList.name)
       .navigationBarTitleDisplayMode(.inline)
@@ -539,4 +553,9 @@ private final class ScannerViewController: UIViewController {
     super.viewDidLayoutSubviews()
     previewLayer?.frame = view.bounds
   }
+}
+
+private struct PendingIconPoll: Equatable {
+  let listID: UUID
+  let pending: Bool
 }

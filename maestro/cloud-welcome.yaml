@@ -41,6 +41,22 @@ appId: ch.benn0r.shoppinglist
     visible: ".*Bread.*"
     timeout: 5000
 - takeScreenshot: artifacts/cloud-welcome-list
+# The mock server "generates" the Kombucha icon for 4 s: a sparkle shows meanwhile, then the
+# app polls, the sparkle disappears and the generated icon fades in.
+- tapOn:
+    id: "add-item-field"
+- inputText: "Kombucha"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "icon-pending"
+    timeout: 5000
+- takeScreenshot: artifacts/icon-pending
+- extendedWaitUntil:
+    notVisible:
+      id: "icon-pending"
+    timeout: 15000
+- takeScreenshot: artifacts/icon-ready
 # A second list created straight in Cloud from Settings, without a second sign-in.
 - tapOn: "Settings"
 - scrollUntilVisible:

@@ -134,18 +134,35 @@ private struct ItemImage: View {
       }
     }
     .frame(width: size, height: size)
-  }
-  private var fallback: some View {
-    ZStack {
-      Circle().fill(accent.opacity(0.12))
-      if let name = item.iconName, let image = UIImage(named: name) {
-        icon(image)
-      } else if let url = item.iconURL {
-        RemoteIcon(url: url, render: icon, fallback: localIcon)
-      } else {
-        localIcon
+    .overlay(alignment: .topTrailing) {
+      if isPending {
+        // The app's teal: while pending, the category (and its colour) is often still "Other".
+        IconSparkle(size: size, accent: .shoppingAccent)
+          .transition(.scale(scale: 0.4).combined(with: .opacity))
       }
     }
+    .animation(.spring(duration: 0.45, bounce: 0.3), value: isPending)
+  }
+  /// Product photos replace the icon, so only icon-only items show the sparkle.
+  private var isPending: Bool { item.iconPending == true && item.imageURL == nil }
+
+  private var fallback: some View {
+    ZStack {
+      PendingGlow(accent: accent, isPending: isPending)
+      Group {
+        if let name = item.iconName, let image = UIImage(named: name) {
+          icon(image)
+        } else if let url = item.iconURL {
+          RemoteIcon(url: url, render: icon, fallback: localIcon)
+        } else {
+          localIcon
+        }
+      }
+      // A new icon from the server crossfades in instead of popping.
+      .id(item.iconName ?? item.iconURL?.absoluteString ?? "local")
+      .transition(.opacity.combined(with: .scale(scale: 0.8)))
+    }
+    .animation(.easeInOut(duration: 0.4), value: item.iconName ?? item.iconURL?.absoluteString)
   }
 
   /// The label matched against the bundled icons, or its initial.
@@ -192,6 +209,48 @@ private struct CachedRemoteImage<Fallback: View>: View {
   }
 }
 
+/// The icon's background circle; it breathes gently while the server is making the icon.
+private struct PendingGlow: View {
+  let accent: Color
+  let isPending: Bool
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var bright = false
+
+  var body: some View {
+    Circle()
+      .fill(accent.opacity(isPending && bright ? 0.26 : 0.12))
+      .onChange(of: isPending, initial: true) { _, pending in
+        guard pending, !reduceMotion else {
+          bright = false
+          return
+        }
+        withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+          bright = true
+        }
+      }
+  }
+}
+
+/// Small badge on the icon's corner while the server matches or generates the icon.
+private struct IconSparkle: View {
+  let size: CGFloat
+  let accent: Color
+
+  var body: some View {
+    Image(systemName: "sparkles")
+      .font(.system(size: max(9, size * 0.3), weight: .semibold))
+      .foregroundStyle(accent)
+      .symbolEffect(.variableColor.iterative.reversing, options: .repeating)
+      .padding(max(2, size * 0.06))
+      .background(.background, in: Circle())
+      .shadow(color: accent.opacity(0.25), radius: 2)
+      .offset(x: size * 0.14, y: -size * 0.14)
+      .accessibilityElement()
+      .accessibilityLabel(Text("Icon is being created"))
+      .accessibilityIdentifier("icon-pending")
+  }
+}
+
 /// A provider icon that is not bundled with the app (e.g. one the server generated), cached on disk.
 private struct RemoteIcon<Icon: View, Fallback: View>: View {
   let url: URL
@@ -202,11 +261,12 @@ private struct RemoteIcon<Icon: View, Fallback: View>: View {
   var body: some View {
     Group {
       if let image = loader.image {
-        render(image)
+        render(image).transition(.opacity.combined(with: .scale(scale: 0.8)))
       } else {
         fallback
       }
     }
+    .animation(.easeInOut(duration: 0.4), value: loader.image)
     .task(id: url) { await loader.load(url) }
   }
 }

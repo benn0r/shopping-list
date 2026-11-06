@@ -110,6 +110,8 @@ struct ShoppingItem: Codable, Identifiable, Hashable, Sendable {
   var iconName: String?
   var iconURL: URL?
   var providerCategory: String?
+  /// True while the provider is still matching or generating this item's icon.
+  var iconPending: Bool?
   var sourceListID: UUID
 }
 
@@ -119,6 +121,7 @@ extension ShoppingItem {
     iconName = remote.icon
     iconURL = remote.iconURL
     providerCategory = remote.category
+    iconPending = remote.iconPending == true ? true : nil
   }
 }
 
@@ -155,6 +158,8 @@ struct ProviderItem: Codable, Identifiable, Hashable, Sendable {
   var iconURL: URL?
   /// A `GroceryCategory` key such as `dairyEggs`.
   var category: String?
+  /// True while the provider is still matching or generating the icon.
+  var iconPending: Bool?
 }
 
 struct ProviderConfiguration: Codable, Hashable, Sendable {
