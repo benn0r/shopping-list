@@ -257,6 +257,38 @@ final class CloudTests: XCTestCase {
     XCTAssertFalse(store.activeListHasPendingIcons)
   }
 
+  func testSameLabelTwiceOnServerKeepsTwoItemsThatBothUpdate() async throws {
+    let store = makeStore()
+    try await signIn(store)
+    StubURLProtocol.respond(#"{"items":[]}"#)
+    StubURLProtocol.respond(#"{"id":"r1","name":"Groceries"}"#, status: 201)
+    StubURLProtocol.respond(#"{"items":[]}"#)
+    try await store.goOnline()
+
+    StubURLProtocol.respond(
+      #"{"id":"k1","listId":"r1","label":"Kombucha","checked":false,"icon":null,"iconStatus":"pending"}"#,
+      status: 201)
+    await store.addItem(label: "Kombucha")
+
+    // The same label was added again elsewhere: both stay, each with its own local ID.
+    StubURLProtocol.respond(
+      #"{"items":[{"id":"k1","listId":"r1","label":"Kombucha","checked":false,"icon":null,"iconStatus":"pending"},{"id":"k2","listId":"r1","label":"Kombucha","checked":false,"icon":null,"iconStatus":"pending"}]}"#
+    )
+    await store.sync()
+    XCTAssertEqual(store.activeItems.map(\.remoteItemID), ["k1", "k2"])
+    XCTAssertEqual(Set(store.activeItems.map(\.id)).count, 2, "Local IDs must stay unique")
+
+    StubURLProtocol.respond(
+      #"{"items":[{"id":"k1","listId":"r1","label":"Kombucha","checked":false,"icon":"gen-kombucha","iconUrl":"https://cloud.example.com/api/v1/icons/gen-kombucha.png","iconStatus":"ready"},{"id":"k2","listId":"r1","label":"Kombucha","checked":false,"icon":"gen-kombucha","iconUrl":"https://cloud.example.com/api/v1/icons/gen-kombucha.png","iconStatus":"ready"}]}"#
+    )
+    await store.sync()
+    XCTAssertEqual(store.activeItems.count, 2)
+    XCTAssertEqual(Set(store.activeItems.map(\.id)).count, 2)
+    XCTAssertTrue(store.activeItems.allSatisfy { $0.iconPending == nil })
+    XCTAssertTrue(store.activeItems.allSatisfy { $0.iconName == "gen-kombucha" })
+    XCTAssertFalse(store.activeListHasPendingIcons)
+  }
+
   func testLocalListsNeverReportPendingIcons() async {
     let store = makeStore()
     await store.addItem(label: "Kombucha")

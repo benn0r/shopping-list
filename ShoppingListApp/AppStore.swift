@@ -24,6 +24,8 @@ final class AppStore: ObservableObject {
   private let persistence = StatePersistence()
   private var persistenceTask: Task<Void, Never>?
   private var syncingListIDs: Set<UUID> = []
+  /// Items whose `addItem` request is still running; a sync must not upload them a second time.
+  private var uploadingItemIDs: Set<UUID> = []
   private var liveDirtyListIDs: Set<UUID> = []
   private var liveSyncingListIDs: Set<UUID> = []
   private var isBackgroundSyncing = false
@@ -151,6 +153,8 @@ final class AppStore: ObservableObject {
     items[activeListID, default: []].append(item)
     save()
     if let target = activeList.syncTarget {
+      uploadingItemIDs.insert(item.id)
+      defer { uploadingItemIDs.remove(item.id) }
       do {
         let listID = item.sourceListID
         let remote = try await provider(for: target.provider).addItem(item, to: target.remoteListID)
@@ -188,15 +192,24 @@ final class AppStore: ObservableObject {
       var existing = items[list.id, default: []]
       var remote = try await adapter.items(in: target.remoteListID)
       var uploadedItem = false
+      var inFlightIDs: Set<UUID> = []
+      // Remote items already linked to a local item can't be claimed by another one.
+      var linkedRemoteIDs = Set(existing.compactMap(\.remoteItemID))
       for index in existing.indices where existing[index].remoteItemID == nil {
         if let match = remote.first(where: {
-          (existing[index].barcode != nil && existing[index].barcode == $0.barcode)
-            || Self.normalized(existing[index].label) == Self.normalized($0.label)
+          !linkedRemoteIDs.contains($0.id)
+            && ((existing[index].barcode != nil && existing[index].barcode == $0.barcode)
+              || Self.normalized(existing[index].label) == Self.normalized($0.label))
         }) {
+          linkedRemoteIDs.insert(match.id)
           existing[index].remoteItemID = match.id
           existing[index].remoteSpecification = match.specification
           existing[index].adoptPresentation(of: match)
+        } else if uploadingItemIDs.contains(existing[index].id) {
+          inFlightIDs.insert(existing[index].id)
         } else {
+          // Items still being added by `addItem` are left to it (above): uploading them here as
+          // well would create a duplicate on the server.
           let added = try await adapter.addItem(existing[index], to: target.remoteListID)
           existing[index].remoteItemID = added.id
           existing[index].remoteSpecification = added.specification
@@ -206,12 +219,24 @@ final class AppStore: ObservableObject {
       }
       if uploadedItem { remote = try await adapter.items(in: target.remoteListID) }
       var synchronized: [ShoppingItem] = []
+      // Each local item belongs to at most one remote item: two remote items with the same label
+      // (added twice, or on two devices) must not both map to one local item, or the list would
+      // hold that item's ID twice and SwiftUI would keep showing a stale row for it.
+      var claimedLocalIDs: Set<UUID> = []
+      let remoteIDs = Set(remote.map(\.id))
       for remoteItem in remote {
-        if var local = existing.first(where: {
-          $0.remoteItemID == remoteItem.id
-            || ($0.barcode != nil && $0.barcode == remoteItem.barcode)
-            || Self.normalized($0.label) == Self.normalized(remoteItem.label)
-        }) {
+        let local =
+          existing.first(where: {
+            !claimedLocalIDs.contains($0.id) && $0.remoteItemID == remoteItem.id
+          })
+          ?? existing.first(where: {
+            !claimedLocalIDs.contains($0.id)
+              && ($0.remoteItemID == nil || !remoteIDs.contains($0.remoteItemID!))
+              && (($0.barcode != nil && $0.barcode == remoteItem.barcode)
+                || Self.normalized($0.label) == Self.normalized(remoteItem.label))
+          })
+        if var local {
+          claimedLocalIDs.insert(local.id)
           local.remoteItemID = remoteItem.id
           local.remoteSpecification = remoteItem.specification
           local.barcode = remoteItem.barcode ?? local.barcode
@@ -245,6 +270,10 @@ final class AppStore: ObservableObject {
           item.metadataResolved = true
         }
         synchronized.append(item)
+      }
+      // Still being uploaded and not on the server yet: keep them, `addItem` links them.
+      synchronized += existing.filter {
+        inFlightIDs.contains($0.id) && !claimedLocalIDs.contains($0.id)
       }
       items[list.id] = Self.merge(
         synchronized, into: items[list.id, default: []], snapshot: existing)
