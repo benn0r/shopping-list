@@ -89,7 +89,7 @@ struct CloudService: Sendable {
   var baseURL: String = CloudConfiguration.serverURL
   var client = HTTPClient()
 
-  private func url(_ path: String) throws -> URL {
+  func url(_ path: String) throws -> URL {
     let trimmed = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
     guard let url = URL(string: trimmed), url.scheme != nil else {
       throw ProviderError.notConfigured

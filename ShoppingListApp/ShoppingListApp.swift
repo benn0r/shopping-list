@@ -29,19 +29,48 @@ struct ShoppingListApp: App {
 }
 
 struct ContentView: View {
+  /// The Shopping or Settings tab for demo screenshots (`-demo-screen`), else the list.
+  private static var initialTab: Int {
+    #if DEBUG
+      if Demo.isActive {
+        switch Demo.screen {
+        case "shopping": return 1
+        case "settings": return 2
+        default: return 0
+        }
+      }
+    #endif
+    return 0
+  }
+
   @EnvironmentObject private var store: AppStore
   @Environment(\.scenePhase) private var scenePhase
+  @State private var tab = ContentView.initialTab
+  @State private var invite: PendingInvite?
   var body: some View {
-    TabView {
+    TabView(selection: $tab) {
       ShoppingListScreen()
         .tabItem { Label("Shopping List", systemImage: "checklist") }
+        .tag(0)
       ShoppingScreen()
         .tabItem { Label("Shopping", systemImage: "cart.fill") }
+        .tag(1)
       SettingsScreen()
         .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+        .tag(2)
     }
     .tint(.shoppingAccent)
     .environment(\.locale, Locale(identifier: store.appLanguage.localeIdentifier))
+    // Invite links (universal links to /app/invite/<token>, or shoppinglist://invite/<token>).
+    .onOpenURL { url in
+      if let token = InviteLink.token(in: url) { invite = PendingInvite(token: token) }
+    }
+    .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+      if let url = activity.webpageURL, let token = InviteLink.token(in: url) {
+        invite = PendingInvite(token: token)
+      }
+    }
+    .sheet(item: $invite) { JoinHouseholdSheet(invite: $0.token).environmentObject(store) }
     .fullScreenCover(isPresented: Binding(get: { store.needsModeChoice }, set: { _ in })) {
       ModeChoiceScreen()
         .environmentObject(store)
@@ -64,4 +93,9 @@ struct ContentView: View {
       await store.backgroundSync()
     }
   }
+}
+
+private struct PendingInvite: Identifiable {
+  let token: String
+  var id: String { token }
 }

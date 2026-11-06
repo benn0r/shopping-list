@@ -6,6 +6,17 @@ const port = Number(index >= 0 ? process.argv[index + 1] : 8787);
 const lists = [{ id: 'mock-list', name: 'Mock Groceries' }];
 // Shopping List Cloud accounts have their own lists, so going online only sees what it created.
 const cloudLists = [];
+// Households (sharing): the signed-in Alex owns one; "Sam's lists" can be joined with the invite
+// token "sam-invite" and then has its own session token and lists.
+const samLists = [{ id: 'sam-list-0', name: "Sam's Groceries" }];
+const households = {
+  'house-alex': { id: 'house-alex', name: "Alex's lists", token: 'slt_cloud_mock', lists: cloudLists, pendingInvites: 0,
+    members: [{ id: 'cloud-user', name: 'Alex', role: 'owner' }] },
+  'house-sam': { id: 'house-sam', name: "Sam's lists", token: 'slt_cloud_sam', lists: samLists, pendingInvites: 0,
+    members: [{ id: 'sam-user', name: 'Sam', role: 'owner' }] },
+};
+const householdFor = (authorization) => Object.values(households).find((h) => `Bearer ${h.token}` === authorization);
+const memberOf = (household) => household.members.some((m) => m.id === 'cloud-user');
 // Open event streams (GET /api/v1/events), like the real server's Server-Sent Events.
 const streams = new Set();
 let eventId = 0;
@@ -64,7 +75,7 @@ http.createServer(async (req, res) => {
     return json(res, { token: 'slt_cloud_mock', user: { id: 'cloud-user', name: value.givenName ?? null } });
   }
   if (url.pathname.startsWith('/api/v1/')) {
-    if (!['Bearer slt_mock', 'Bearer slt_cloud_mock'].includes(req.headers.authorization)) return json(res, { error: 'unauthorized', message: 'Invalid API token.' }, 401);
+    if (!['Bearer slt_mock', 'Bearer slt_cloud_mock', 'Bearer slt_cloud_sam'].includes(req.headers.authorization)) return json(res, { error: 'unauthorized', message: 'Invalid API token.' }, 401);
     const serverItem = (item) => {
       const match = serverIcons[item.note?.toLowerCase()];
       const base = { id: item.id, listId: item.shoppingListId, label: item.note, quantity: item.quantity ?? null, unit: item.unit?.name ?? null, barcode: item.extras?.barcode ?? null, note: null, checked: item.checked };
@@ -72,6 +83,49 @@ http.createServer(async (req, res) => {
       const iconUrl = match ? `http://${req.headers.host}/static/icons/${match.icon}.png` : null;
       return { ...base, icon: match?.icon ?? null, iconUrl, category: match?.category ?? null, iconStatus: match ? 'ready' : 'none' };
     };
+    const household = householdFor(req.headers.authorization);
+    const summary = (h) => ({ id: h.id, name: h.name, role: h.members.find((m) => m.id === 'cloud-user')?.role ?? 'member' });
+    const session = (h) => ({ token: h.token, household: summary(h) });
+    if (household && url.pathname === '/api/v1/household' && req.method === 'GET') {
+      return json(res, { ...summary(household), pendingInvites: household.pendingInvites,
+        members: household.members.map((m) => ({ ...m, you: m.id === 'cloud-user' })) });
+    }
+    if (household && url.pathname === '/api/v1/households') {
+      return json(res, { items: Object.values(households).filter(memberOf).map((h) => ({ ...summary(h), current: h === household })) });
+    }
+    if (household && url.pathname === '/api/v1/household/invites' && req.method === 'POST') {
+      household.pendingInvites += 1;
+      return json(res, { url: `http://${req.headers.host}/app/invite/mock-${household.pendingInvites}`, expiresAt: '2030-01-01T00:00:00Z' }, 201);
+    }
+    if (household && url.pathname === '/api/v1/household/invites' && req.method === 'DELETE') { household.pendingInvites = 0; res.writeHead(204); return res.end(); }
+    const memberPath = url.pathname.match(/^\/api\/v1\/household\/members\/([^/]+)$/);
+    if (household && memberPath && req.method === 'DELETE') {
+      const owners = household.members.filter((m) => m.role === 'owner');
+      if (owners.length === 1 && owners[0].id === memberPath[1]) return json(res, { error: 'conflict', message: 'The last owner cannot leave.' }, 409);
+      household.members = household.members.filter((m) => m.id !== memberPath[1]);
+      res.writeHead(204); return res.end();
+    }
+    const sessionPath = url.pathname.match(/^\/api\/v1\/households\/([^/]+)\/session$/);
+    if (household && sessionPath && req.method === 'POST') {
+      const target = households[sessionPath[1]];
+      if (!target || !memberOf(target)) return json(res, { error: 'not_found', message: 'Household not found.' }, 404);
+      return json(res, session(target), 201);
+    }
+    // Invitations travel in the body (POST /invites/lookup and /invites/accept), like the server.
+    if (household && ['/api/v1/invites/lookup', '/api/v1/invites/accept'].includes(url.pathname) && req.method === 'POST') {
+      const invite = String(JSON.parse(await body(req)).invite ?? '').split('/').pop();
+      if (invite !== 'sam-invite') return json(res, { error: 'not_found', message: 'Invite not found.' }, 404);
+      const sam = households['house-sam'];
+      if (url.pathname.endsWith('/lookup')) return json(res, { household: { name: sam.name }, member: memberOf(sam) });
+      if (!memberOf(sam)) sam.members.push({ id: 'cloud-user', name: 'Alex', role: 'member' });
+      return json(res, session(sam), 201);
+    }
+    // Test hook: someone joins Alex's household.
+    if (url.pathname === '/api/v1/mock/member-joined' && req.method === 'POST') {
+      const alex = households['house-alex'];
+      if (!alex.members.some((m) => m.id === 'jo-user')) alex.members.push({ id: 'jo-user', name: 'Jo', role: 'member' });
+      return json(res, {}, 201);
+    }
     if (url.pathname === '/api/v1/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' });
       res.write(`retry: 5000\n\nid: ${++eventId}\nevent: ready\ndata: {"tenantId":"mock"}\n\n`);
@@ -91,7 +145,7 @@ http.createServer(async (req, res) => {
     }
     if (url.pathname === '/api/v1/me' && req.method === 'DELETE') { res.writeHead(204); return res.end(); }
     if (url.pathname === '/api/v1/me') return json(res, { user: { name: 'Mock' } });
-    const accountLists = req.headers.authorization === 'Bearer slt_cloud_mock' ? cloudLists : lists;
+    const accountLists = household ? household.lists : lists;
     if (url.pathname === '/api/v1/lists' && req.method === 'POST') { const value = JSON.parse(await body(req)); const list = { id: `cloud-list-${accountLists.length}`, name: value.name || 'List' }; accountLists.push(list); return json(res, list, 201); }
     if (url.pathname === '/api/v1/lists') return json(res, { items: accountLists.map((list) => ({ ...list, openItems: items.filter((item) => item.shoppingListId === list.id && !item.checked).length, checkedItems: 0 })) });
     const listItems = url.pathname.match(/^\/api\/v1\/lists\/([^/]+)\/items$/);

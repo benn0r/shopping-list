@@ -1,0 +1,91 @@
+appId: ch.benn0r.shoppinglist
+---
+# Sharing: the household in Settings, an invitation through the share sheet, joining another
+# household from an invite link, and leaving it again.
+- launchApp:
+    clearState: true
+    arguments:
+      mockAppleSignIn: true
+      cloudServerURL: "http://127.0.0.1:8787"
+- tapOn:
+    text: "Close"
+    optional: true
+# An "Open in Shopping List?" prompt can survive from an earlier run of this flow.
+- tapOn:
+    text: "Cancel"
+    optional: true
+- tapOn:
+    id: "mode-online"
+- tapOn:
+    id: "continue-with-apple"
+- extendedWaitUntil:
+    notVisible: "Welcome to Shopping List"
+    timeout: 8000
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "household-name"
+    direction: DOWN
+    centerElement: true
+- assertVisible: ".*Alex's lists.*"
+- assertVisible: ".*Alex \\(you\\).*Owner.*"
+- tapOn:
+    id: "invite-member"
+# The iOS share sheet with the invitation link.
+- extendedWaitUntil:
+    visible: "Copy"
+    timeout: 8000
+- takeScreenshot: artifacts/household-invite
+# iOS 26's share sheet closes by tapping outside it.
+- tapOn: "dismiss popup"
+- scrollUntilVisible:
+    element:
+      id: "revoke-invites"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "revoke-invites"
+- assertNotVisible:
+    id: "revoke-invites"
+# Opening an invite link joins Sam's household; its list replaces Alex's.
+- openLink: "shoppinglist://invite/sam-invite"
+# iOS asks before opening an app from a URL scheme (universal links don't).
+- tapOn:
+    text: "Open"
+    optional: true
+- extendedWaitUntil:
+    visible: ".*Join Sam.s lists.*"
+    timeout: 8000
+- tapOn:
+    id: "join-household"
+- extendedWaitUntil:
+    visible:
+      id: "joined-household"
+    timeout: 8000
+- assertVisible: ".*Sam's lists.*"
+- tapOn: "Done"
+- tapOn: "Shopping List"
+- extendedWaitUntil:
+    visible: "Sam's Groceries"
+    timeout: 8000
+# Leaving goes back to Alex's own household.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "leave-household"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "leave-household"
+- assertVisible: "Leave this household?"
+- tapOn: "Leave Household"
+- scrollUntilVisible:
+    element:
+      id: "household-name"
+    direction: UP
+    centerElement: true
+- extendedWaitUntil:
+    visible: ".*Alex's lists.*"
+    timeout: 8000
+- assertNotVisible:
+    id: "leave-household"

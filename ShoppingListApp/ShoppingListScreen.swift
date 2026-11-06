@@ -60,6 +60,18 @@ struct ShoppingListScreen: View {
       }
       .sheet(item: $selectedItem) { ItemDetails(item: $0) }
       .sheet(isPresented: $scannerPresented) { ScannerSheet() }
+      #if DEBUG
+        .task {
+          // Demo screenshots open the scanner or an item straight away.
+          guard Demo.isActive else { return }
+          try? await Task.sleep(for: .milliseconds(400))
+          switch Demo.screen {
+          case "scanner", "product": scannerPresented = true
+          case "item": selectedItem = store.activeItems.first
+          default: break
+          }
+        }
+      #endif
       .alert(
         "Error",
         isPresented: Binding(
@@ -210,6 +222,13 @@ private struct ScannerSheet: View {
       }
       .navigationTitle("Scan Product").navigationBarTitleDisplayMode(.inline)
       .toolbar { Button("Cancel") { dismiss() } }
+      #if DEBUG
+        .task {
+          guard Demo.isActive, Demo.screen == "product" else { return }
+          try? await Task.sleep(for: .milliseconds(600))
+          product = Self.demoProduct
+        }
+      #endif
       .onChange(of: code) { _, value in
         guard let value, !isLookingUp, product == nil else { return }
         isLookingUp = true
@@ -269,7 +288,7 @@ private struct ScannerSheet: View {
 
   fileprivate static var isScreenshotMode: Bool {
     #if DEBUG
-      UserDefaults.standard.bool(forKey: "screenshotMode")
+      Demo.isActive || UserDefaults.standard.bool(forKey: "screenshotMode")
         || ProcessInfo.processInfo.arguments.contains { $0.contains("screenshotMode") }
         || ProcessInfo.processInfo.environment["screenshotMode"] == "true"
     #else
@@ -278,13 +297,19 @@ private struct ScannerSheet: View {
   }
 
   #if DEBUG
-    private static let demoProduct = ScannedProduct(
-      barcode: "7612345678901",
-      metadata: ProductMetadata(
-        label: "Raspberry Oat Yogurt", exactLabel: "Alpen Gut Raspberry Oat Yogurt",
-        genericLabel: "Raspberry Oat Yogurt", brand: "Alpen Gut", imageURL: nil,
-        stores: ["Alpine Market"], source: "Open Food Facts", productType: "Yogurt",
-        categoryHints: ["Yogurts"]))
+    private static var demoProduct: ScannedProduct {
+      ScannedProduct(
+        barcode: "7612345678901",
+        metadata: ProductMetadata(
+          label: Demo.isActive ? Demo.productLabel : "Raspberry Oat Yogurt",
+          exactLabel: "Alpen Gut Raspberry Oat Yogurt",
+          genericLabel: Demo.isActive ? Demo.productLabel : "Raspberry Oat Yogurt",
+          brand: "Alpen Gut",
+          imageURL: nil, stores: [Demo.isActive ? Demo.storeTitle : "Alpine Market"],
+          source: "Open Food Facts",
+          productType: "Yogurt",
+          categoryHints: ["Yogurts"]))
+    }
   #endif
 }
 
@@ -296,7 +321,9 @@ private struct ScannerSheet: View {
       GeometryReader { geometry in
         let frameTop = min(CGFloat(154), max(112, geometry.size.height * 0.28))
         ZStack {
-          Image("DemoFridge")
+          // A loose bundle PNG (copied in Debug builds only): SwiftUI's Image(_:) no longer finds
+          // these, UIImage(named:) does.
+          Image(uiImage: UIImage(named: "DemoFridge") ?? UIImage())
             .resizable().scaledToFill()
             .frame(width: geometry.size.width, height: geometry.size.height)
             .scaleEffect(1.75)

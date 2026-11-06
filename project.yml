@@ -21,6 +21,8 @@ targets:
       path: ShoppingListApp/ShoppingList.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
+        # Invite links (https://<cloud server>/app/invite/<token>) open the app.
+        com.apple.developer.associated-domains: ["applinks:shopping-list.tueftli.com"]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ch.benn0r.shoppinglist

@@ -175,7 +175,7 @@ final class AppStoreTests: XCTestCase {
     item.providerCategory = "notACategory"
     XCTAssertEqual(GroceryCategoryCatalog.category(for: item), .bakery)
     XCTAssertEqual(GroceryCategory(key: "dairyEggs"), .dairyEggs)
-    XCTAssertEqual(GroceryCategory.allCases.compactMap { GroceryCategory(key: $0.key) }.count, 34)
+    XCTAssertEqual(GroceryCategory.allCases.compactMap { GroceryCategory(key: $0.key) }.count, 38)
   }
 
   func testAddedItemTakesIconReturnedByProvider() async {

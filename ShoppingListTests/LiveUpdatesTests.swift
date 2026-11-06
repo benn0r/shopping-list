@@ -70,7 +70,10 @@ final class LiveUpdatesStoreTests: XCTestCase {
   override func setUp() {
     fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
   }
-  override func tearDown() {
+  override func tearDown() async throws {
+    // Let syncs scheduled by this test (250 ms debounce) finish, so they can't land in the next
+    // test's request log on a busy machine.
+    try await Task.sleep(for: .milliseconds(700))
     try? FileManager.default.removeItem(at: fileURL)
     StubURLProtocol.reset()
   }

@@ -7,7 +7,8 @@ enum GroceryCategory: Int, CaseIterable, Identifiable {
   case frozenFoods, householdCleaning, paperStorage, bathroomSupplies, personalCare, health, baby,
     pets
   case kitchenHome, seasonal, checkout
-  case clothing, gardenDIY, electronics, officeSchool, other
+  case clothing, gardenDIY, electronics, officeSchool
+  case toysGames, sportsOutdoor, carBike, booksMagazines, other
 
   var id: Self { self }
   var title: String {
@@ -49,6 +50,10 @@ enum GroceryCategory: Int, CaseIterable, Identifiable {
     case .gardenDIY: "Garden & DIY"
     case .electronics: "Electronics"
     case .officeSchool: "Office & School"
+    case .toysGames: "Toys & Games"
+    case .sportsOutdoor: "Sports & Outdoor"
+    case .carBike: "Car & Bike"
+    case .booksMagazines: "Books & Magazines"
     case .other: "Other"
     }
   }
@@ -94,6 +99,10 @@ enum GroceryCategory: Int, CaseIterable, Identifiable {
     case .gardenDIY: "gardenDIY"
     case .electronics: "electronics"
     case .officeSchool: "officeSchool"
+    case .toysGames: "toysGames"
+    case .sportsOutdoor: "sportsOutdoor"
+    case .carBike: "carBike"
+    case .booksMagazines: "booksMagazines"
     case .other: "other"
     }
   }
@@ -421,6 +430,9 @@ enum GroceryCategoryCatalog {
     (
       .personalCare,
       [
+        "sunscreen", "sun cream", "suncream", "sun lotion", "after sun", "sonnencreme",
+        "sonnenschutz", "sonnenmilch", "creme solaire", "protection solaire", "crema solare",
+        "protezione solare", "protetor solar", "protector solar",
         "personal care", "shampoo", "conditioner", "shower gel", "soap", "deodorant", "toothpaste",
         "toothbrush", "razor", "shaving foam", "sanitary pads", "tampons", "skin care",
         "body lotion", "pflege", "korperpflege", "duschgel", "seife", "deo", "zahnpasta",
@@ -444,6 +456,17 @@ enum GroceryCategoryCatalog {
         "antidouleur", "pansement", "desinfectant", "salute", "medicina", "farmaco", "vitamine",
         "integratore", "antidolorifico", "cerotto", "disinfettante", "saude", "medicamento",
         "vitaminas", "suplemento", "analgesico", "curativo", "desinfetante",
+        // Pharmacy and intimate care.
+        "condom", "condoms", "lubricant", "lube", "pregnancy test", "ibuprofen", "paracetamol",
+        "aspirin", "dafalgan", "nasal spray", "cough syrup", "throat lozenges", "fever thermometer",
+        "vitamin tablets", "kondom", "kondome", "praservativ", "praservative", "gleitgel",
+        "schwangerschaftstest", "nasenspray", "hustensirup", "hustensaft", "lutschtabletten",
+        "halstabletten", "fieberthermometer", "vitamintabletten", "preservatif", "preservatifs",
+        "lubrifiant", "test de grossesse", "spray nasal", "sirop contre la toux",
+        "pastilles pour la gorge", "thermometre medical", "preservativo", "preservativi",
+        "lubrificante", "test di gravidanza", "ibuprofene", "aspirina", "spray nasale",
+        "sciroppo per la tosse", "pastiglie per la gola", "termometro", "preservativos",
+        "teste de gravidez", "xarope para a tosse", "pastilhas para a garganta",
       ]
     ),
     (
@@ -493,11 +516,10 @@ enum GroceryCategoryCatalog {
     (
       .checkout,
       [
-        "checkout", "chewing gum", "mint", "mints", "magazine", "newspaper", "lottery", "gift card",
-        "kasse", "kaugummi", "bonbon", "zeitschrift", "zeitung", "lotterie", "geschenkkarte",
-        "caisse", "chewing gum", "pastilles", "magazine", "journal", "loterie", "carte cadeau",
-        "cassa", "gomma da masticare", "mentine", "rivista", "giornale", "lotteria", "buono regalo",
-        "caixa", "chiclete", "pastilha", "revista", "jornal", "loteria", "cartao presente",
+        "checkout", "chewing gum", "mint", "mints", "lottery", "gift card", "kasse", "kaugummi",
+        "bonbon", "lotterie", "geschenkkarte", "caisse", "chewing gum", "pastilles", "loterie",
+        "carte cadeau", "cassa", "gomma da masticare", "mentine", "lotteria", "buono regalo",
+        "caixa", "chiclete", "pastilha", "loteria", "cartao presente",
       ]
     ),
     (
@@ -583,6 +605,62 @@ enum GroceryCategoryCatalog {
         "caneta", "canetas", "lapis", "borracha", "afia", "apontador", "caderno",
         "papel de impressora", "envelopes", "selos", "pasta de arquivo", "regua", "tesoura",
         "agrafador", "grampeador", "marcador", "canetas de feltro", "tinteiro",
+      ]
+    ),
+    (
+      .toysGames,
+      [
+        "toy", "toys", "lego", "puzzle", "jigsaw", "rubiks cube", "coloring book", "colouring book",
+        "soap bubbles", "board game", "plush toy", "teddy bear", "playing cards", "doll",
+        "toy car", "spielzeug", "spielsachen", "zauberwurfel", "malbuch", "seifenblasen",
+        "brettspiel", "gesellschaftsspiel", "pluschtier", "kuscheltier", "spielkarten",
+        "jasskarten", "puppe", "spielzeugauto", "jouet", "jouets", "casse tete",
+        "livre de coloriage", "bulles de savon", "jeu de societe", "peluche", "cartes a jouer",
+        "poupee", "giocattolo", "giocattoli", "cubo di rubik", "album da colorare",
+        "bolle di sapone", "gioco da tavolo", "carte da gioco", "bambola", "brinquedo",
+        "brinquedos", "quebra cabeca", "cubo magico", "livro de colorir", "bolas de sabao",
+        "jogo de tabuleiro", "pelucia", "cartas de jogar", "baralho", "boneca",
+      ]
+    ),
+    (
+      .sportsOutdoor,
+      [
+        "sports", "outdoor", "tennis balls", "soccer ball", "football boots", "hiking boots",
+        "camping gas", "swimsuit", "swim trunks", "yoga mat", "dumbbells", "tent", "sleeping bag",
+        "tennisballe", "fussball", "wanderschuhe", "campinggas", "gaskartusche", "badehose",
+        "badeanzug", "yogamatte", "hanteln", "zelt", "schlafsack", "balles de tennis",
+        "ballon de foot", "chaussures de randonnee", "cartouche de gaz", "maillot de bain",
+        "tapis de yoga", "halteres", "tente", "sac de couchage", "palline da tennis",
+        "pallone da calcio", "scarponi", "bombola gas", "costume da bagno", "tappetino yoga",
+        "manubri", "sacco a pelo", "bolas de tenis", "bola de futebol", "botas de caminhada",
+        "gas de campismo", "fato de banho", "calcao de banho", "sunga", "tapete de yoga",
+        "barraca", "saco de cama", "saco de dormir",
+      ]
+    ),
+    (
+      .carBike,
+      [
+        "motor oil", "engine oil", "windscreen washer", "windshield washer fluid", "vignette",
+        "bike pump", "bicycle pump", "chain oil", "inner tube", "bike tube", "bicycle tube",
+        "tyre", "tire", "bike light", "bicycle light", "motorol", "scheibenwaschmittel",
+        "scheibenwischwasser", "scheibenreiniger", "autobahnvignette", "velopumpe",
+        "fahrradpumpe", "luftpumpe", "kettenol", "veloschlauch", "fahrradschlauch", "reifen",
+        "velolicht", "fahrradlicht", "huile moteur", "lave glace", "pompe a velo",
+        "huile de chaine", "chambre a air", "pneu", "eclairage velo", "olio motore",
+        "liquido lavavetri", "pompa per bici", "olio per catena", "camera d aria", "pneumatico",
+        "luce bici", "oleo de motor", "liquido limpa vidros", "bomba de bicicleta",
+        "oleo de corrente", "camara de ar", "luz de bicicleta",
+      ]
+    ),
+    (
+      .booksMagazines,
+      [
+        "book", "books", "magazine", "magazines", "newspaper", "puzzle book", "crossword",
+        "comic", "comics", "novel", "buch", "bucher", "zeitschrift", "zeitschriften", "magazin",
+        "zeitung", "ratselheft", "kreuzwortratsel", "comicheft", "roman", "livre", "livres",
+        "journal", "mots croises", "bande dessinee", "libro", "libri", "rivista", "giornale",
+        "settimana enigmistica", "fumetto", "fumetti", "romanzo", "livro", "livros", "revista",
+        "jornal", "palavras cruzadas", "banda desenhada", "quadrinhos",
       ]
     ),
   ]

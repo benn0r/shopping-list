@@ -418,6 +418,10 @@ extension GroceryCategory {
     case .gardenDIY: "hammer.fill"
     case .electronics: "powerplug.fill"
     case .officeSchool: "pencil.and.ruler.fill"
+    case .toysGames: "puzzlepiece.fill"
+    case .sportsOutdoor: "figure.run"
+    case .carBike: "bicycle"
+    case .booksMagazines: "book.fill"
     case .other: "square.grid.2x2.fill"
     }
   }
@@ -442,6 +446,10 @@ extension GroceryCategory {
     case .gardenDIY: .green
     case .electronics: .indigo
     case .officeSchool: .purple
+    case .toysGames: .orange
+    case .sportsOutdoor: .mint
+    case .carBike: .gray
+    case .booksMagazines: .brown
     case .kitchenHome, .checkout, .other: .secondary
     }
   }

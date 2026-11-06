@@ -83,6 +83,7 @@ struct SettingsScreen: View {
         }
         .onChange(of: store.lookupPreferences) { store.save() }
         CloudAccountSection()
+        if store.storageMode == .online && store.isCloudSignedIn { HouseholdSection() }
         ProviderSection(kind: .bring)
         ProviderSection(kind: .mealie)
         ProviderSection(kind: .server)

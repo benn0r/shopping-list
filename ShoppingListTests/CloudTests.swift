@@ -10,7 +10,12 @@ final class CloudTests: XCTestCase {
   override func setUp() {
     fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
   }
-  override func tearDown() {
+  /// Set by tests that switch households: switching schedules syncs (250 ms debounce) that must
+  /// finish before the next test's request log starts.
+  private var schedulesSyncs = false
+
+  override func tearDown() async throws {
+    if schedulesSyncs { try await Task.sleep(for: .milliseconds(700)) }
     try? FileManager.default.removeItem(at: fileURL)
     StubURLProtocol.reset()
   }
@@ -343,5 +348,152 @@ final class CloudTests: XCTestCase {
     }
     XCTAssertEqual(GroceryCategory(key: "clothing"), .clothing)
     XCTAssertEqual(GroceryCategory.allCases.last, .other, "Other stays last")
+  }
+
+  // MARK: Households
+
+  private func onlineWithGroceries(_ store: AppStore) async throws {
+    schedulesSyncs = true
+    try await signIn(store)
+    StubURLProtocol.respond(#"{"items":[]}"#)
+    StubURLProtocol.respond(#"{"id":"r1","name":"Groceries"}"#, status: 201)
+    StubURLProtocol.respond(#"{"items":[]}"#)
+    try await store.goOnline()
+    StubURLProtocol.reset()
+  }
+
+  func testSwitchingHouseholdsReplacesOnlyCloudLists() async throws {
+    let store = makeStore()
+    try await onlineWithGroceries(store)
+    let bring = store.createList(
+      name: "Bring", target: SyncTarget(provider: .bring, remoteListID: "b1", remoteListName: "B"))
+    StubURLProtocol.respond(
+      #"{"token":"slt_sam","household":{"id":"h2","name":"Sam","role":"member"}}"#)
+    StubURLProtocol.respond(#"{"items":[{"id":"s1","name":"Sam's Groceries"}]}"#)
+
+    try await store.switchHousehold(to: "h2")
+
+    XCTAssertEqual(store.providerConfigurations[.cloud]?.secret, "slt_sam")
+    XCTAssertEqual(store.lists.map(\.name), ["Bring", "Sam's Groceries"])
+    XCTAssertTrue(store.lists.contains { $0.id == bring.id })
+    XCTAssertTrue(store.lists.contains { $0.id == store.activeListID })
+    let session = try XCTUnwrap(StubURLProtocol.requests.first)
+    XCTAssertEqual(session.url?.path, "/api/v1/households/h2/session")
+    XCTAssertEqual(session.value(forHTTPHeaderField: "Authorization"), "Bearer slt_session")
+    // The new household's lists are loaded with the new token.
+    XCTAssertEqual(
+      StubURLProtocol.requests[1].value(forHTTPHeaderField: "Authorization"), "Bearer slt_sam")
+  }
+
+  func testFailedSwitchChangesNothing() async throws {
+    let store = makeStore()
+    try await onlineWithGroceries(store)
+    let before = store.lists
+    StubURLProtocol.respond(
+      #"{"token":"slt_sam","household":{"id":"h2","name":"Sam","role":"member"}}"#)
+    StubURLProtocol.respond(#"{"error":"unavailable"}"#, status: 503)
+    do {
+      try await store.switchHousehold(to: "h2")
+      XCTFail("Expected failure")
+    } catch {}
+    XCTAssertEqual(store.lists, before)
+    XCTAssertEqual(store.providerConfigurations[.cloud]?.secret, "slt_session")
+  }
+
+  func testEmptyHouseholdGetsAGroceriesList() async throws {
+    let store = makeStore()
+    try await onlineWithGroceries(store)
+    StubURLProtocol.respond(
+      #"{"token":"slt_new","household":{"id":"h3","name":"New","role":"member"}}"#)
+    StubURLProtocol.respond(#"{"items":[]}"#)
+    StubURLProtocol.respond(#"{"id":"n1","name":"Groceries"}"#, status: 201)
+
+    try await store.acceptInvite("abc")
+
+    let accept = StubURLProtocol.requests[0]
+    XCTAssertEqual(
+      accept.url?.path, "/api/v1/invites/accept", "The invitation never goes in the path")
+    XCTAssertEqual(
+      try JSONSerialization.jsonObject(with: StubURLProtocol.bodies[0]) as? [String: String],
+      ["invite": "abc"])
+    XCTAssertEqual(store.lists.map { $0.syncTarget?.remoteListID }, ["n1"])
+  }
+
+  func testLeavingGetsTheNextSessionBeforeLeaving() async throws {
+    let store = makeStore()
+    try await onlineWithGroceries(store)
+    store.household = Household(id: "h1", name: "Mine", role: .member)
+    StubURLProtocol.respond(
+      #"{"items":[{"id":"h1","name":"Mine","role":"member"},{"id":"h2","name":"Own","role":"owner"}]}"#
+    )
+    StubURLProtocol.respond(
+      #"{"token":"slt_own","household":{"id":"h2","name":"Own","role":"owner"}}"#)
+    StubURLProtocol.respond("", status: 204)
+    StubURLProtocol.respond(#"{"items":[{"id":"o1","name":"Own Groceries"}]}"#)
+
+    try await store.leaveHousehold()
+
+    XCTAssertEqual(
+      StubURLProtocol.requests.prefix(3).map { "\($0.httpMethod ?? "") \($0.url?.path ?? "")" },
+      [
+        "GET /api/v1/households", "POST /api/v1/households/h2/session",
+        "DELETE /api/v1/household/members/u1",
+      ])
+    XCTAssertEqual(store.providerConfigurations[.cloud]?.secret, "slt_own")
+    XCTAssertEqual(store.lists.map(\.name), ["Own Groceries"])
+  }
+
+  func testCannotLeaveTheOnlyHousehold() async throws {
+    let store = makeStore()
+    try await onlineWithGroceries(store)
+    store.household = Household(id: "h1", name: "Mine", role: .owner)
+    StubURLProtocol.respond(#"{"items":[{"id":"h1","name":"Mine","role":"owner"}]}"#)
+    do {
+      try await store.leaveHousehold()
+      XCTFail("Expected onlyHousehold")
+    } catch HouseholdError.onlyHousehold {
+    } catch { XCTFail("Unexpected \(error)") }
+    XCTAssertEqual(StubURLProtocol.requests.count, 1)
+  }
+
+  func testInviteLinks() {
+    XCTAssertEqual(
+      InviteLink.token(in: URL(string: "https://shopping-list.tueftli.com/app/invite/abc123")!),
+      "abc123")
+    XCTAssertEqual(InviteLink.token(in: URL(string: "shoppinglist://invite/abc123")!), "abc123")
+    XCTAssertNil(InviteLink.token(in: URL(string: "https://example.com/invite/abc")!))
+    XCTAssertNil(InviteLink.token(in: URL(string: "shoppinglist://lists/abc")!))
+  }
+
+  func testToysSportsCarBooksAndPharmacy() {
+    let expected: [String: GroceryCategory] = [
+      "LEGO": .toysGames, "Puzzle": .toysGames, "Zauberwürfel": .toysGames,
+      "Malbuch": .toysGames, "Seifenblasen": .toysGames, "Brettspiel": .toysGames,
+      "Plüschtier": .toysGames, "Spielkarten": .toysGames,
+      "Tennisbälle": .sportsOutdoor, "Wanderschuhe": .sportsOutdoor,
+      "Campinggas": .sportsOutdoor, "Badehose": .sportsOutdoor, "Yogamatte": .sportsOutdoor,
+      "Motoröl": .carBike, "Scheibenwischwasser": .carBike, "Vignette": .carBike,
+      "Velopumpe": .carBike, "Fahrradpumpe": .carBike, "Kettenöl": .carBike,
+      "Veloschlauch": .carBike, "Fahrradschlauch": .carBike, "Reifen": .carBike,
+      "Velolicht": .carBike,
+      "Zeitung": .booksMagazines, "Zeitschrift": .booksMagazines, "Buch": .booksMagazines,
+      "Rätselheft": .booksMagazines, "Comic": .booksMagazines, "newspaper": .booksMagazines,
+      "Kondom": .health, "Kondome": .health, "condoms": .health, "Präservativ": .health,
+      "préservatif": .health, "preservativo": .health, "Gleitgel": .health,
+      "lubricant": .health, "Schwangerschaftstest": .health, "pregnancy test": .health,
+      "Ibuprofen": .health, "Paracetamol": .health, "Aspirin": .health, "Dafalgan": .health,
+      "Nasenspray": .health, "Hustensirup": .health, "cough syrup": .health,
+      "Lutschtabletten": .health, "throat lozenges": .health,
+      "Fieberthermometer": .health, "Vitamintabletten": .health,
+      // Words that must keep their category.
+      "Mozzarella": .cheese, "Heft": .officeSchool, "Sonnencreme": .personalCare,
+      "Kaugummi": .snacksSweets, "sunscreen": .personalCare,
+    ]
+    for (label, category) in expected {
+      XCTAssertEqual(GroceryCategoryCatalog.category(for: label), category, label)
+    }
+    XCTAssertEqual(
+      GroceryCategory.allCases.suffix(5),
+      [.toysGames, .sportsOutdoor, .carBike, .booksMagazines, .other])
   }
 }

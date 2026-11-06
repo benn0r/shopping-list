@@ -16,6 +16,9 @@ final class AppStore: ObservableObject {
   @Published var appLanguage: AppLanguage
   @Published var cloudAccount: CloudAccount?
   @Published var storageMode: StorageMode?
+  /// The Cloud household and the account's other households; loaded by Settings, not saved.
+  @Published var household: Household?
+  @Published var households: [HouseholdSummary] = []
   @Published var errorMessage: String?
 
   private let storageURL: URL
@@ -78,6 +81,18 @@ final class AppStore: ObservableObject {
       cloudAccount = nil
       storageMode = nil
     }
+    #if DEBUG
+      if Demo.isActive { Demo.seed(self) }
+    #endif
+  }
+
+  /// Demo data for screenshots is never saved, synced or streamed.
+  private var isDemo: Bool {
+    #if DEBUG
+      Demo.isActive
+    #else
+      false
+    #endif
   }
 
   var activeList: ShoppingListDefinition {
@@ -91,6 +106,7 @@ final class AppStore: ObservableObject {
   var activeSession: ShoppingSession? { sessions.first(where: { $0.completedAt == nil }) }
 
   func save() {
+    guard !isDemo else { return }
     let state = persistenceState()
     persistenceTask?.cancel()
     persistenceTask = Task { [persistence, storageURL] in
@@ -107,6 +123,7 @@ final class AppStore: ObservableObject {
   }
 
   func flushPersistence() async {
+    guard !isDemo else { return }
     persistenceTask?.cancel()
     let state = persistenceState()
     do {
@@ -184,7 +201,7 @@ final class AppStore: ObservableObject {
 
   func sync(_ list: ShoppingListDefinition? = nil, reportErrors: Bool = true) async {
     let list = list ?? activeList
-    guard let target = list.syncTarget else { return }
+    guard !isDemo, let target = list.syncTarget else { return }
     guard syncingListIDs.insert(list.id).inserted else { return }
     defer { syncingListIDs.remove(list.id) }
     do {
@@ -356,6 +373,7 @@ final class AppStore: ObservableObject {
 
   /// Holds one event stream per live provider until the calling task is cancelled.
   func runLiveUpdates() async {
+    guard !isDemo else { return }
     let streams = liveProviders.compactMap { kind in
       providerConfigurations[kind].map { (kind, ServerEventStream(configuration: $0)) }
     }
@@ -461,6 +479,91 @@ final class AppStore: ObservableObject {
     if changed { save() }
   }
 
+  // MARK: Households (sharing)
+
+  private var cloudToken: String { providerConfigurations[.cloud]?.secret ?? "" }
+
+  func refreshHousehold() async throws {
+    guard isCloudSignedIn, !isDemo else { return }
+    household = try await cloudService.household(token: cloudToken)
+    households = (try? await cloudService.households(token: cloudToken)) ?? []
+  }
+
+  /// A single-use link that lets someone join this household.
+  func createInvite() async throws -> URL {
+    let invite = try await cloudService.createInvite(token: cloudToken)
+    household?.pendingInvites = (household?.pendingInvites ?? 0) + 1
+    return invite.url
+  }
+
+  func revokeInvites() async throws {
+    try await cloudService.revokeInvites(token: cloudToken)
+    household?.pendingInvites = 0
+  }
+
+  func removeMember(_ member: Household.Member) async throws {
+    try await cloudService.removeMember(member.id, token: cloudToken)
+    household?.members.removeAll { $0.id == member.id }
+  }
+
+  func switchHousehold(to id: String) async throws {
+    try await adopt(cloudService.session(forHousehold: id, token: cloudToken))
+  }
+
+  func lookUpInvite(_ invite: String) async throws -> InviteDetails {
+    try await cloudService.lookUpInvite(invite, token: cloudToken)
+  }
+
+  /// Joins a household from an invite link and switches to it. Returns its name.
+  @discardableResult
+  func acceptInvite(_ invite: String) async throws -> String {
+    let session = try await cloudService.acceptInvite(invite, token: cloudToken)
+    try await adopt(session)
+    return session.household.name
+  }
+
+  /// Leaves the current household for another one the account belongs to. The token stops
+  /// working once the membership is gone, so the session for the next household comes first.
+  func leaveHousehold() async throws {
+    guard let current = household, let userID = cloudAccount?.userID else { return }
+    let others = try await cloudService.households(token: cloudToken).filter { $0.id != current.id }
+    guard let next = others.first else { throw HouseholdError.onlyHousehold }
+    let session = try await cloudService.session(forHousehold: next.id, token: cloudToken)
+    try await cloudService.removeMember(userID, token: cloudToken)
+    try await adopt(session)
+  }
+
+  /// Uses another household's session: its Cloud lists replace the ones on this iPhone. Lists
+  /// from Bring and Mealie stay. Nothing changes when the new household's lists can't be loaded.
+  private func adopt(_ session: HouseholdSession) async throws {
+    var configuration = providerConfigurations[.cloud] ?? ProviderConfiguration()
+    configuration.enabled = true
+    configuration.secret = session.token
+    let cloud = providerFactory(.cloud, configuration)
+    var remote = try await cloud.lists()
+    let oldCloudLists = lists.filter { $0.syncTarget?.provider == .cloud }.map(\.id)
+    if remote.isEmpty, lists.count == oldCloudLists.count {
+      remote = [try await cloud.createList(named: String(localized: "Groceries"))]
+    }
+    providerConfigurations[.cloud] = configuration
+    let added = remote.map {
+      ShoppingListDefinition(
+        name: $0.name,
+        syncTarget: SyncTarget(provider: .cloud, remoteListID: $0.id, remoteListName: $0.name))
+    }
+    lists.removeAll { oldCloudLists.contains($0.id) }
+    for id in oldCloudLists { items[id] = nil }
+    lists.append(contentsOf: added)
+    for list in added { items[list.id] = [] }
+    if !lists.contains(where: { $0.id == activeListID }), let first = lists.first {
+      activeListID = first.id
+    }
+    household = nil
+    save()
+    for list in added { syncSoon(list.id) }
+    try? await refreshHousehold()
+  }
+
   // MARK: Shopping List Cloud
 
   var isCloudSignedIn: Bool {
@@ -545,6 +648,8 @@ final class AppStore: ObservableObject {
       }
     }
     cloudAccount = nil
+    household = nil
+    households = []
     providerConfigurations[.cloud] = ProviderConfiguration()
     if storageMode == .online { storageMode = .offline }
     save()
@@ -559,7 +664,7 @@ final class AppStore: ObservableObject {
 
   /// Signs out when the user has revoked Sign in with Apple for this app in iOS Settings.
   func verifyCloudCredential() async {
-    guard let account = cloudAccount else { return }
+    guard !isDemo, let account = cloudAccount else { return }
     if !(await AppleCredentialCheck.isStillAuthorized(appleUserID: account.appleUserID)) {
       signOutOfCloud()
       errorMessage = String(

@@ -510,6 +510,253 @@ struct ModeChoiceScreen: View {
     .onAppear {
       // Someone already signed in before this screen existed most likely wants to stay online.
       if choice == nil, store.isCloudSignedIn { choice = .online }
+      #if DEBUG
+        if Demo.isActive { choice = .online }
+      #endif
+    }
+  }
+}
+
+/// Settings section for sharing: the household's members, invitations, leaving and switching.
+struct HouseholdSection: View {
+  @EnvironmentObject private var store: AppStore
+  @State private var isWorking = false
+  @State private var failure: String?
+  @State private var removing: Household.Member?
+  @State private var confirmingLeave = false
+
+  var body: some View {
+    Section {
+      if let household = store.household {
+        LabeledContent("Household") { Text(household.name) }
+          .accessibilityIdentifier("household-name")
+        ForEach(household.members) { member in
+          HStack {
+            Image(systemName: "person.crop.circle.fill")
+              .font(.title2).foregroundStyle(Color.shoppingAccent.opacity(0.8))
+            VStack(alignment: .leading, spacing: 2) {
+              Text(memberName(member))
+              Text(member.role == .owner ? "Owner" : "Member")
+                .font(.footnote).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if household.isOwner, member.you != true {
+              Button("Remove", role: .destructive) { removing = member }
+                .font(.footnote).buttonStyle(.borderless)
+                .accessibilityIdentifier("remove-member-\(member.id)")
+            }
+          }
+          .accessibilityElement(children: .combine)
+          .accessibilityIdentifier("household-member")
+        }
+        if household.isOwner {
+          Button {
+            Task { await createInvite() }
+          } label: {
+            Label("Invite Someone", systemImage: "person.badge.plus")
+          }
+          .disabled(isWorking)
+          .accessibilityIdentifier("invite-member")
+          if let pending = household.pendingInvites, pending > 0 {
+            Button("Revoke Open Invitations (\(pending))", role: .destructive) {
+              Task { await run { try await store.revokeInvites() } }
+            }
+            .accessibilityIdentifier("revoke-invites")
+          }
+        }
+        if store.households.count > 1 {
+          Picker(
+            "Switch Household",
+            selection: Binding(
+              get: { household.id },
+              set: { id in Task { await run { try await store.switchHousehold(to: id) } } })
+          ) {
+            ForEach(store.households) { Text($0.name).tag($0.id) }
+          }
+          .disabled(isWorking)
+          .accessibilityIdentifier("switch-household")
+          Button("Leave Household", role: .destructive) { confirmingLeave = true }
+            .disabled(isWorking)
+            .accessibilityIdentifier("leave-household")
+        }
+      } else if isWorking {
+        ProgressView()
+      }
+      if let failure {
+        Text(failure).font(.footnote).foregroundStyle(.red)
+      }
+    } header: {
+      Text("Share with Family")
+    } footer: {
+      Text(
+        "Everyone in your household sees and edits the same Cloud lists. Invitations are links that work once and expire after a few days."
+      )
+    }
+    .task(id: store.providerConfigurations[.cloud]?.secret) {
+      isWorking = true
+      defer { isWorking = false }
+      do {
+        try await store.refreshHousehold()
+        failure = nil
+      } catch {
+        failure = String(localized: "Couldn't load your household. Please try again.")
+      }
+    }
+    .confirmationDialog(
+      "Remove this member?",
+      isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+      titleVisibility: .visible, presenting: removing
+    ) { member in
+      Button("Remove \(memberName(member))", role: .destructive) {
+        Task { await run { try await store.removeMember(member) } }
+      }
+    } message: { _ in
+      Text("They lose access to this household's lists. Their own lists stay with them.")
+    }
+    .confirmationDialog(
+      "Leave this household?", isPresented: $confirmingLeave, titleVisibility: .visible
+    ) {
+      Button("Leave Household", role: .destructive) {
+        Task { await run { try await store.leaveHousehold() } }
+      }
+    } message: {
+      Text("Its lists disappear from this iPhone and you switch to your other household.")
+    }
+  }
+
+  private func memberName(_ member: Household.Member) -> String {
+    let name = member.name ?? String(localized: "Apple ID")
+    return member.you == true ? String(localized: "\(name) (you)") : name
+  }
+
+  private func createInvite() async {
+    await run {
+      let url = try await store.createInvite()
+      ShareSheet.present(items: [InviteShare.message, url])
+    }
+  }
+
+  private func run(_ action: () async throws -> Void) async {
+    isWorking = true
+    defer { isWorking = false }
+    failure = nil
+    do {
+      try await action()
+    } catch {
+      failure =
+        (error as? HouseholdError)?.errorDescription
+        ?? String(localized: "Couldn't reach Shopping List Cloud. Please try again.")
+    }
+  }
+}
+
+enum InviteShare {
+  static var message: String { String(localized: "Join my shopping list in Shopping List:") }
+}
+
+/// The iOS share sheet, presented by UIKit from the topmost screen. Wrapped in a SwiftUI sheet
+/// it could not be closed after Messages or Mail had opened on top of it.
+@MainActor enum ShareSheet {
+  static func present(items: [Any]) {
+    let scene = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .first { $0.activationState == .foregroundActive }
+    guard var top = scene?.keyWindow?.rootViewController else { return }
+    while let presented = top.presentedViewController { top = presented }
+    // No popover anchor: the app is iPhone-only, and an anchor turns the sheet into a small
+    // popover without a close button.
+    let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+    top.present(controller, animated: true)
+  }
+}
+
+/// Opened from an invite link: joins the household after confirming, going online first if
+/// needed.
+struct JoinHouseholdSheet: View {
+  @EnvironmentObject private var store: AppStore
+  @Environment(\.dismiss) private var dismiss
+  let invite: String
+  @State private var isWorking = false
+  @State private var failure: String?
+  @State private var joined: String?
+  @State private var details: InviteDetails?
+
+  var body: some View {
+    NavigationStack {
+      VStack(alignment: .leading, spacing: 18) {
+        Image(systemName: joined == nil ? "person.2.fill" : "checkmark.circle.fill")
+          .font(.system(size: 44)).foregroundStyle(Color.shoppingAccent)
+        if let joined {
+          Text("You joined \(joined)").font(.title2.bold())
+            .accessibilityIdentifier("joined-household")
+          Text("Its lists are now on this iPhone. You can switch households in Settings.")
+            .foregroundStyle(.secondary)
+          Button("Done") { dismiss() }
+            .buttonStyle(.borderedProminent).tint(.shoppingAccent)
+        } else {
+          Group {
+            if let details {
+              Text("Join \(details.household.name)?")
+            } else {
+              Text("Join a shared household?")
+            }
+          }
+          .font(.title2.bold())
+          .accessibilityIdentifier("join-title")
+          Text(
+            "You were invited to share shopping lists. After joining, this iPhone shows the household's lists; your own lists stay in your account."
+          )
+          .foregroundStyle(.secondary)
+          if store.isCloudSignedIn && store.storageMode == .online {
+            Button {
+              Task { await join() }
+            } label: {
+              Group {
+                if isWorking { ProgressView().tint(.white) } else { Text("Join Household") }
+              }
+              .font(.headline).frame(maxWidth: .infinity).frame(height: 50)
+            }
+            .buttonStyle(.borderedProminent).tint(.shoppingAccent)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .disabled(isWorking)
+            .accessibilityIdentifier("join-household")
+          } else {
+            Text(
+              "Sharing needs Shopping List Cloud. Your lists on this iPhone move to Cloud first."
+            )
+            .font(.footnote).foregroundStyle(.secondary)
+            GoOnlineButton(isWorking: $isWorking, failure: $failure)
+          }
+        }
+        if let failure {
+          Text(failure).font(.footnote).foregroundStyle(.red)
+            .accessibilityIdentifier("join-error")
+        }
+        Spacer()
+      }
+      .padding(24)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+      }
+    }
+    .presentationDetents([.medium, .large])
+    // The household's name, once signed in; "Join a shared household?" until then.
+    .task(id: store.isCloudSignedIn) {
+      guard store.isCloudSignedIn, details == nil else { return }
+      details = try? await store.lookUpInvite(invite)
+    }
+  }
+
+  private func join() async {
+    isWorking = true
+    defer { isWorking = false }
+    failure = nil
+    do {
+      joined = try await store.acceptInvite(invite)
+    } catch ProviderError.requestFailed(404) {
+      failure = String(localized: "This invitation has expired or was already used.")
+    } catch {
+      failure = String(localized: "Couldn't reach Shopping List Cloud. Please try again.")
     }
   }
 }
