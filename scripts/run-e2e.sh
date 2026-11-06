@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-SIMULATOR_NAME="${IOS_SIMULATOR_NAME:-iPhone 17 Pro}"
+SIMULATOR_NAME="${IOS_SIMULATOR_NAME:-Shopping List Tests}"
 MOCK_PORT="${MOCK_PORT:-8787}"
 FLOW_PATH="${1:-maestro}"
 if [[ -z "${JAVA_HOME:-}" && -d /opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home ]]; then
@@ -11,12 +11,11 @@ node mocks/provider-server.mjs --port "$MOCK_PORT" &
 MOCK_PID=$!
 trap 'kill "$MOCK_PID" 2>/dev/null || true' EXIT
 npm run project:generate
-xcrun simctl boot "$SIMULATOR_NAME" 2>/dev/null || true
-# Target the named simulator explicitly: with several booted, "booted" is ambiguous.
-DEVICE_ID="$(xcrun simctl list devices booted | grep -F "    $SIMULATOR_NAME (" | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
-[[ -n "$DEVICE_ID" ]] || { echo "Simulator '$SIMULATOR_NAME' is not booted" >&2; exit 1; }
+# A dedicated simulator by default (created from an iPhone 17 Pro): other projects on this Mac
+# use the regular ones and would kill the app mid-flow.
+DEVICE_ID="$(bash scripts/simulator.sh "$SIMULATOR_NAME" "${IOS_SIMULATOR_TEMPLATE:-iPhone 17 Pro}")"
 xcodebuild -project ShoppingList.xcodeproj -scheme ShoppingList -configuration Debug \
-  -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
+  -destination "id=$DEVICE_ID" \
   -derivedDataPath .build/DerivedData build
 APP_PATH=".build/DerivedData/Build/Products/Debug-iphonesimulator/Shopping List.app"
 xcrun simctl install "$DEVICE_ID" "$APP_PATH"
