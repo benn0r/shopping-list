@@ -24,6 +24,8 @@ final class AppStore: ObservableObject {
   private let persistence = StatePersistence()
   private var persistenceTask: Task<Void, Never>?
   private var syncingListIDs: Set<UUID> = []
+  private var liveDirtyListIDs: Set<UUID> = []
+  private var liveSyncingListIDs: Set<UUID> = []
   private var isBackgroundSyncing = false
 
   init(
@@ -140,7 +142,7 @@ final class AppStore: ObservableObject {
     let value = label.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !value.isEmpty else { return }
     // Adding an item before answering the welcome card keeps the first list on this iPhone.
-    var item = ShoppingItem(
+    let item = ShoppingItem(
       barcode: barcode, label: value, brand: brand, imageURL: imageURL, quantity: quantity,
       unit: unit, stores: stores, exactLabel: exactLabel, genericLabel: genericLabel,
       productSource: productSource, productType: productType, categoryHints: categoryHints,
@@ -299,6 +301,134 @@ final class AppStore: ObservableObject {
     items[list.id] = []
     save()
     return list
+  }
+
+  // MARK: Live updates
+
+  /// Providers whose servers push changes: Shopping List Cloud and your own Shopping List Server.
+  private var liveProviders: [ProviderKind] {
+    [.cloud, .server].filter { kind in
+      guard let configuration = providerConfigurations[kind], configuration.enabled,
+        !configuration.secret.isEmpty
+      else { return false }
+      return lists.contains { $0.syncTarget?.provider == kind }
+    }
+  }
+
+  /// Changes when a stream has to be reopened: app activity, server, key, or linked providers.
+  func liveUpdateKey(isActive: Bool) -> LiveUpdateKey {
+    LiveUpdateKey(
+      isActive: isActive,
+      servers: liveProviders.map { kind in
+        let configuration = providerConfigurations[kind] ?? .init()
+        return "\(kind.rawValue)|\(configuration.serverURL)|\(configuration.secret.hashValue)"
+      })
+  }
+
+  /// Holds one event stream per live provider until the calling task is cancelled.
+  func runLiveUpdates() async {
+    let streams = liveProviders.compactMap { kind in
+      providerConfigurations[kind].map { (kind, ServerEventStream(configuration: $0)) }
+    }
+    await withTaskGroup(of: Void.self) { group in
+      for (kind, stream) in streams {
+        group.addTask {
+          await stream.run(
+            // A (re)connect may have missed events: catch up on every list of that server.
+            onConnect: { await self.catchUp(kind) },
+            onEvent: { event in await self.handle(event, from: kind) })
+        }
+      }
+    }
+  }
+
+  private func catchUp(_ kind: ProviderKind) async {
+    if kind == .cloud { await importNewCloudLists() }
+    for list in lists where list.syncTarget?.provider == kind { syncSoon(list.id) }
+  }
+
+  /// Events from `GET /api/v1/events`. They also echo this app's own changes, which only costs
+  /// a quick re-fetch.
+  func handle(_ event: ServerEvent, from kind: ProviderKind) async {
+    // `ready` comes once per connection; onConnect already caught up.
+    guard event.name != "ready" else { return }
+    guard let remoteListID = event.listID else {
+      await catchUp(kind)
+      return
+    }
+    let matching = lists.filter {
+      $0.syncTarget?.provider == kind && $0.syncTarget?.remoteListID == remoteListID
+    }
+    if event.name == "list.deleted" {
+      // Online, a Cloud list deleted elsewhere goes here too; the last list stays.
+      if kind == .cloud, storageMode == .online {
+        for list in matching { deleteList(list) }
+      }
+      return
+    }
+    if matching.isEmpty, kind == .cloud {
+      await importNewCloudLists()
+      return
+    }
+    if event.name.hasPrefix("list.") {
+      // `list.updated` also follows every item change, which the item event already covers;
+      // only a rename needs applying here.
+      if kind == .cloud, storageMode == .online, let name = event.listName {
+        for list in matching where list.name != name {
+          var renamed = list
+          renamed.name = name
+          renamed.syncTarget?.remoteListName = name
+          updateList(renamed)
+        }
+      }
+      return
+    }
+    for list in matching { syncSoon(list.id) }
+  }
+
+  /// Syncs a list shortly, folding bursts of events into one sync and never dropping an event
+  /// that arrives while the list is already syncing.
+  func syncSoon(_ listID: UUID) {
+    liveDirtyListIDs.insert(listID)
+    guard liveSyncingListIDs.insert(listID).inserted else { return }
+    Task {
+      try? await Task.sleep(for: .milliseconds(250))
+      while liveDirtyListIDs.remove(listID) != nil {
+        while syncingListIDs.contains(listID) { try? await Task.sleep(for: .milliseconds(200)) }
+        guard let list = lists.first(where: { $0.id == listID }) else { break }
+        await sync(list, reportErrors: false)
+      }
+      liveSyncingListIDs.remove(listID)
+    }
+  }
+
+  /// Online, every Cloud list belongs on this iPhone: adds lists created elsewhere and follows
+  /// renames.
+  func importNewCloudLists() async {
+    guard storageMode == .online, let remote = try? await provider(for: .cloud).lists() else {
+      return
+    }
+    var changed = false
+    for list in remote {
+      if let index = lists.firstIndex(where: {
+        $0.syncTarget?.provider == .cloud && $0.syncTarget?.remoteListID == list.id
+      }) {
+        if lists[index].syncTarget?.remoteListName != list.name {
+          lists[index].syncTarget?.remoteListName = list.name
+          lists[index].name = list.name
+          changed = true
+        }
+      } else {
+        let added = ShoppingListDefinition(
+          name: list.name,
+          syncTarget: SyncTarget(provider: .cloud, remoteListID: list.id, remoteListName: list.name))
+        lists.append(added)
+        items[added.id] = []
+        changed = true
+        syncSoon(added.id)
+      }
+    }
+    if changed { save() }
   }
 
   // MARK: Shopping List Cloud

@@ -30,6 +30,7 @@ struct ShoppingListApp: App {
 
 struct ContentView: View {
   @EnvironmentObject private var store: AppStore
+  @Environment(\.scenePhase) private var scenePhase
   var body: some View {
     TabView {
       ShoppingListScreen()
@@ -46,6 +47,14 @@ struct ContentView: View {
         .environmentObject(store)
         .tint(.shoppingAccent)
         .environment(\.locale, Locale(identifier: store.appLanguage.localeIdentifier))
+    }
+    // Server events while the app is active: opened on activation, closed in the background and
+    // reopened when the servers or keys change.
+    .task(id: store.liveUpdateKey(isActive: scenePhase == .active)) {
+      guard scenePhase == .active,
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
+      else { return }
+      await store.runLiveUpdates()
     }
     .task {
       guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {

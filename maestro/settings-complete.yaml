@@ -34,7 +34,7 @@ appId: ch.benn0r.shoppinglist
 - tapOn: "Einstellungen"
 - tapOn:
     id: "app-language-picker"
-- tapOn: "Englisch"
+- tapOn: "English"
 - tapOn:
     id: "product-language-picker"
 - tapOn: "French"

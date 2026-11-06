@@ -1,0 +1,36 @@
+appId: ch.benn0r.shoppinglist
+---
+# Changes made elsewhere arrive over the server's event stream within seconds, long before the
+# 60 s background sync, and the stream comes back after the app returns to the foreground.
+- launchApp:
+    clearState: true
+    arguments:
+      mockAppleSignIn: true
+      cloudServerURL: "http://127.0.0.1:8787"
+- tapOn:
+    text: "Close"
+    optional: true
+- tapOn:
+    id: "mode-online"
+- tapOn:
+    id: "continue-with-apple"
+- extendedWaitUntil:
+    notVisible: "Welcome to Shopping List"
+    timeout: 8000
+- runScript:
+    file: scripts/remote-item.js
+    env:
+      LABEL: "Remote Pears"
+- extendedWaitUntil:
+    visible: ".*Remote Pears.*"
+    timeout: 8000
+- pressKey: Home
+- launchApp:
+    stopApp: false
+- runScript:
+    file: scripts/remote-item.js
+    env:
+      LABEL: "Remote Plums"
+- extendedWaitUntil:
+    visible: ".*Remote Plums.*"
+    timeout: 8000

@@ -6,6 +6,12 @@ const port = Number(index >= 0 ? process.argv[index + 1] : 8787);
 const lists = [{ id: 'mock-list', name: 'Mock Groceries' }];
 // Shopping List Cloud accounts have their own lists, so going online only sees what it created.
 const cloudLists = [];
+// Open event streams (GET /api/v1/events), like the real server's Server-Sent Events.
+const streams = new Set();
+let eventId = 0;
+const broadcast = (event, data) => {
+  for (const stream of streams) stream.write(`id: ${++eventId}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+};
 // Shopping List Server returns a bundled icon name, or a generated `gen-…` icon that the app must
 // load from `iconUrl`. The generated one is served from a bundled PNG that differs from the app's
 // own match for "Bread" (cornbread), so screenshots show which one won.
@@ -66,6 +72,23 @@ http.createServer(async (req, res) => {
       const iconUrl = match ? `http://${req.headers.host}/static/icons/${match.icon}.png` : null;
       return { ...base, icon: match?.icon ?? null, iconUrl, category: match?.category ?? null, iconStatus: match ? 'ready' : 'none' };
     };
+    if (url.pathname === '/api/v1/events') {
+      res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' });
+      res.write(`retry: 5000\n\nid: ${++eventId}\nevent: ready\ndata: {"tenantId":"mock"}\n\n`);
+      streams.add(res);
+      const ping = setInterval(() => res.write(': ping\n\n'), 25000);
+      req.on('close', () => { clearInterval(ping); streams.delete(res); });
+      return;
+    }
+    // Test hook: another device adds an item, which only reaches the app through the stream.
+    if (url.pathname === '/api/v1/mock/remote-item' && req.method === 'POST') {
+      const value = JSON.parse(await body(req));
+      const list = cloudLists[0] ?? lists[0];
+      const item = { id: `remote-${Date.now()}`, shoppingListId: list.id, checked: false, note: value.label, extras: {} };
+      items.push(item);
+      broadcast('item.created', { item: serverItem(item) });
+      return json(res, serverItem(item), 201);
+    }
     if (url.pathname === '/api/v1/me' && req.method === 'DELETE') { res.writeHead(204); return res.end(); }
     if (url.pathname === '/api/v1/me') return json(res, { user: { name: 'Mock' } });
     const accountLists = req.headers.authorization === 'Bearer slt_cloud_mock' ? cloudLists : lists;
@@ -74,7 +97,7 @@ http.createServer(async (req, res) => {
     const listItems = url.pathname.match(/^\/api\/v1\/lists\/([^/]+)\/items$/);
     if (listItems && !accountLists.some((list) => list.id === listItems[1])) return json(res, { error: 'not_found', message: 'List not found.' }, 404);
     if (listItems && req.method === 'GET') return json(res, { items: items.filter((item) => item.shoppingListId === listItems[1] && (url.searchParams.get('filter') !== 'open' || !item.checked)).map(serverItem) });
-    if (listItems && req.method === 'POST') { const value = JSON.parse(await body(req)); const item = { id: `server-${Date.now()}-${items.length}`, shoppingListId: listItems[1], checked: false, note: value.label, quantity: value.quantity ?? null, unit: value.unit ? { name: value.unit } : undefined, extras: { barcode: value.barcode } }; const generateMs = serverIcons[value.label?.toLowerCase()]?.generateMs; if (generateMs) item.iconReadyAt = Date.now() + generateMs; items.push(item); return json(res, serverItem(item), 201); }
+    if (listItems && req.method === 'POST') { const value = JSON.parse(await body(req)); const item = { id: `server-${Date.now()}-${items.length}`, shoppingListId: listItems[1], checked: false, note: value.label, quantity: value.quantity ?? null, unit: value.unit ? { name: value.unit } : undefined, extras: { barcode: value.barcode } }; const generateMs = serverIcons[value.label?.toLowerCase()]?.generateMs; if (generateMs) item.iconReadyAt = Date.now() + generateMs; items.push(item); broadcast('item.created', { item: serverItem(item) }); return json(res, serverItem(item), 201); }
     const itemMatch = url.pathname.match(/^\/api\/v1\/items\/([^/]+)$/);
     const item = itemMatch && items.find((candidate) => candidate.id === itemMatch[1]);
     if (itemMatch && req.method === 'PATCH') { if (!item) return json(res, { error: 'not_found', message: 'Item not found.' }, 404); Object.assign(item, { checked: JSON.parse(await body(req)).checked ?? item.checked }); return json(res, serverItem(item)); }
