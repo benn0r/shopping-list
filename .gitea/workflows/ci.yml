@@ -38,7 +38,9 @@ jobs:
       - run: npm test
 
   test-e2e:
-    needs: build
+    # The runner executes on the host Mac: the unit tests and the UI tests would otherwise share
+    # its simulators and collide.
+    needs: [build, test]
     runs-on: macos
     timeout-minutes: 25
     steps:
