@@ -173,7 +173,7 @@ final class AppStoreTests: XCTestCase {
     item.providerCategory = "notACategory"
     XCTAssertEqual(GroceryCategoryCatalog.category(for: item), .bakery)
     XCTAssertEqual(GroceryCategory(key: "dairyEggs"), .dairyEggs)
-    XCTAssertEqual(GroceryCategory.allCases.compactMap { GroceryCategory(key: $0.key) }.count, 30)
+    XCTAssertEqual(GroceryCategory.allCases.compactMap { GroceryCategory(key: $0.key) }.count, 34)
   }
 
   func testAddedItemTakesIconReturnedByProvider() async {
@@ -512,7 +512,7 @@ final class AppStoreTests: XCTestCase {
   }
 
   func testModelTitlesAndProviderErrorsAreStable() {
-    XCTAssertEqual(AppLanguage.allCases.map(\.title).count, 7)
+    XCTAssertEqual(AppLanguage.allCases.map(\.title).count, 15)
     XCTAssertEqual(
       ProductLanguage.allCases.map(\.title),
       ["Automatic", "German", "English", "French", "Italian"])

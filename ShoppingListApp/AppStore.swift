@@ -15,7 +15,7 @@ final class AppStore: ObservableObject {
   @Published var customBarcodes: [CustomBarcode]
   @Published var appLanguage: AppLanguage
   @Published var cloudAccount: CloudAccount?
-  @Published var needsWelcome: Bool
+  @Published var storageMode: StorageMode?
   @Published var errorMessage: String?
 
   private let storageURL: URL
@@ -52,12 +52,12 @@ final class AppStore: ObservableObject {
       customBarcodes = snapshot.customBarcodes
       appLanguage = snapshot.appLanguage
       cloudAccount = snapshot.cloudAccount
-      needsWelcome = snapshot.needsWelcome
+      storageMode = snapshot.storageMode
       for provider in ProviderKind.allCases {
         providerConfigurations[provider]?.secret = CredentialVault.read(provider)
       }
     } else {
-      let initial = ShoppingListDefinition(name: "Groceries")
+      let initial = ShoppingListDefinition(name: String(localized: "Groceries"))
       lists = [initial]
       stores = []
       items = [initial.id: []]
@@ -72,7 +72,7 @@ final class AppStore: ObservableObject {
       customBarcodes = []
       appLanguage = .automatic
       cloudAccount = nil
-      needsWelcome = true
+      storageMode = nil
     }
   }
 
@@ -126,7 +126,7 @@ final class AppStore: ObservableObject {
       activeListID: activeListID, viewMode: viewMode, showCategoryLabels: showCategoryLabels,
       providerConfigurations: publicConfigurations, lookupPreferences: lookupPreferences,
       customBarcodes: customBarcodes, appLanguage: appLanguage, cloudAccount: cloudAccount,
-      needsWelcome: needsWelcome
+      storageMode: storageMode
     )
     return (snapshot, secrets)
   }
@@ -140,7 +140,6 @@ final class AppStore: ObservableObject {
     let value = label.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !value.isEmpty else { return }
     // Adding an item before answering the welcome card keeps the first list on this iPhone.
-    needsWelcome = false
     var item = ShoppingItem(
       barcode: barcode, label: value, brand: brand, imageURL: imageURL, quantity: quantity,
       unit: unit, stores: stores, exactLabel: exactLabel, genericLabel: genericLabel,
@@ -151,11 +150,14 @@ final class AppStore: ObservableObject {
     save()
     if let target = activeList.syncTarget {
       do {
+        let listID = item.sourceListID
         let remote = try await provider(for: target.provider).addItem(item, to: target.remoteListID)
-        item.remoteItemID = remote.id
-        item.adoptPresentation(of: remote)
-        if let index = items[activeListID]?.firstIndex(where: { $0.id == item.id }) {
-          items[activeListID]?[index] = item
+        // Update the item as it is now: a sync may have linked or refreshed it meanwhile.
+        if let index = items[listID]?.firstIndex(where: { $0.id == item.id }),
+          items[listID]?[index].remoteItemID == nil
+        {
+          items[listID]?[index].remoteItemID = remote.id
+          items[listID]?[index].adoptPresentation(of: remote)
           save()
         }
       } catch { errorMessage = error.localizedDescription }
@@ -242,7 +244,8 @@ final class AppStore: ObservableObject {
         }
         synchronized.append(item)
       }
-      items[list.id] = synchronized
+      items[list.id] = Self.merge(
+        synchronized, into: items[list.id, default: []], snapshot: existing)
       save()
     } catch {
       if reportErrors && !Self.isCancellation(error) {
@@ -268,7 +271,7 @@ final class AppStore: ObservableObject {
   func enrichMissingCategoryMetadata() async {
     var changed = false
     for listID in lists.map(\.id) {
-      guard var listItems = items[listID] else { continue }
+      guard let listItems = items[listID] else { continue }
       for index in listItems.indices {
         guard let barcode = listItems[index].barcode, listItems[index].categoryHints == nil else {
           continue
@@ -277,12 +280,14 @@ final class AppStore: ObservableObject {
           let metadata = try? await ProductLookup().find(
             barcode: barcode, preferences: lookupPreferences, customBarcodes: customBarcodes)
         else { continue }
-        listItems[index].categoryHints = metadata.categoryHints
-        listItems[index].productType = metadata.productType
-        listItems[index].productSource = metadata.source
+        // Write into the item as it is now: syncs may have changed the list during the lookup.
+        let itemID = listItems[index].id
+        guard let current = items[listID]?.firstIndex(where: { $0.id == itemID }) else { continue }
+        items[listID]?[current].categoryHints = metadata.categoryHints
+        items[listID]?[current].productType = metadata.productType
+        items[listID]?[current].productSource = metadata.source
         changed = true
       }
-      items[listID] = listItems
     }
     if changed { save() }
   }
@@ -292,7 +297,6 @@ final class AppStore: ObservableObject {
     let list = ShoppingListDefinition(name: name, syncTarget: target)
     lists.append(list)
     items[list.id] = []
-    needsWelcome = false
     save()
     return list
   }
@@ -312,20 +316,6 @@ final class AppStore: ObservableObject {
     save()
   }
 
-  /// Creates the list in Cloud and links it; the local list is unchanged if that fails.
-  func moveListToCloud(_ listID: UUID) async throws {
-    guard let list = lists.first(where: { $0.id == listID }), list.syncTarget == nil else {
-      return
-    }
-    let remote = try await provider(for: .cloud).createList(named: list.name)
-    guard let index = lists.firstIndex(where: { $0.id == listID }) else { return }
-    lists[index].syncTarget = SyncTarget(
-      provider: .cloud, remoteListID: remote.id, remoteListName: remote.name)
-    save()
-    // Items already on the list have no remote ID yet, so syncing uploads them.
-    await sync(lists[index])
-  }
-
   /// Creates a new list directly in Cloud. Nothing is created if the server can't be reached.
   func createCloudList(name: String) async throws {
     let remote = try await provider(for: .cloud).createList(named: name)
@@ -334,17 +324,55 @@ final class AppStore: ObservableObject {
       target: SyncTarget(provider: .cloud, remoteListID: remote.id, remoteListName: remote.name))
   }
 
-  /// Answers the welcome card: names the first list and stores it locally or in Cloud.
-  func completeWelcome(name: String, inCloud: Bool) async throws {
-    let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let index = lists.firstIndex(where: { $0.id == activeListID }) else { return }
-    if !value.isEmpty { lists[index].name = value }
-    if inCloud { try await moveListToCloud(activeListID) }
-    needsWelcome = false
+  /// Whether the user still has to choose between offline and online.
+  var needsModeChoice: Bool { storageMode == nil }
+
+  /// Keeps everything on this iPhone. Signs out of Cloud if a session is left from before.
+  func chooseOffline() {
+    if cloudAccount != nil { signOutOfCloud() }
+    storageMode = .offline
     save()
   }
 
-  /// Signs out of Cloud. Cloud lists stay on this iPhone as local lists.
+  /// Switches to online after signing in: every list on this iPhone moves to Cloud. A local list
+  /// whose name matches a Cloud list not yet on this iPhone is linked to it instead of creating a
+  /// copy, and the remaining Cloud lists are added. If the server fails part way, lists already
+  /// moved stay moved and calling this again finishes the rest.
+  func goOnline() async throws {
+    let cloud = try provider(for: .cloud)
+    let linked = Set(
+      lists.compactMap { $0.syncTarget?.provider == .cloud ? $0.syncTarget?.remoteListID : nil })
+    var remaining = try await cloud.lists().filter { !linked.contains($0.id) }
+    for listID in lists.filter({ $0.syncTarget == nil }).map(\.id) {
+      guard let index = lists.firstIndex(where: { $0.id == listID }) else { continue }
+      let name = lists[index].name
+      let remote: ProviderList
+      if let match = remaining.firstIndex(where: {
+        Self.normalized($0.name) == Self.normalized(name)
+      }) {
+        remote = remaining.remove(at: match)
+      } else {
+        remote = try await cloud.createList(named: name)
+      }
+      guard let current = lists.firstIndex(where: { $0.id == listID }) else { continue }
+      lists[current].syncTarget = SyncTarget(
+        provider: .cloud, remoteListID: remote.id, remoteListName: remote.name)
+      save()
+    }
+    for remote in remaining {
+      createList(
+        name: remote.name,
+        target: SyncTarget(provider: .cloud, remoteListID: remote.id, remoteListName: remote.name))
+    }
+    storageMode = .online
+    save()
+    // Items already on the moved lists have no remote ID yet, so syncing uploads them.
+    for list in lists where list.syncTarget?.provider == .cloud {
+      await sync(list, reportErrors: false)
+    }
+  }
+
+  /// Signs out of Cloud and switches to offline. Cloud lists stay on this iPhone as local lists.
   func signOutOfCloud() {
     for index in lists.indices where lists[index].syncTarget?.provider == .cloud {
       lists[index].syncTarget = nil
@@ -358,6 +386,7 @@ final class AppStore: ObservableObject {
     }
     cloudAccount = nil
     providerConfigurations[.cloud] = ProviderConfiguration()
+    if storageMode == .online { storageMode = .offline }
     save()
   }
 
@@ -465,6 +494,19 @@ final class AppStore: ObservableObject {
       throw ProviderError.notConfigured
     }
     return providerFactory(kind, config)
+  }
+
+  /// Applies a sync result to the list as it is now rather than as it was when the sync started:
+  /// items added while the request ran are kept, and items removed meanwhile stay removed.
+  static func merge(
+    _ synchronized: [ShoppingItem], into current: [ShoppingItem], snapshot: [ShoppingItem]
+  ) -> [ShoppingItem] {
+    let snapshotIDs = Set(snapshot.map(\.id))
+    let currentIDs = Set(current.map(\.id))
+    let kept = synchronized.filter { !snapshotIDs.contains($0.id) || currentIDs.contains($0.id) }
+    let keptIDs = Set(kept.map(\.id))
+    let addedMeanwhile = current.filter { !snapshotIDs.contains($0.id) && !keptIDs.contains($0.id) }
+    return kept + addedMeanwhile
   }
 
   private static func isCancellation(_ error: Error) -> Bool {

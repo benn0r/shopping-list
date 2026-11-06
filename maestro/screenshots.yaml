@@ -5,6 +5,10 @@ appId: ch.benn0r.shoppinglist
     arguments:
       screenshotMode: true
 - tapOn:
+    id: "mode-offline"
+- tapOn:
+    id: "mode-continue"
+- tapOn:
     id: "add-item-field"
 - inputText: "Apples"
 - pressKey: Enter

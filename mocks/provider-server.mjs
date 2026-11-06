@@ -4,6 +4,8 @@ import http from 'node:http';
 const index = process.argv.indexOf('--port');
 const port = Number(index >= 0 ? process.argv[index + 1] : 8787);
 const lists = [{ id: 'mock-list', name: 'Mock Groceries' }];
+// Shopping List Cloud accounts have their own lists, so going online only sees what it created.
+const cloudLists = [];
 // Shopping List Server returns a bundled icon name, or a generated `gen-…` icon that the app must
 // load from `iconUrl`. The generated one is served from a bundled PNG that differs from the app's
 // own match for "Bread" (cornbread), so screenshots show which one won.
@@ -11,7 +13,9 @@ const lists = [{ id: 'mock-list', name: 'Mock Groceries' }];
 // is added, then "ready", so the app's sparkle and crossfade can be tested.
 const serverIcons = {
   bread: { icon: 'gen-sourdough', category: 'bakery' },
-  kombucha: { icon: 'gen-kombucha', category: 'beverages', generateMs: 4000 },
+  kombucha: { icon: 'gen-kombucha', category: 'beverages', generateMs: Number(process.env.MOCK_GENERATE_MS ?? 4000) },
+  // Unknown to the app's own catalog, so it moves from "Other" to Beverages once its icon is ready.
+  zaubertrank: { icon: 'gen-kombucha', category: 'beverages', generateMs: Number(process.env.MOCK_GENERATE_MS ?? 4000) },
 };
 const generatedIcons = {
   'gen-sourdough': new URL('../assets/food-icons/pancakes.png', import.meta.url),
@@ -64,10 +68,11 @@ http.createServer(async (req, res) => {
     };
     if (url.pathname === '/api/v1/me' && req.method === 'DELETE') { res.writeHead(204); return res.end(); }
     if (url.pathname === '/api/v1/me') return json(res, { user: { name: 'Mock' } });
-    if (url.pathname === '/api/v1/lists' && req.method === 'POST') { const value = JSON.parse(await body(req)); const list = { id: `cloud-list-${lists.length}`, name: value.name || 'List' }; lists.push(list); return json(res, list, 201); }
-    if (url.pathname === '/api/v1/lists') return json(res, { items: lists.map((list) => ({ ...list, openItems: items.filter((item) => item.shoppingListId === list.id && !item.checked).length, checkedItems: 0 })) });
+    const accountLists = req.headers.authorization === 'Bearer slt_cloud_mock' ? cloudLists : lists;
+    if (url.pathname === '/api/v1/lists' && req.method === 'POST') { const value = JSON.parse(await body(req)); const list = { id: `cloud-list-${accountLists.length}`, name: value.name || 'List' }; accountLists.push(list); return json(res, list, 201); }
+    if (url.pathname === '/api/v1/lists') return json(res, { items: accountLists.map((list) => ({ ...list, openItems: items.filter((item) => item.shoppingListId === list.id && !item.checked).length, checkedItems: 0 })) });
     const listItems = url.pathname.match(/^\/api\/v1\/lists\/([^/]+)\/items$/);
-    if (listItems && !lists.some((list) => list.id === listItems[1])) return json(res, { error: 'not_found', message: 'List not found.' }, 404);
+    if (listItems && !accountLists.some((list) => list.id === listItems[1])) return json(res, { error: 'not_found', message: 'List not found.' }, 404);
     if (listItems && req.method === 'GET') return json(res, { items: items.filter((item) => item.shoppingListId === listItems[1] && (url.searchParams.get('filter') !== 'open' || !item.checked)).map(serverItem) });
     if (listItems && req.method === 'POST') { const value = JSON.parse(await body(req)); const item = { id: `server-${Date.now()}-${items.length}`, shoppingListId: listItems[1], checked: false, note: value.label, quantity: value.quantity ?? null, unit: value.unit ? { name: value.unit } : undefined, extras: { barcode: value.barcode } }; const generateMs = serverIcons[value.label?.toLowerCase()]?.generateMs; if (generateMs) item.iconReadyAt = Date.now() + generateMs; items.push(item); return json(res, serverItem(item), 201); }
     const itemMatch = url.pathname.match(/^\/api\/v1\/items\/([^/]+)$/);

@@ -34,34 +34,104 @@ final class CloudTests: XCTestCase {
     try await store.signInToCloud(with: CloudConfiguration.mockCredential)
   }
 
-  func testFreshInstallShowsWelcomeButSavedStateDoesNot() async throws {
+  func testFreshInstallAndUpdatedInstallAskForMode() async throws {
     let store = makeStore()
-    XCTAssertTrue(store.needsWelcome)
+    XCTAssertTrue(store.needsModeChoice)
     await store.flushPersistence()
-    XCTAssertTrue(AppStore(storageURL: fileURL).needsWelcome)
+    XCTAssertTrue(AppStore(storageURL: fileURL).needsModeChoice)
 
-    // State saved by a version without the welcome card must not show it.
+    // State saved by an older version, with the old welcome flag and no mode, asks again.
     var json = try XCTUnwrap(
       JSONSerialization.jsonObject(with: Data(contentsOf: fileURL)) as? [String: Any])
-    json["needsWelcome"] = nil
+    json["storageMode"] = nil
+    json["needsWelcome"] = false
     try JSONSerialization.data(withJSONObject: json).write(to: fileURL)
-    XCTAssertFalse(AppStore(storageURL: fileURL).needsWelcome)
+    XCTAssertTrue(AppStore(storageURL: fileURL).needsModeChoice)
   }
 
-  func testWelcomeKeepsListOnIPhone() async throws {
+  func testOfflineIsRememberedAndUploadsNothing() async throws {
     let store = makeStore()
-    try await store.completeWelcome(name: "  Wocheneinkauf ", inCloud: false)
-    XCTAssertFalse(store.needsWelcome)
-    XCTAssertEqual(store.lists.map(\.name), ["Wocheneinkauf"])
+    store.chooseOffline()
+    XCTAssertEqual(store.storageMode, .offline)
     XCTAssertNil(store.activeList.syncTarget)
     XCTAssertTrue(StubURLProtocol.requests.isEmpty)
+    await store.flushPersistence()
+    XCTAssertEqual(AppStore(storageURL: fileURL).storageMode, .offline)
   }
 
-  func testAddingAnItemAnswersWelcomeWithLocal() async {
+  func testChoosingOfflineSignsOutALeftoverSession() async throws {
+    let store = makeStore()
+    try await signIn(store)
+    store.chooseOffline()
+    XCTAssertFalse(store.isCloudSignedIn)
+    XCTAssertEqual(store.storageMode, .offline)
+  }
+
+  func testGoingOnlineMovesLocalListsAndAddsCloudLists() async throws {
     let store = makeStore()
     await store.addItem(label: "Milk")
-    XCTAssertFalse(store.needsWelcome)
-    XCTAssertNil(store.activeList.syncTarget)
+    store.createList(name: "Party")
+    let bring = store.createList(
+      name: "Bring", target: SyncTarget(provider: .bring, remoteListID: "b1", remoteListName: "B"))
+    try await signIn(store)
+    // Cloud already has "groceries" (from another device) and "Work".
+    StubURLProtocol.respond(
+      #"{"items":[{"id":"r9","name":"groceries"},{"id":"r5","name":"Work"}]}"#)
+    StubURLProtocol.respond(#"{"id":"r2","name":"Party"}"#, status: 201)
+    StubURLProtocol.respond(#"{"items":[]}"#)  // Groceries (r9) before upload
+    StubURLProtocol.respond(
+      #"{"id":"m1","listId":"r9","label":"Milk","checked":false}"#, status: 201)
+
+    try await store.goOnline()
+
+    XCTAssertEqual(store.storageMode, .online)
+    XCTAssertEqual(store.lists.map(\.name), ["Groceries", "Party", "Bring", "Work"])
+    XCTAssertEqual(
+      store.lists.map { $0.syncTarget?.remoteListID }, ["r9", "r2", "b1", "r5"])
+    XCTAssertEqual(
+      store.lists.map { $0.syncTarget?.provider }, [.cloud, .cloud, .bring, .cloud])
+    XCTAssertEqual(store.lists.first(where: { $0.id == bring.id })?.syncTarget?.provider, .bring)
+    XCTAssertTrue(store.lists.allSatisfy { $0.syncTarget != nil }, "Online keeps no local lists")
+    let create = try XCTUnwrap(
+      StubURLProtocol.requests.first { $0.httpMethod == "POST" && $0.url?.path == "/api/v1/lists" })
+    XCTAssertEqual(create.value(forHTTPHeaderField: "Authorization"), "Bearer slt_session")
+    // Milk had no remote ID, so syncing Groceries uploads it.
+    XCTAssertTrue(
+      StubURLProtocol.requests.contains {
+        $0.httpMethod == "POST" && $0.url?.path == "/api/v1/lists/r9/items"
+      })
+  }
+
+  func testGoingOnlineFailureStaysUndecidedAndRetryFinishes() async throws {
+    let store = makeStore()
+    store.createList(name: "Party")
+    try await signIn(store)
+    StubURLProtocol.respond(#"{"items":[]}"#)
+    StubURLProtocol.respond(#"{"id":"r1","name":"Groceries"}"#, status: 201)
+    StubURLProtocol.respond(#"{"error":"unavailable"}"#, status: 503)
+    do {
+      try await store.goOnline()
+      XCTFail("Expected Cloud to fail")
+    } catch {}
+    XCTAssertNil(store.storageMode)
+    XCTAssertEqual(store.lists.map { $0.syncTarget?.remoteListID }, ["r1", nil])
+
+    // The retry sees r1 as already linked and only creates Party.
+    StubURLProtocol.respond(#"{"items":[{"id":"r1","name":"Groceries"}]}"#)
+    StubURLProtocol.respond(#"{"id":"r2","name":"Party"}"#, status: 201)
+    try await store.goOnline()
+    XCTAssertEqual(store.storageMode, .online)
+    XCTAssertEqual(store.lists.map { $0.syncTarget?.remoteListID }, ["r1", "r2"])
+  }
+
+  func testGoingOnlineRequiresSignIn() async {
+    let store = makeStore()
+    do {
+      try await store.goOnline()
+      XCTFail("Expected notConfigured")
+    } catch {}
+    XCTAssertNil(store.storageMode)
+    XCTAssertTrue(StubURLProtocol.requests.isEmpty)
   }
 
   func testSignInStoresAccountAndSendsAppleCredential() async throws {
@@ -93,39 +163,6 @@ final class CloudTests: XCTestCase {
     XCTAssertNil(store.cloudAccount)
   }
 
-  func testWelcomeInCloudCreatesRemoteListAndUploadsItems() async throws {
-    let store = makeStore()
-    try await signIn(store)
-    StubURLProtocol.respond(#"{"id":"r1","name":"Groceries"}"#, status: 201)
-    StubURLProtocol.respond(#"{"items":[]}"#)
-
-    try await store.completeWelcome(name: "Groceries", inCloud: true)
-
-    XCTAssertFalse(store.needsWelcome)
-    XCTAssertEqual(
-      store.activeList.syncTarget,
-      SyncTarget(provider: .cloud, remoteListID: "r1", remoteListName: "Groceries"))
-    let create = StubURLProtocol.requests[1]
-    XCTAssertEqual(create.httpMethod, "POST")
-    XCTAssertEqual(create.url?.path, "/api/v1/lists")
-    XCTAssertEqual(create.value(forHTTPHeaderField: "Authorization"), "Bearer slt_session")
-    XCTAssertEqual(
-      try JSONSerialization.jsonObject(with: StubURLProtocol.bodies[1]) as? [String: String],
-      ["name": "Groceries"])
-  }
-
-  func testWelcomeInCloudFailureKeepsCardAndLocalList() async throws {
-    let store = makeStore()
-    try await signIn(store)
-    StubURLProtocol.respond(#"{"error":"unavailable"}"#, status: 503)
-    do {
-      try await store.completeWelcome(name: "Groceries", inCloud: true)
-      XCTFail("Expected Cloud to be unreachable")
-    } catch {}
-    XCTAssertTrue(store.needsWelcome)
-    XCTAssertNil(store.activeList.syncTarget)
-  }
-
   func testCreateCloudListCreatesNothingWhenServerFails() async throws {
     let store = makeStore()
     try await signIn(store)
@@ -155,15 +192,17 @@ final class CloudTests: XCTestCase {
   func testSignOutKeepsCloudListsLocally() async throws {
     let store = makeStore()
     try await signIn(store)
+    StubURLProtocol.respond(#"{"items":[]}"#)
     StubURLProtocol.respond(#"{"id":"r1","name":"Groceries"}"#, status: 201)
     StubURLProtocol.respond(
       #"{"items":[{"id":"i1","listId":"r1","label":"Milk","checked":false}]}"#)
-    try await store.completeWelcome(name: "Groceries", inCloud: true)
+    try await store.goOnline()
     XCTAssertEqual(store.activeItems.first?.remoteItemID, "i1")
 
     store.signOutOfCloud()
 
     XCTAssertFalse(store.isCloudSignedIn)
+    XCTAssertEqual(store.storageMode, .offline, "Signing out switches to offline")
     XCTAssertNil(store.activeList.syncTarget)
     XCTAssertEqual(store.activeItems.map(\.label), ["Milk"])
     XCTAssertNil(store.activeItems.first?.remoteItemID)
@@ -197,9 +236,10 @@ final class CloudTests: XCTestCase {
   func testPendingIconClearsWhenServerFinishes() async throws {
     let store = makeStore()
     try await signIn(store)
+    StubURLProtocol.respond(#"{"items":[]}"#)
     StubURLProtocol.respond(#"{"id":"r1","name":"Groceries"}"#, status: 201)
     StubURLProtocol.respond(#"{"items":[]}"#)
-    try await store.completeWelcome(name: "Groceries", inCloud: true)
+    try await store.goOnline()
 
     StubURLProtocol.respond(
       #"{"id":"k1","listId":"r1","label":"Kombucha","checked":false,"icon":null,"iconStatus":"pending"}"#,
@@ -236,5 +276,40 @@ final class CloudTests: XCTestCase {
     XCTAssertTrue(reloaded.isCloudSignedIn)
     reloaded.signOutOfCloud()
     await reloaded.flushPersistence()
+  }
+
+  func testSyncResultKeepsItemsAddedAndRemovedWhileItRan() {
+    let list = UUID()
+    let milk = ShoppingItem(label: "Milk", sourceListID: list)
+    let bread = ShoppingItem(label: "Bread", sourceListID: list)
+    let eggs = ShoppingItem(label: "Eggs", sourceListID: list)
+    var syncedMilk = milk
+    syncedMilk.iconName = "milk"
+    syncedMilk.iconPending = nil
+    let syncedBread = bread
+    let remoteOnly = ShoppingItem(label: "Cheese", sourceListID: list)
+
+    // Snapshot at sync start: milk, bread. Meanwhile bread was deleted and eggs added.
+    let merged = AppStore.merge(
+      [syncedMilk, syncedBread, remoteOnly], into: [milk, eggs], snapshot: [milk, bread])
+
+    XCTAssertEqual(merged.map(\.label), ["Milk", "Cheese", "Eggs"])
+    XCTAssertEqual(merged.first?.iconName, "milk", "The sync's newer presentation wins")
+  }
+
+  func testNonGroceryCategories() {
+    let expected: [String: GroceryCategory] = [
+      "Hose": .clothing, "Socken": .clothing, "T-Shirt": .clothing, "Schuhe": .clothing,
+      "Gartenschlauch": .gardenDIY, "garden hose": .gardenDIY, "Blumenerde": .gardenDIY,
+      "Glühbirne": .gardenDIY, "Ladekabel": .electronics, "Batterien": .electronics,
+      "Kopfhörer": .electronics, "Kugelschreiber": .officeSchool, "Druckerpapier": .officeSchool,
+      // Words that must stay groceries.
+      "Coca Cola": .beverages, "Penne": .pastaRiceGrains, "Sonnenblumenkerne": .other,
+    ]
+    for (label, category) in expected {
+      XCTAssertEqual(GroceryCategoryCatalog.category(for: label), category, label)
+    }
+    XCTAssertEqual(GroceryCategory(key: "clothing"), .clothing)
+    XCTAssertEqual(GroceryCategory.allCases.last, .other, "Other stays last")
   }
 }

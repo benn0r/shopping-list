@@ -6,7 +6,8 @@ enum GroceryCategory: Int, CaseIterable, Identifiable {
   case bakingSpices, international, snacksSweets, coffeeTea, beverages, alcohol
   case frozenFoods, householdCleaning, paperStorage, bathroomSupplies, personalCare, health, baby,
     pets
-  case kitchenHome, seasonal, checkout, other
+  case kitchenHome, seasonal, checkout
+  case clothing, gardenDIY, electronics, officeSchool, other
 
   var id: Self { self }
   var title: String {
@@ -44,6 +45,10 @@ enum GroceryCategory: Int, CaseIterable, Identifiable {
     case .kitchenHome: "Kitchen & Home"
     case .seasonal: "Seasonal"
     case .checkout: "Checkout"
+    case .clothing: "Clothing & Shoes"
+    case .gardenDIY: "Garden & DIY"
+    case .electronics: "Electronics"
+    case .officeSchool: "Office & School"
     case .other: "Other"
     }
   }
@@ -85,6 +90,10 @@ enum GroceryCategory: Int, CaseIterable, Identifiable {
     case .kitchenHome: "kitchenHome"
     case .seasonal: "seasonal"
     case .checkout: "checkout"
+    case .clothing: "clothing"
+    case .gardenDIY: "gardenDIY"
+    case .electronics: "electronics"
+    case .officeSchool: "officeSchool"
     case .other: "other"
     }
   }
@@ -463,13 +472,12 @@ enum GroceryCategoryCatalog {
     (
       .kitchenHome,
       [
-        "kitchen", "homeware", "light bulb", "battery", "batteries", "candle", "matches", "lighter",
-        "cookware", "tableware", "dish", "plate", "glass", "kuche", "haushalt", "gluhbirne",
-        "batterie", "batterien", "kerze", "streichholzer", "feuerzeug", "geschirr", "teller",
-        "glas", "cuisine", "maison", "ampoule", "pile", "piles", "bougie", "allumettes", "briquet",
-        "vaisselle", "assiette", "verre", "cucina", "casa", "lampadina", "batteria", "batterie",
-        "candela", "fiammiferi", "accendino", "stoviglie", "piatto", "bicchiere", "cozinha", "casa",
-        "lampada", "pilha", "pilhas", "vela", "fosforos", "isqueiro", "louca", "prato", "copo",
+        "kitchen", "homeware", "candle", "matches", "lighter", "cookware", "tableware", "dish",
+        "plate", "glass", "kuche", "haushalt", "kerze", "streichholzer", "feuerzeug", "geschirr",
+        "teller", "glas", "cuisine", "maison", "bougie", "allumettes", "briquet", "vaisselle",
+        "assiette", "verre", "cucina", "casa", "candela", "fiammiferi", "accendino", "stoviglie",
+        "piatto", "bicchiere", "cozinha", "casa", "vela", "fosforos", "isqueiro", "louca", "prato",
+        "copo",
       ]
     ),
     (
@@ -490,6 +498,91 @@ enum GroceryCategoryCatalog {
         "caisse", "chewing gum", "pastilles", "magazine", "journal", "loterie", "carte cadeau",
         "cassa", "gomma da masticare", "mentine", "rivista", "giornale", "lotteria", "buono regalo",
         "caixa", "chiclete", "pastilha", "revista", "jornal", "loteria", "cartao presente",
+      ]
+    ),
+    (
+      .clothing,
+      [
+        "clothing", "clothes", "trousers", "pants", "jeans", "shorts", "socks", "sock", "tights",
+        "underwear", "underpants", "bra", "t shirt", "tshirt", "shirt", "blouse", "sweater",
+        "pullover", "hoodie", "jacket", "coat", "dress", "skirt", "pyjamas", "pajamas", "scarf",
+        "gloves", "cap", "beanie", "shoes", "sneakers", "boots", "sandals", "slippers", "shoelaces",
+        "kleidung", "kleider", "hose", "hosen", "socken", "strumpfe", "strumpfhose", "unterwasche",
+        "unterhose", "unterhosen", "bh", "hemd", "bluse", "pulli", "jacke", "mantel", "kleid",
+        "rock", "pyjama", "schlafanzug", "schal", "handschuhe", "mutze", "schuhe", "turnschuhe",
+        "stiefel", "sandalen", "hausschuhe", "finken", "schnursenkel", "vetements", "pantalon",
+        "chaussettes", "collant", "sous vetements", "culotte", "slip", "soutien gorge", "chemise",
+        "chemisier", "pull", "veste", "manteau", "robe", "jupe", "echarpe", "gants", "bonnet",
+        "chaussures", "baskets", "bottes", "pantoufles", "lacets", "abbigliamento", "vestiti",
+        "pantaloni", "calze", "calzini", "collant", "mutande", "reggiseno", "camicia", "maglia",
+        "maglione", "felpa", "giacca", "cappotto", "vestito", "gonna", "pigiama", "sciarpa",
+        "guanti", "berretto", "scarpe", "stivali", "sandali", "pantofole", "lacci", "roupa",
+        "roupas", "calcas", "meias", "meia calca", "cuecas", "calcinha", "sutia", "camisa",
+        "camiseta", "blusa", "camisola", "casaco", "jaqueta", "vestido", "saia", "cachecol",
+        "luvas", "gorro", "sapatos", "tenis", "botas", "chinelos", "atacadores", "cadarcos",
+      ]
+    ),
+    (
+      .gardenDIY,
+      [
+        "garden", "flower seeds", "vegetable seeds", "blumensamen", "gemusesamen", "potting soil",
+        "compost", "fertilizer", "flower seeds", "plant pot",
+        "flower pot", "garden hose", "watering can", "screws", "nails", "dowels", "drill bit",
+        "screwdriver", "hammer", "tape measure", "duct tape", "glue", "paint", "light bulb",
+        "lightbulb", "led bulb", "fuse", "extension cord", "garten", "blumenerde",
+        "erde", "kompost", "dunger", "blumentopf", "gartenschlauch",
+        "giesskanne", "schrauben", "nagel", "dubel", "bohrer", "schraubenzieher", "hammer",
+        "massband", "klebeband", "leim", "kleber", "farbe", "pinsel", "gluhbirne", "leuchtmittel",
+        "sicherung", "verlangerungskabel", "jardin", "terreau", "engrais", "pot de fleurs",
+        "tuyau d arrosage", "arrosoir", "vis", "clous", "chevilles", "foret", "tournevis",
+        "marteau", "metre ruban", "colle", "peinture", "pinceau", "ampoule", "rallonge",
+        "giardino", "terriccio", "concime", "vaso", "tubo da giardino", "annaffiatoio",
+        "viti", "chiodi", "tasselli", "cacciavite", "martello", "colla",
+        "vernice", "pennello", "lampadina", "prolunga", "jardim", "terra vegetal", "adubo",
+        "vaso de flores", "mangueira", "regador", "parafusos", "pregos", "buchas",
+        "broca", "chave de fendas", "chave de fenda", "martelo", "fita metrica", "tinta",
+        "pincel", "lampada", "extensao",
+      ]
+    ),
+    (
+      .electronics,
+      [
+        "electronics", "battery", "batteries", "charger", "charging cable", "usb cable",
+        "usb stick", "memory card", "sd card", "headphones", "earphones", "earbuds", "power bank",
+        "adapter", "power strip", "phone case", "screen protector", "remote control", "hdmi cable",
+        "elektronik", "batterie", "batterien", "akku", "ladegerat", "ladekabel", "usb kabel",
+        "speicherkarte", "kopfhorer", "powerbank", "adapter", "steckdosenleiste", "handyhulle",
+        "schutzfolie", "fernbedienung", "electronique", "pile", "piles", "chargeur",
+        "cable de charge", "cle usb", "carte memoire", "ecouteurs", "casque", "batterie externe",
+        "multiprise", "coque", "telecommande", "elettronica", "batteria", "batterie",
+        "caricabatterie", "cavo di ricarica", "chiavetta usb", "scheda di memoria", "cuffie",
+        "auricolari", "ciabatta", "custodia", "telecomando", "eletronica", "pilha", "pilhas",
+        "bateria", "carregador", "cabo de carregamento", "pen usb", "pendrive", "cartao de memoria",
+        "fones de ouvido", "auscultadores", "carregador portatil", "capa de telemovel",
+        "capinha", "comando", "controle remoto",
+      ]
+    ),
+    (
+      .officeSchool,
+      [
+        "office", "school", "school supplies", "stationery", "pen", "pens", "ballpoint pen",
+        "pencil", "pencils", "eraser", "sharpener", "notebook", "exercise book", "printer paper",
+        "envelopes", "stamps", "folder", "ruler", "scissors", "stapler", "highlighter", "markers",
+        "crayons", "sticky notes", "printer ink", "toner", "buro", "schule", "schulsachen",
+        "schreibwaren", "kugelschreiber", "kuli", "bleistift", "bleistifte", "radiergummi",
+        "spitzer", "heft", "hefte", "notizbuch", "druckerpapier", "briefumschlage", "couverts",
+        "briefmarken", "ordner", "mappe", "lineal", "schere", "bostitch", "hefter",
+        "leuchtstift", "textmarker", "filzstifte", "farbstifte", "post it", "druckerpatrone",
+        "bureau", "ecole", "fournitures scolaires", "papeterie", "stylo", "stylos", "crayon",
+        "crayons", "gomme", "taille crayon", "cahier", "carnet", "papier imprimante",
+        "enveloppes", "timbres", "classeur", "regle", "ciseaux", "agrafeuse", "surligneur",
+        "feutres", "cartouche d encre", "ufficio", "scuola", "cancelleria", "penna", "penne",
+        "matita", "matite", "temperamatite", "quaderno", "carta per stampante", "buste",
+        "francobolli", "raccoglitore", "righello", "forbici", "spillatrice", "evidenziatore",
+        "pennarelli", "cartuccia", "escritorio", "escola", "material escolar", "papelaria",
+        "caneta", "canetas", "lapis", "borracha", "afia", "apontador", "caderno",
+        "papel de impressora", "envelopes", "selos", "pasta de arquivo", "regua", "tesoura",
+        "agrafador", "grampeador", "marcador", "canetas de feltro", "tinteiro",
       ]
     ),
   ]

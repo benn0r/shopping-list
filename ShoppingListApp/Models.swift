@@ -2,19 +2,29 @@ import Foundation
 
 enum ListViewMode: String, Codable, CaseIterable, Sendable { case list, tiles }
 enum AppLanguage: String, Codable, CaseIterable, Identifiable, Sendable {
-  case automatic, en, de, fr, it, pt
+  // Ordered by native name, as shown in the picker.
+  case automatic, da, de, en, es, fr, it, nl, nb, pl, pt
   case ptBR = "pt-BR"
+  case fi, sv, ja
   var id: String { rawValue }
   var localeIdentifier: String { self == .automatic ? Locale.current.identifier : rawValue }
   var title: String {
     switch self {
     case .automatic: "Automatic"
-    case .en: "English"
+    case .da: "Dansk"
     case .de: "Deutsch"
+    case .en: "English"
+    case .es: "Español"
     case .fr: "Français"
     case .it: "Italiano"
+    case .nl: "Nederlands"
+    case .nb: "Norsk"
+    case .pl: "Polski"
     case .pt: "Português"
     case .ptBR: "Português (Brasil)"
+    case .fi: "Suomi"
+    case .sv: "Svenska"
+    case .ja: "日本語"
     }
   }
 }
@@ -169,6 +179,12 @@ struct ProviderConfiguration: Codable, Hashable, Sendable {
   var secret = ""
 }
 
+/// Offline keeps lists on this iPhone; online keeps them in Shopping List Cloud.
+/// Bring and Mealie lists work in both.
+enum StorageMode: String, Codable, Sendable {
+  case offline, online
+}
+
 struct AppStateSnapshot: Codable, Sendable {
   var lists: [ShoppingListDefinition]
   var stores: [StoreDefinition]
@@ -182,13 +198,14 @@ struct AppStateSnapshot: Codable, Sendable {
   var customBarcodes: [CustomBarcode] = []
   var appLanguage: AppLanguage = .automatic
   var cloudAccount: CloudAccount?
-  /// True until the user has chosen where their first list is stored.
-  var needsWelcome = false
+  /// Offline or online; nil until the user has chosen, including after updating from a version
+  /// without the choice.
+  var storageMode: StorageMode?
 
   enum CodingKeys: String, CodingKey {
     case lists, stores, items, sessions, activeListID, viewMode, showCategoryLabels
     case providerConfigurations
-    case lookupPreferences, customBarcodes, appLanguage, cloudAccount, needsWelcome
+    case lookupPreferences, customBarcodes, appLanguage, cloudAccount, storageMode
   }
 
   init(
@@ -198,7 +215,7 @@ struct AppStateSnapshot: Codable, Sendable {
     providerConfigurations: [ProviderKind: ProviderConfiguration],
     lookupPreferences: ProductLookupPreferences = .init(), customBarcodes: [CustomBarcode] = [],
     appLanguage: AppLanguage = .automatic, cloudAccount: CloudAccount? = nil,
-    needsWelcome: Bool = false
+    storageMode: StorageMode? = nil
   ) {
     self.lists = lists
     self.stores = stores
@@ -212,7 +229,7 @@ struct AppStateSnapshot: Codable, Sendable {
     self.customBarcodes = customBarcodes
     self.appLanguage = appLanguage
     self.cloudAccount = cloudAccount
-    self.needsWelcome = needsWelcome
+    self.storageMode = storageMode
   }
 
   init(from decoder: Decoder) throws {
@@ -232,7 +249,6 @@ struct AppStateSnapshot: Codable, Sendable {
     customBarcodes = try values.decodeIfPresent([CustomBarcode].self, forKey: .customBarcodes) ?? []
     appLanguage = try values.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .automatic
     cloudAccount = try values.decodeIfPresent(CloudAccount.self, forKey: .cloudAccount)
-    // Existing installs already have their lists; only fresh installs see the welcome card.
-    needsWelcome = try values.decodeIfPresent(Bool.self, forKey: .needsWelcome) ?? false
+    storageMode = try values.decodeIfPresent(StorageMode.self, forKey: .storageMode)
   }
 }

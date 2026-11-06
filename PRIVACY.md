@@ -15,14 +15,15 @@ endorsed by, or sponsored by Bring! Labs AG, the Mealie project, or the Open Fac
 
 ## Data collected by the developer
 
-Only when you use Shopping List Cloud. Lists you keep "On this iPhone" are never sent to the
-developer. Shopping List does not use advertising or analytics SDKs and does not track users across
+Only when you use the app online with Shopping List Cloud. In offline mode your lists are never
+sent to the developer. Shopping List does not use advertising or analytics SDKs and does not track users across
 apps or websites.
 
 ## Shopping List Cloud
 
-Shopping List Cloud is optional. It is used only for lists you create in, or move to, Cloud, and
-it requires Sign in with Apple. When you use it, the developer's server stores:
+Shopping List Cloud is optional: you choose offline or online when you first open the app. Online
+requires Sign in with Apple and moves your lists on the iPhone to Cloud; Bring and Mealie lists
+stay with those services. When you use it, the developer's server stores:
 
 - an account identifier issued by Apple for this app, and the name Apple shares when you first
   sign in (your email address is not requested);

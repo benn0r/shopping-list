@@ -1,7 +1,7 @@
 appId: ch.benn0r.shoppinglist
 ---
-# Fresh install: choose Shopping List Cloud on the welcome card. Debug builds replace the Apple
-# sheet with a fixed mock credential, which the mock server exchanges for a Cloud session.
+# Fresh install: choose online. Debug builds replace the Apple sheet with a fixed mock
+# credential, which the mock server exchanges for a Cloud session.
 - launchApp:
     clearState: true
     arguments:
@@ -11,27 +11,19 @@ appId: ch.benn0r.shoppinglist
 - tapOn:
     text: "Close"
     optional: true
-- assertVisible: "Create your first list"
+- assertVisible: "Welcome to Shopping List"
+- tapOn:
+    id: "mode-online"
+- assertVisible: "Share with Family"
+- takeScreenshot: artifacts/mode-online
+# (Maestro can't read a sheet stacked on the full-screen welcome, so the info sheet is checked in
+# Settings below.)
 - assertVisible:
-    id: "storage-local"
-- tapOn:
-    id: "storage-cloud"
-- assertVisible: "Generated icons for every item"
-- assertVisible: "Share lists with family and friends"
-- scrollUntilVisible:
-    element:
-      id: "cloud-info-button"
-    direction: DOWN
-    centerElement: true
-- tapOn:
     id: "cloud-info-button"
-- assertVisible: "What is stored"
-- tapOn: "Done"
 - tapOn:
     id: "continue-with-apple"
 - extendedWaitUntil:
-    notVisible:
-      id: "welcome-card"
+    notVisible: "Welcome to Shopping List"
     timeout: 8000
 - tapOn:
     id: "add-item-field"
@@ -65,6 +57,12 @@ appId: ch.benn0r.shoppinglist
     direction: DOWN
 - assertVisible: ".*Alex.*"
 - scrollUntilVisible:
+    element: "About Shopping List Cloud"
+    direction: DOWN
+- tapOn: "About Shopping List Cloud"
+- assertVisible: "Generated icons for every item"
+- tapOn: "Done"
+- scrollUntilVisible:
     element:
       id: "add-list-button"
     direction: UP
@@ -73,8 +71,10 @@ appId: ch.benn0r.shoppinglist
 - tapOn:
     id: "list-name-field"
 - inputText: "Party"
-- tapOn:
-    id: "storage-cloud"
+# Online has no lists on this iPhone, so new lists go to Cloud.
+- assertVisible: ".*Stored In.*Shopping List Cloud.*"
+- assertNotVisible:
+    id: "storage-local"
 - tapOn:
     id: "save-list-button"
 - extendedWaitUntil:
@@ -85,7 +85,7 @@ appId: ch.benn0r.shoppinglist
     id: "list-storage"
 - assertVisible: ".*Stored In.*Shopping List Cloud.*"
 - tapOn: "Cancel"
-# Signing out keeps both lists on the iPhone.
+# Signing out switches to offline and keeps both lists on the iPhone.
 - scrollUntilVisible:
     element:
       id: "cloud-sign-out"
@@ -101,3 +101,25 @@ appId: ch.benn0r.shoppinglist
 - scrollUntilVisible:
     element: "Party"
     direction: UP
+- scrollUntilVisible:
+    element:
+      id: "storage-mode"
+    direction: DOWN
+    centerElement: true
+# Going online again links both lists to the Cloud lists with the same names: no copies.
+- tapOn:
+    id: "continue-with-apple"
+- extendedWaitUntil:
+    visible:
+      id: "cloud-account-name"
+    timeout: 8000
+- scrollUntilVisible:
+    element: "Party"
+    direction: UP
+- tapOn: "Party"
+- assertVisible: ".*Stored In.*Shopping List Cloud.*"
+- tapOn: "Cancel"
+- scrollUntilVisible:
+    element: ".*Lists in Cloud.*2.*"
+    direction: DOWN
+    centerElement: true

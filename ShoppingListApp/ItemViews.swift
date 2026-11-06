@@ -287,11 +287,20 @@ private final class ProductImageLoader: ObservableObject {
       image = cached
       return
     }
-    guard
-      let (data, response) = try? await URLSession.shared.data(from: url),
-      (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true,
-      let downloaded = UIImage(data: data)
-    else { return }
+    // A failed download (offline, server restarting) is retried instead of leaving the icon
+    // blank until the view is recreated.
+    var download: (Data, UIImage)?
+    for attempt in 0..<4 where download == nil {
+      if attempt > 0 { try? await Task.sleep(for: .seconds(2 << attempt)) }
+      guard !Task.isCancelled else { return }
+      if let (data, response) = try? await URLSession.shared.data(from: url),
+        (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true,
+        let image = UIImage(data: data)
+      {
+        download = (data, image)
+      }
+    }
+    guard let (data, downloaded) = download else { return }
     Self.memoryCache.setObject(downloaded, forKey: url as NSURL)
     image = downloaded
     try? FileManager.default.createDirectory(
@@ -401,6 +410,10 @@ extension GroceryCategory {
     case .kitchenHome: "house.fill"
     case .seasonal: "gift.fill"
     case .checkout: "basket.fill"
+    case .clothing: "tshirt.fill"
+    case .gardenDIY: "hammer.fill"
+    case .electronics: "powerplug.fill"
+    case .officeSchool: "pencil.and.ruler.fill"
     case .other: "square.grid.2x2.fill"
     }
   }
@@ -421,6 +434,10 @@ extension GroceryCategory {
     case .health: .red
     case .baby: .shoppingMint
     case .pets: .orange
+    case .clothing: .teal
+    case .gardenDIY: .green
+    case .electronics: .indigo
+    case .officeSchool: .purple
     case .kitchenHome, .checkout, .other: .secondary
     }
   }

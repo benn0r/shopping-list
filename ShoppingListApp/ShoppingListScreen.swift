@@ -10,12 +10,6 @@ struct ShoppingListScreen: View {
   var body: some View {
     NavigationStack {
       ScrollView {
-        if store.needsWelcome {
-          WelcomeCard()
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .transition(.opacity.combined(with: .move(edge: .top)))
-        }
         ItemCollection(
           items: store.activeItems, mode: store.viewMode,
           showCategoryLabels: store.showCategoryLabels
@@ -23,7 +17,6 @@ struct ShoppingListScreen: View {
         .padding(.horizontal, 16)
       }
       .scrollDismissesKeyboard(.interactively)
-      .animation(.snappy, value: store.needsWelcome)
       .refreshable { await store.sync() }
       .task {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
@@ -35,15 +28,16 @@ struct ShoppingListScreen: View {
           await store.backgroundSync()
         }
       }
-      // While the server matches or generates icons, check that list every 3 s for up to 30 s.
+      // While the server matches or draws icons, check that list every 3 s for 30 s, then every
+      // 10 s for up to 3 minutes: drawing a new icon can take a minute or more.
       .task(
         id: PendingIconPoll(listID: store.activeListID, pending: store.activeListHasPendingIcons)
       ) {
         guard store.activeListHasPendingIcons,
           ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
         else { return }
-        for _ in 0..<10 {
-          try? await Task.sleep(for: .seconds(3))
+        for round in 0..<27 {
+          try? await Task.sleep(for: .seconds(round < 10 ? 3 : 10))
           guard !Task.isCancelled else { return }
           await store.sync(reportErrors: false)
           if !store.activeListHasPendingIcons { return }

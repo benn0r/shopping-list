@@ -1,0 +1,58 @@
+appId: ch.benn0r.shoppinglist
+---
+# Fresh install: choose offline, then later go online from Settings, which moves the list to Cloud.
+- launchApp:
+    clearState: true
+- assertVisible: "Welcome to Shopping List"
+- assertVisible: "Share with Family"
+- assertVisible: "Backup to Cloud"
+- assertVisible: "MCP"
+- takeScreenshot: artifacts/mode-choice
+- tapOn:
+    id: "mode-offline"
+- tapOn:
+    id: "mode-continue"
+- assertNotVisible: "Welcome to Shopping List"
+- tapOn:
+    id: "add-item-field"
+- inputText: "Bread"
+- pressKey: Enter
+- assertVisible: ".*Bread.*"
+# Offline creates new lists on this iPhone only.
+- tapOn: "Settings"
+- tapOn:
+    id: "add-list-button"
+- assertVisible: ".*Stored In.*On this iPhone.*"
+- tapOn: "Cancel"
+# The choice is remembered across launches. Debug builds replace the Apple sheet with a mock.
+- launchApp:
+    stopApp: true
+    arguments:
+      mockAppleSignIn: true
+      cloudServerURL: "http://127.0.0.1:8787"
+- tapOn:
+    text: "Close"
+    optional: true
+- assertNotVisible: "Welcome to Shopping List"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "continue-with-apple"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "storage-mode"
+- tapOn:
+    id: "continue-with-apple"
+- extendedWaitUntil:
+    visible:
+      id: "cloud-account-name"
+    timeout: 8000
+- scrollUntilVisible:
+    element: "Groceries"
+    direction: UP
+- tapOn: "Groceries"
+- assertVisible: ".*Stored In.*Shopping List Cloud.*"
+- tapOn: "Cancel"
+- tapOn: "Shopping List"
+- assertVisible: ".*Bread.*"

@@ -23,7 +23,12 @@ struct SettingsScreen: View {
             .onChange(of: store.showCategoryLabels) { store.save() }
           Picker("App Language", selection: $store.appLanguage) {
             ForEach(AppLanguage.allCases) {
-              language in Text(LocalizedStringKey(language.title)).tag(language)
+              language in
+              // Languages are listed by their own names; only "Automatic" is translated.
+              Group {
+                if language == .automatic { Text("Automatic") } else { Text(verbatim: language.title) }
+              }
+              .tag(language)
             }
           }
           .accessibilityIdentifier("app-language-picker")
@@ -324,6 +329,9 @@ private struct ListEditor: View {
           }
         }
       }
+      .onAppear {
+        if isNew, list.syncTarget == nil { storage = storageOptions[0] }
+      }
       .onChange(of: storage) { _, value in
         if value != .connected { list.syncTarget = nil }
         cloudFailure = nil
@@ -335,60 +343,36 @@ private struct ListEditor: View {
     }.presentationDetents([.large])
   }
 
+  /// Online stores new lists in Cloud, offline on this iPhone; both can use connected services.
+  private var storageOptions: [ListStorage] {
+    [store.storageMode == .online ? .cloud : .local] + (hasConnectedProviders ? [.connected] : [])
+  }
+
   @ViewBuilder private var newListStorage: some View {
     Section {
-      StoragePicker(selection: $storage, showsConnected: hasConnectedProviders)
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(Color.clear)
+      if storageOptions.count > 1 {
+        StoragePicker(selection: $storage, options: storageOptions)
+      } else {
+        LabeledContent("Stored In") { Text(storageTitle(for: storage)) }
+          .accessibilityIdentifier("list-storage")
+      }
     } header: {
-      Text("Stored In")
+      if storageOptions.count > 1 { Text("Stored In") }
     } footer: {
       if storage == .cloud {
-        CloudFootnote { infoPresented = true }.padding(.top, 6)
+        CloudFootnote { infoPresented = true }
       }
     }
-    if storage == .cloud && !store.isCloudSignedIn {
-      Section {
-        CloudContinueButton(isWorking: $isWorking, failure: $cloudFailure) { await save() }
-          .disabled(trimmedName.isEmpty)
-          .listRowInsets(EdgeInsets())
-          .listRowBackground(Color.clear)
-      } footer: {
-        cloudFailureText
-      }
-    } else if cloudFailure != nil {
-      Section { cloudFailureText }
-    }
+    if cloudFailure != nil { Section { cloudFailureText } }
     if storage == .connected { syncedListSection }
   }
 
-  @ViewBuilder private var existingListStorage: some View {
+  private var existingListStorage: some View {
     Section {
       LabeledContent("Stored In") {
-        Text(storageTitle)
+        Text(storageTitle(for: list.syncTarget?.provider))
       }
       .accessibilityIdentifier("list-storage")
-      if list.syncTarget == nil {
-        if store.isCloudSignedIn {
-          Button("Move to Shopping List Cloud", systemImage: "icloud.and.arrow.up") {
-            Task { await moveToCloud() }
-          }
-          .disabled(isWorking)
-          .accessibilityIdentifier("move-to-cloud")
-        } else {
-          CloudContinueButton(isWorking: $isWorking, failure: $cloudFailure) {
-            await moveToCloud()
-          }
-          .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
-        }
-      }
-    } footer: {
-      if list.syncTarget == nil {
-        VStack(alignment: .leading, spacing: 4) {
-          Text("Move this list to Shopping List Cloud to get generated icons and share it.")
-          cloudFailureText
-        }
-      }
     }
   }
 
@@ -410,7 +394,10 @@ private struct ListEditor: View {
             }
           })
       ) {
-        Text("None").tag(nil as ProviderKind?)
+        // Online has no lists on this iPhone, so a connected list can't be turned into one.
+        if store.storageMode != .online || isNew {
+          Text("None").tag(nil as ProviderKind?)
+        }
         ForEach(ProviderKind.connectable.filter { providerEnabled($0) }) {
           Text($0.title).tag(Optional($0))
         }
@@ -445,11 +432,25 @@ private struct ListEditor: View {
   private var trimmedName: String { list.name.trimmingCharacters(in: .whitespaces) }
 
   private var canSave: Bool {
-    !trimmedName.isEmpty && !(isNew && storage == .cloud && !store.isCloudSignedIn)
+    guard !trimmedName.isEmpty else { return false }
+    guard isNew else { return true }
+    switch storage {
+    case .local: return true
+    case .cloud: return store.isCloudSignedIn
+    case .connected: return list.syncTarget?.remoteListID.isEmpty == false
+    }
   }
 
-  private var storageTitle: LocalizedStringKey {
-    switch list.syncTarget?.provider {
+  private func storageTitle(for storage: ListStorage) -> LocalizedStringKey {
+    switch storage {
+    case .local: "On this iPhone"
+    case .cloud: "Shopping List Cloud"
+    case .connected: "Connected service"
+    }
+  }
+
+  private func storageTitle(for provider: ProviderKind?) -> LocalizedStringKey {
+    switch provider {
     case nil: "On this iPhone"
     case .cloud: "Shopping List Cloud"
     case .bring: "Bring"
@@ -479,26 +480,11 @@ private struct ListEditor: View {
         try await store.createCloudList(name: trimmedName)
       } catch {
         cloudFailure = String(
-          localized:
-            "Couldn't reach Shopping List Cloud. Try again, or keep the list on this iPhone.")
+          localized: "Couldn't reach Shopping List Cloud. Please try again.")
         return
       }
     }
     dismiss()
-  }
-
-  private func moveToCloud() async {
-    isWorking = true
-    defer { isWorking = false }
-    cloudFailure = nil
-    // Keep a rename the user typed before moving.
-    store.updateList(list)
-    do {
-      try await store.moveListToCloud(list.id)
-      if let updated = store.lists.first(where: { $0.id == list.id }) { list = updated }
-    } catch {
-      cloudFailure = String(localized: "Couldn't reach Shopping List Cloud. Please try again.")
-    }
   }
 
   private func providerEnabled(_ provider: ProviderKind) -> Bool {

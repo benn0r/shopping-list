@@ -2,6 +2,10 @@ appId: ch.benn0r.shoppinglist
 ---
 - launchApp:
     clearState: true
+- tapOn:
+    id: "mode-offline"
+- tapOn:
+    id: "mode-continue"
 - tapOn: "Settings"
 - assertVisible: "Appearance"
 - tapOn:

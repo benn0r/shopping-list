@@ -41,6 +41,12 @@ struct ContentView: View {
     }
     .tint(.shoppingAccent)
     .environment(\.locale, Locale(identifier: store.appLanguage.localeIdentifier))
+    .fullScreenCover(isPresented: Binding(get: { store.needsModeChoice }, set: { _ in })) {
+      ModeChoiceScreen()
+        .environmentObject(store)
+        .tint(.shoppingAccent)
+        .environment(\.locale, Locale(identifier: store.appLanguage.localeIdentifier))
+    }
     .task {
       guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
         return

@@ -36,11 +36,14 @@ can synchronize individual lists without changing the core app.
 - Shopping List Server sync uses its URL and an API key from its web interface (Settings → API
   Tokens); the icon and category the server returns for an item replace the app's own label
   matching, and icons the server generated are downloaded once and cached
-- First launch shows a card to create a "Groceries" list either on the iPhone or in Shopping List
-  Cloud; adding an item instead keeps it local
-- Shopping List Cloud: an optional, free hosted Shopping List Server. Choosing it when creating a
-  list signs in with Apple; lists can also be moved to Cloud later. Settings shows the account with
-  sign out (Cloud lists stay local) and account deletion
+- First launch, and the first launch after updating from a version without it, asks to use the app
+  offline or online, showing the online perks: Share with Family, Backup to Cloud, and MCP
+- Offline keeps lists on the iPhone. Online signs in with Apple (login or registration) and moves
+  every local list to Shopping List Cloud, an optional, free hosted Shopping List Server; local lists
+  whose names match existing Cloud lists are linked instead of copied, and Cloud lists from other
+  devices are added. Online has no local lists, but Bring and Mealie lists work in both modes
+- Settings shows the mode: offline can go online, online shows the account with sign out and
+  account deletion, which both switch back to offline and keep copies of the lists on the iPhone
 - Local JSON persistence with no React Native, Expo, JavaScript runtime, CocoaPods, or Android
   target
 
@@ -57,7 +60,7 @@ Copy `.env.example` to the ignored `.env` file and set `IOS_DEVELOPMENT_TEAM` to
 Developer Team ID. Project generation then applies automatic signing every time, so regenerating
 `ShoppingList.xcodeproj` does not lose the selected team.
 `CLOUD_SERVER_URL` sets the hosted Shopping List Server used by Shopping List Cloud (default
-`https://lists.benn0r.me`). Sign in with Apple needs the capability enabled for the app ID.
+`https://shopping-list.tueftli.com`). Sign in with Apple needs the capability enabled for the app ID.
 Set `BRING_API_KEY` in the same file when using Bring synchronization. The value is embedded into
 the app at build time; the previous `EXPO_PUBLIC_BRING_API_KEY` name is accepted for migration.
 

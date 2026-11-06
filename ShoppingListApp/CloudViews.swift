@@ -6,12 +6,24 @@ enum ListStorage: Hashable {
   case local, cloud, connected
 }
 
-/// The Cloud features advertised wherever the user can choose Cloud.
+struct CloudPerk {
+  let symbol: String
+  let title: LocalizedStringKey
+  let detail: LocalizedStringKey
+}
+
+/// The perks of going online, shown on the welcome screen and in the Cloud info sheet.
 @MainActor enum CloudBenefits {
-  static let all: [(symbol: String, text: LocalizedStringKey)] = [
-    ("sparkles", "Generated icons for every item"),
-    ("person.2.fill", "Share lists with family and friends"),
-    ("arrow.triangle.2.circlepath", "Sync across your devices"),
+  static let perks: [CloudPerk] = [
+    CloudPerk(
+      symbol: "person.2.fill", title: "Share with Family",
+      detail: "Shop together from the same lists."),
+    CloudPerk(
+      symbol: "icloud.and.arrow.up.fill", title: "Backup to Cloud",
+      detail: "Your lists are safe and on all your devices."),
+    CloudPerk(
+      symbol: "point.3.connected.trianglepath.dotted", title: "MCP",
+      detail: "Let AI assistants read and update your lists."),
   ]
 }
 
@@ -25,6 +37,10 @@ struct StorageOptionCard<Details: View>: View {
   let action: () -> Void
   @ViewBuilder var details: Details
 
+  private static var shape: RoundedRectangle {
+    RoundedRectangle(cornerRadius: 22, style: .continuous)
+  }
+
   var body: some View {
     Button(action: action) {
       HStack(alignment: .top, spacing: 12) {
@@ -34,7 +50,7 @@ struct StorageOptionCard<Details: View>: View {
           .frame(width: 40, height: 40)
           .background(
             isSelected ? Color.shoppingAccent : Color.shoppingAccent.opacity(0.12),
-            in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         VStack(alignment: .leading, spacing: 4) {
           HStack(spacing: 6) {
             Text(title).font(.headline).foregroundStyle(.primary)
@@ -54,15 +70,15 @@ struct StorageOptionCard<Details: View>: View {
           .font(.title3)
           .foregroundStyle(isSelected ? Color.shoppingAccent : Color.secondary.opacity(0.5))
       }
-      .padding(14)
-      .background(.background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+      .padding(16)
+      .background(.background, in: Self.shape)
+      // strokeBorder draws inside the edge, so list rows with zero insets don't clip it.
       .overlay {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-          .stroke(
-            isSelected ? Color.shoppingAccent : Color.secondary.opacity(0.22),
-            lineWidth: isSelected ? 2 : 1)
+        Self.shape.strokeBorder(
+          isSelected ? Color.shoppingAccent : Color.secondary.opacity(0.18),
+          lineWidth: isSelected ? 2 : 1)
       }
-      .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+      .contentShape(Self.shape)
     }
     .buttonStyle(.plain)
     .accessibilityElement(children: .combine)
@@ -71,58 +87,78 @@ struct StorageOptionCard<Details: View>: View {
   }
 }
 
-/// "On this iPhone" / "Shopping List Cloud" (/ "Connected service") choice.
+/// Choice of where a new list is stored, limited to what the current mode allows. Each option is
+/// its own Form row with a checkmark, so the Form draws the grouping and nothing gets clipped.
 struct StoragePicker: View {
   @Binding var selection: ListStorage
-  var showsConnected = false
+  let options: [ListStorage]
 
   var body: some View {
-    VStack(spacing: 10) {
-      StorageOptionCard(
-        symbol: "iphone", title: "On this iPhone", subtitle: "Private and works offline.",
-        isSelected: selection == .local, identifier: "storage-local"
-      ) {
-        selection = .local
-      } details: {
-        EmptyView()
-      }
-      StorageOptionCard(
-        symbol: "icloud.fill", title: "Shopping List Cloud",
-        subtitle: "Sign in with your Apple ID.",
-        badge: "FREE", isSelected: selection == .cloud, identifier: "storage-cloud"
-      ) {
-        selection = .cloud
-      } details: {
-        VStack(alignment: .leading, spacing: 5) {
-          ForEach(Array(CloudBenefits.all.enumerated()), id: \.offset) { _, benefit in
-            Label(benefit.text, systemImage: benefit.symbol)
-              .font(.footnote)
-              .foregroundStyle(.primary)
-              .labelStyle(BenefitLabelStyle())
-          }
-        }
-        .padding(.top, 4)
-      }
-      if showsConnected {
-        StorageOptionCard(
-          symbol: "link", title: "Connected service",
-          subtitle: "Bring, Mealie, or your own server.",
-          isSelected: selection == .connected, identifier: "storage-connected"
-        ) {
-          selection = .connected
-        } details: {
-          EmptyView()
-        }
-      }
+    ForEach(options, id: \.self) { option in
+      StorageRow(option: option, isSelected: selection == option) { selection = option }
     }
   }
 }
 
-private struct BenefitLabelStyle: LabelStyle {
-  func makeBody(configuration: Configuration) -> some View {
-    HStack(alignment: .firstTextBaseline, spacing: 6) {
-      configuration.icon.foregroundStyle(Color.shoppingAccent).frame(width: 16)
-      configuration.title
+private struct StorageRow: View {
+  let option: ListStorage
+  let isSelected: Bool
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      HStack(spacing: 12) {
+        Image(systemName: symbol)
+          .font(.body.weight(.semibold))
+          .foregroundStyle(isSelected ? Color.white : Color.shoppingAccent)
+          .frame(width: 34, height: 34)
+          .background(
+            isSelected ? Color.shoppingAccent : Color.shoppingAccent.opacity(0.12),
+            in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        VStack(alignment: .leading, spacing: 2) {
+          Text(title).foregroundStyle(.primary)
+          Text(subtitle).font(.footnote).foregroundStyle(.secondary)
+        }
+        Spacer(minLength: 8)
+        Image(systemName: "checkmark")
+          .font(.body.weight(.semibold))
+          .foregroundStyle(Color.shoppingAccent)
+          .opacity(isSelected ? 1 : 0)
+      }
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityElement(children: .combine)
+    .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    .accessibilityIdentifier(identifier)
+  }
+
+  private var symbol: String {
+    switch option {
+    case .local: "iphone"
+    case .cloud: "icloud.fill"
+    case .connected: "link"
+    }
+  }
+  private var title: LocalizedStringKey {
+    switch option {
+    case .local: "On this iPhone"
+    case .cloud: "Shopping List Cloud"
+    case .connected: "Connected service"
+    }
+  }
+  private var subtitle: LocalizedStringKey {
+    switch option {
+    case .local: "Private and works offline."
+    case .cloud: "Shared, backed up, and available through MCP."
+    case .connected: "Bring, Mealie, or your own server."
+    }
+  }
+  private var identifier: String {
+    switch option {
+    case .local: "storage-local"
+    case .cloud: "storage-cloud"
+    case .connected: "storage-connected"
     }
   }
 }
@@ -190,104 +226,12 @@ struct CloudContinueButton: View {
   }
 }
 
-/// First-launch card: name the first list and choose where it is stored.
-struct WelcomeCard: View {
-  @EnvironmentObject private var store: AppStore
-  @State private var name = String(localized: "Groceries")
-  @State private var storage: ListStorage = .local
-  @State private var isWorking = false
-  @State private var failure: String?
-  @State private var infoPresented = false
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 18) {
-      VStack(alignment: .leading, spacing: 6) {
-        Image(systemName: "cart.fill.badge.plus")
-          .font(.system(size: 34, weight: .semibold))
-          .foregroundStyle(Color.shoppingAccent)
-          .padding(.bottom, 4)
-        Text("Create your first list").font(.title2.bold())
-        Text("Choose where it's stored. You can add more lists later in Settings.")
-          .font(.subheadline).foregroundStyle(.secondary)
-      }
-      TextField("List name", text: $name)
-        .font(.body.weight(.medium))
-        .padding(.horizontal, 14).frame(height: 48)
-        .background(.background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-          RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .stroke(Color.secondary.opacity(0.22), lineWidth: 1)
-        }
-        .submitLabel(.done)
-        .accessibilityIdentifier("welcome-list-name")
-      StoragePicker(selection: $storage)
-      VStack(spacing: 10) {
-        if storage == .cloud && !store.isCloudSignedIn {
-          CloudContinueButton(isWorking: $isWorking, failure: $failure) { await create() }
-        } else {
-          Button {
-            Task { await create() }
-          } label: {
-            Group {
-              if isWorking { ProgressView().tint(.white) } else { Text("Create List") }
-            }
-            .font(.headline).frame(maxWidth: .infinity).frame(height: 50)
-          }
-          .buttonStyle(.borderedProminent).tint(.shoppingAccent)
-          .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-          .disabled(isWorking || trimmedName.isEmpty)
-          .accessibilityIdentifier("welcome-create-list")
-        }
-        if let failure {
-          Text(failure).font(.footnote).foregroundStyle(.red)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityIdentifier("welcome-error")
-        }
-        if storage == .cloud {
-          CloudFootnote { infoPresented = true }
-        }
-      }
-    }
-    .padding(20)
-    .background {
-      RoundedRectangle(cornerRadius: 22, style: .continuous)
-        .fill(
-          LinearGradient(
-            colors: [.shoppingAccent.opacity(0.10), .shoppingMint.opacity(0.06)],
-            startPoint: .topLeading, endPoint: .bottomTrailing))
-    }
-    .overlay {
-      RoundedRectangle(cornerRadius: 22, style: .continuous)
-        .stroke(Color.shoppingAccent.opacity(0.16), lineWidth: 1)
-    }
-    .animation(.snappy, value: storage)
-    .sheet(isPresented: $infoPresented) { CloudInfoSheet() }
-    .accessibilityElement(children: .contain)
-    .accessibilityIdentifier("welcome-card")
-  }
-
-  private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-  private func create() async {
-    isWorking = true
-    defer { isWorking = false }
-    failure = nil
-    do {
-      try await store.completeWelcome(name: trimmedName, inCloud: storage == .cloud)
-    } catch {
-      failure = String(
-        localized:
-          "Couldn't reach Shopping List Cloud. Try again, or keep the list on this iPhone.")
-    }
-  }
-}
-
 struct CloudFootnote: View {
   let showInfo: () -> Void
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       Text(
-        "Your list is stored on our server so it can sync. You can delete your account at any time in Settings."
+        "Your lists are stored on our server so they can sync. You can delete your account at any time in Settings."
       )
       Button("About Shopping List Cloud", action: showInfo)
         .font(.footnote.weight(.semibold))
@@ -304,19 +248,27 @@ struct CloudInfoSheet: View {
     NavigationStack {
       List {
         Section("Features") {
-          ForEach(Array(CloudBenefits.all.enumerated()), id: \.offset) { _, benefit in
-            Label(benefit.text, systemImage: benefit.symbol)
+          ForEach(Array(CloudBenefits.perks.enumerated()), id: \.offset) { _, perk in
+            Label {
+              VStack(alignment: .leading, spacing: 2) {
+                Text(perk.title)
+                Text(perk.detail).font(.footnote).foregroundStyle(.secondary)
+              }
+            } icon: {
+              Image(systemName: perk.symbol).foregroundStyle(Color.shoppingAccent)
+            }
           }
+          Label("Generated icons for every item", systemImage: "sparkles")
         }
         Section("What is stored") {
           Text(
-            "The lists you put in Cloud and their items, and your name from your Apple ID. Your email address is not requested."
+            "Your lists and their items, and your name from your Apple ID. Your email address is not requested."
           )
-          Text("Lists kept on this iPhone are never uploaded.")
+          Text("Bring and Mealie lists stay with those services. In offline mode nothing is uploaded.")
         }
         Section("Your control") {
           Text(
-            "Sign out or delete your account in Settings at any time. Deleting removes your Cloud data from our server; copies of your lists stay on this iPhone."
+            "Sign out or delete your account in Settings at any time. Both switch the app to offline; copies of your lists stay on this iPhone, and deleting removes your data from our server."
           )
           Text("Shopping List Cloud is free. Fair-use limits apply to generated icons.")
         }
@@ -331,7 +283,7 @@ struct CloudInfoSheet: View {
   }
 }
 
-/// Settings section showing the Cloud account, with sign out and account deletion.
+/// Settings section: the Cloud account when online, or the way to go online when offline.
 struct CloudAccountSection: View {
   @EnvironmentObject private var store: AppStore
   @State private var isWorking = false
@@ -342,7 +294,7 @@ struct CloudAccountSection: View {
 
   var body: some View {
     Section {
-      if let account = store.cloudAccount, store.isCloudSignedIn {
+      if let account = store.cloudAccount, store.isCloudSignedIn, store.storageMode == .online {
         LabeledContent("Signed in as") {
           Text(account.name ?? String(localized: "Apple ID"))
         }
@@ -356,18 +308,24 @@ struct CloudAccountSection: View {
           .disabled(isWorking)
           .accessibilityIdentifier("cloud-delete-account")
       } else {
-        CloudContinueButton(isWorking: $isWorking, failure: $failure) {}
+        LabeledContent("Mode") { Text("Offline") }
+          .accessibilityIdentifier("storage-mode")
+        GoOnlineButton(isWorking: $isWorking, failure: $failure)
           .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
       }
+      // The sheet sits on the row: a sheet on a Form section is never presented.
       Button("About Shopping List Cloud") { infoPresented = true }
+        .sheet(isPresented: $infoPresented) { CloudInfoSheet() }
       if let failure {
         Text(failure).font(.footnote).foregroundStyle(.red)
       }
     } header: {
       Text("Shopping List Cloud")
     } footer: {
-      if !store.isCloudSignedIn {
-        Text("Sync and share lists for free. Lists on this iPhone stay local unless you move them.")
+      if store.storageMode != .online {
+        Text(
+          "Go online to share with family, back up to Cloud, and use MCP. Your lists on this iPhone move to Shopping List Cloud."
+        )
       }
     }
     .confirmationDialog(
@@ -375,7 +333,7 @@ struct CloudAccountSection: View {
     ) {
       Button("Sign Out", role: .destructive) { store.signOutOfCloud() }
     } message: {
-      Text("Your Cloud lists stay on this iPhone as local lists and stop syncing.")
+      Text("The app switches to offline. Your lists stay on this iPhone and stop syncing.")
     }
     .confirmationDialog(
       "Delete your Cloud account?", isPresented: $confirmingDeletion, titleVisibility: .visible
@@ -393,8 +351,162 @@ struct CloudAccountSection: View {
       }
     } message: {
       Text(
-        "This permanently deletes your Cloud lists from our server. Copies stay on this iPhone.")
+        "This permanently deletes your lists from our server and switches the app to offline. Copies stay on this iPhone."
+      )
     }
+  }
+}
+
+/// Signs in with Apple if needed, then moves the local lists to Cloud.
+struct GoOnlineButton: View {
+  @EnvironmentObject private var store: AppStore
+  @Binding var isWorking: Bool
+  @Binding var failure: String?
+
+  var body: some View {
+    if store.isCloudSignedIn {
+      Button {
+        Task {
+          isWorking = true
+          defer { isWorking = false }
+          await goOnline()
+        }
+      } label: {
+        Group {
+          if isWorking { ProgressView().tint(.white) } else { Text("Go Online") }
+        }
+        .font(.headline).frame(maxWidth: .infinity).frame(height: 50)
+      }
+      .buttonStyle(.borderedProminent).tint(.shoppingAccent)
+      .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+      .disabled(isWorking)
+      .accessibilityIdentifier("go-online")
+    } else {
+      CloudContinueButton(isWorking: $isWorking, failure: $failure) { await goOnline() }
+    }
+  }
+
+  private func goOnline() async {
+    failure = nil
+    do {
+      try await store.goOnline()
+    } catch {
+      failure = String(
+        localized: "Couldn't move your lists to Shopping List Cloud. Please try again.")
+    }
+  }
+}
+
+/// Shown on first launch and on the first launch after updating: offline or online.
+struct ModeChoiceScreen: View {
+  @EnvironmentObject private var store: AppStore
+  @State private var choice: StorageMode?
+  @State private var isWorking = false
+  @State private var failure: String?
+  @State private var infoPresented = false
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 8) {
+          Image(systemName: "cart.fill")
+            .font(.system(size: 30, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 64, height: 64)
+            .background(
+              LinearGradient(
+                colors: [.shoppingAccent, .shoppingMint], startPoint: .topLeading,
+                endPoint: .bottomTrailing),
+              in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.bottom, 6)
+            .accessibilityHidden(true)
+          Text("Welcome to Shopping List").font(.largeTitle.bold())
+          Text("How do you want to use the app? You can change this later in Settings.")
+            .font(.subheadline).foregroundStyle(.secondary)
+        }
+        VStack(spacing: 12) {
+          StorageOptionCard(
+            symbol: "icloud.fill", title: "Online", subtitle: "Shopping List Cloud with your Apple ID.",
+            badge: "FREE", isSelected: choice == .online, identifier: "mode-online"
+          ) {
+            choice = .online
+          } details: {
+            VStack(alignment: .leading, spacing: 10) {
+              ForEach(Array(CloudBenefits.perks.enumerated()), id: \.offset) { _, perk in
+                HStack(alignment: .top, spacing: 10) {
+                  Image(systemName: perk.symbol)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.shoppingAccent)
+                    .frame(width: 22)
+                  VStack(alignment: .leading, spacing: 1) {
+                    Text(perk.title).font(.subheadline.weight(.semibold))
+                      .foregroundStyle(.primary)
+                    Text(perk.detail).font(.footnote).foregroundStyle(.secondary)
+                  }
+                }
+              }
+            }
+            .padding(.top, 8)
+          }
+          StorageOptionCard(
+            symbol: "iphone", title: "Offline",
+            subtitle: "Your lists stay on this iPhone. No account needed.",
+            isSelected: choice == .offline, identifier: "mode-offline"
+          ) {
+            choice = .offline
+          } details: {
+            EmptyView()
+          }
+        }
+        Label("Bring and Mealie lists work in both modes.", systemImage: "link")
+          .font(.footnote).foregroundStyle(.secondary)
+      }
+      .padding(.horizontal, 20)
+      .padding(.top, 32)
+      .padding(.bottom, 16)
+    }
+    .safeAreaInset(edge: .bottom) {
+      VStack(spacing: 10) {
+        switch choice {
+        case .online:
+          GoOnlineButton(isWorking: $isWorking, failure: $failure)
+          if let failure {
+            Text(failure).font(.footnote).foregroundStyle(.red)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .accessibilityIdentifier("mode-error")
+          }
+          VStack(alignment: .leading, spacing: 4) {
+            Text("Your lists on this iPhone move to Shopping List Cloud.")
+            Button("About Shopping List Cloud") { infoPresented = true }
+              .font(.footnote.weight(.semibold))
+              .accessibilityIdentifier("cloud-info-button")
+          }
+          .font(.footnote).foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        case .offline, nil:
+          Button {
+            store.chooseOffline()
+          } label: {
+            Text("Continue").font(.headline).frame(maxWidth: .infinity).frame(height: 50)
+          }
+          .buttonStyle(.borderedProminent).tint(.shoppingAccent)
+          .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+          .disabled(choice == nil)
+          .accessibilityIdentifier("mode-continue")
+        }
+      }
+      .padding(.horizontal, 20)
+      .padding(.top, 12)
+      .padding(.bottom, 8)
+      .background(.bar)
+    }
+    .background(Color(.systemGroupedBackground))
+    .animation(.snappy, value: choice)
+    .interactiveDismissDisabled()
     .sheet(isPresented: $infoPresented) { CloudInfoSheet() }
+    .onAppear {
+      // Someone already signed in before this screen existed most likely wants to stay online.
+      if choice == nil, store.isCloudSignedIn { choice = .online }
+    }
   }
 }

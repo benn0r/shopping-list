@@ -39,7 +39,7 @@ enum CloudConfiguration {
       if let override = launchValue("cloudServerURL"), !override.isEmpty { return override }
     #endif
     let value = (Bundle.main.object(forInfoDictionaryKey: "CloudServerURL") as? String) ?? ""
-    return value.isEmpty || value.hasPrefix("$(") ? "https://lists.benn0r.me" : value
+    return value.isEmpty || value.hasPrefix("$(") ? "https://shopping-list.tueftli.com" : value
   }
 
   /// Debug-only: `-mockAppleSignIn YES` replaces the Apple sheet with a fixed credential so
