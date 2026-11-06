@@ -519,7 +519,8 @@ final class AppStoreTests: XCTestCase {
     XCTAssertEqual(
       ProductLabelStyle.allCases.map(\.title), ["Generic name", "Exact product", "Ask every time"])
     XCTAssertEqual(
-      ProviderKind.allCases.map(\.title), ["Bring", "Mealie", "Shopping List Server"])
+      ProviderKind.allCases.map(\.title),
+      ["Bring", "Mealie", "Shopping List Server", "Shopping List Cloud"])
     XCTAssertNotNil(ProviderError.notConfigured.errorDescription)
     XCTAssertTrue(ProviderError.requestFailed(503).errorDescription?.contains("503") == true)
   }

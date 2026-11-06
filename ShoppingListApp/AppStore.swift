@@ -14,10 +14,13 @@ final class AppStore: ObservableObject {
   @Published var lookupPreferences: ProductLookupPreferences
   @Published var customBarcodes: [CustomBarcode]
   @Published var appLanguage: AppLanguage
+  @Published var cloudAccount: CloudAccount?
+  @Published var needsWelcome: Bool
   @Published var errorMessage: String?
 
   private let storageURL: URL
   private let providerFactory: (ProviderKind, ProviderConfiguration) -> ShoppingProvider
+  private let cloudService: CloudService
   private let persistence = StatePersistence()
   private var persistenceTask: Task<Void, Never>?
   private var syncingListIDs: Set<UUID> = []
@@ -28,10 +31,12 @@ final class AppStore: ObservableObject {
       for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appendingPathComponent("shopping-list.json"),
     providerFactory: @escaping (ProviderKind, ProviderConfiguration) -> ShoppingProvider =
-      ProviderFactory.make
+      ProviderFactory.make,
+    cloudService: CloudService = CloudService()
   ) {
     self.storageURL = storageURL
     self.providerFactory = providerFactory
+    self.cloudService = cloudService
     if let data = try? Data(contentsOf: storageURL),
       let snapshot = try? JSONDecoder().decode(AppStateSnapshot.self, from: data)
     {
@@ -46,6 +51,8 @@ final class AppStore: ObservableObject {
       lookupPreferences = snapshot.lookupPreferences
       customBarcodes = snapshot.customBarcodes
       appLanguage = snapshot.appLanguage
+      cloudAccount = snapshot.cloudAccount
+      needsWelcome = snapshot.needsWelcome
       for provider in ProviderKind.allCases {
         providerConfigurations[provider]?.secret = CredentialVault.read(provider)
       }
@@ -58,10 +65,14 @@ final class AppStore: ObservableObject {
       activeListID = initial.id
       viewMode = .list
       showCategoryLabels = true
-      providerConfigurations = [.bring: .init(), .mealie: .init(), .server: .init()]
+      providerConfigurations = [
+        .bring: .init(), .mealie: .init(), .server: .init(), .cloud: .init(),
+      ]
       lookupPreferences = .init()
       customBarcodes = []
       appLanguage = .automatic
+      cloudAccount = nil
+      needsWelcome = true
     }
   }
 
@@ -110,7 +121,8 @@ final class AppStore: ObservableObject {
       lists: lists, stores: stores, items: items, sessions: sessions,
       activeListID: activeListID, viewMode: viewMode, showCategoryLabels: showCategoryLabels,
       providerConfigurations: publicConfigurations, lookupPreferences: lookupPreferences,
-      customBarcodes: customBarcodes, appLanguage: appLanguage
+      customBarcodes: customBarcodes, appLanguage: appLanguage, cloudAccount: cloudAccount,
+      needsWelcome: needsWelcome
     )
     return (snapshot, secrets)
   }
@@ -123,6 +135,8 @@ final class AppStore: ObservableObject {
   ) async {
     let value = label.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !value.isEmpty else { return }
+    // Adding an item before answering the welcome card keeps the first list on this iPhone.
+    needsWelcome = false
     var item = ShoppingItem(
       barcode: barcode, label: value, brand: brand, imageURL: imageURL, quantity: quantity,
       unit: unit, stores: stores, exactLabel: exactLabel, genericLabel: genericLabel,
@@ -269,11 +283,96 @@ final class AppStore: ObservableObject {
     if changed { save() }
   }
 
-  func createList(name: String, target: SyncTarget? = nil) {
+  @discardableResult
+  func createList(name: String, target: SyncTarget? = nil) -> ShoppingListDefinition {
     let list = ShoppingListDefinition(name: name, syncTarget: target)
     lists.append(list)
     items[list.id] = []
+    needsWelcome = false
     save()
+    return list
+  }
+
+  // MARK: Shopping List Cloud
+
+  var isCloudSignedIn: Bool {
+    cloudAccount != nil && providerConfigurations[.cloud]?.secret.isEmpty == false
+  }
+
+  func signInToCloud(with credential: AppleSignInCredential) async throws {
+    let session = try await cloudService.signIn(with: credential)
+    cloudAccount = CloudAccount(
+      userID: session.user.id, appleUserID: credential.appleUserID, name: session.user.name)
+    providerConfigurations[.cloud] = ProviderConfiguration(
+      enabled: true, serverURL: cloudService.baseURL, secret: session.token)
+    save()
+  }
+
+  /// Creates the list in Cloud and links it; the local list is unchanged if that fails.
+  func moveListToCloud(_ listID: UUID) async throws {
+    guard let list = lists.first(where: { $0.id == listID }), list.syncTarget == nil else {
+      return
+    }
+    let remote = try await provider(for: .cloud).createList(named: list.name)
+    guard let index = lists.firstIndex(where: { $0.id == listID }) else { return }
+    lists[index].syncTarget = SyncTarget(
+      provider: .cloud, remoteListID: remote.id, remoteListName: remote.name)
+    save()
+    // Items already on the list have no remote ID yet, so syncing uploads them.
+    await sync(lists[index])
+  }
+
+  /// Creates a new list directly in Cloud. Nothing is created if the server can't be reached.
+  func createCloudList(name: String) async throws {
+    let remote = try await provider(for: .cloud).createList(named: name)
+    createList(
+      name: name,
+      target: SyncTarget(provider: .cloud, remoteListID: remote.id, remoteListName: remote.name))
+  }
+
+  /// Answers the welcome card: names the first list and stores it locally or in Cloud.
+  func completeWelcome(name: String, inCloud: Bool) async throws {
+    let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let index = lists.firstIndex(where: { $0.id == activeListID }) else { return }
+    if !value.isEmpty { lists[index].name = value }
+    if inCloud { try await moveListToCloud(activeListID) }
+    needsWelcome = false
+    save()
+  }
+
+  /// Signs out of Cloud. Cloud lists stay on this iPhone as local lists.
+  func signOutOfCloud() {
+    for index in lists.indices where lists[index].syncTarget?.provider == .cloud {
+      lists[index].syncTarget = nil
+      let id = lists[index].id
+      items[id] = items[id]?.map { item in
+        var local = item
+        local.remoteItemID = nil
+        local.remoteSpecification = nil
+        return local
+      }
+    }
+    cloudAccount = nil
+    providerConfigurations[.cloud] = ProviderConfiguration()
+    save()
+  }
+
+  /// Deletes the Cloud account and its server data; local copies of the lists are kept.
+  func deleteCloudAccount() async throws {
+    let token = providerConfigurations[.cloud]?.secret ?? ""
+    if !token.isEmpty { try await cloudService.deleteAccount(token: token) }
+    signOutOfCloud()
+  }
+
+  /// Signs out when the user has revoked Sign in with Apple for this app in iOS Settings.
+  func verifyCloudCredential() async {
+    guard let account = cloudAccount else { return }
+    if !(await AppleCredentialCheck.isStillAuthorized(appleUserID: account.appleUserID)) {
+      signOutOfCloud()
+      errorMessage = String(
+        localized:
+          "You were signed out of Shopping List Cloud. Your lists are still on this iPhone.")
+    }
   }
   func updateList(_ list: ShoppingListDefinition) {
     if let index = lists.firstIndex(where: { $0.id == list.id }) {

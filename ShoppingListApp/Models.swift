@@ -52,9 +52,24 @@ struct CustomBarcode: Codable, Identifiable, Hashable, Sendable {
   var id: String { barcode }
 }
 enum ProviderKind: String, Codable, CaseIterable, Identifiable, Sendable {
-  case bring, mealie, server
+  case bring, mealie, server, cloud
   var id: String { rawValue }
-  var title: String { self == .server ? "Shopping List Server" : rawValue.capitalized }
+  var title: String {
+    switch self {
+    case .server: "Shopping List Server"
+    case .cloud: "Shopping List Cloud"
+    default: rawValue.capitalized
+    }
+  }
+  /// Providers the user connects by hand in Settings; Cloud is set up by signing in.
+  static var connectable: [ProviderKind] { [.bring, .mealie, .server] }
+}
+
+/// The signed-in Shopping List Cloud account. The session token lives in the Keychain.
+struct CloudAccount: Codable, Hashable, Sendable {
+  var userID: String
+  var appleUserID: String
+  var name: String?
 }
 
 struct SyncTarget: Codable, Hashable, Sendable {
@@ -161,11 +176,14 @@ struct AppStateSnapshot: Codable, Sendable {
   var lookupPreferences: ProductLookupPreferences = .init()
   var customBarcodes: [CustomBarcode] = []
   var appLanguage: AppLanguage = .automatic
+  var cloudAccount: CloudAccount?
+  /// True until the user has chosen where their first list is stored.
+  var needsWelcome = false
 
   enum CodingKeys: String, CodingKey {
     case lists, stores, items, sessions, activeListID, viewMode, showCategoryLabels
     case providerConfigurations
-    case lookupPreferences, customBarcodes, appLanguage
+    case lookupPreferences, customBarcodes, appLanguage, cloudAccount, needsWelcome
   }
 
   init(
@@ -174,7 +192,8 @@ struct AppStateSnapshot: Codable, Sendable {
     showCategoryLabels: Bool = true,
     providerConfigurations: [ProviderKind: ProviderConfiguration],
     lookupPreferences: ProductLookupPreferences = .init(), customBarcodes: [CustomBarcode] = [],
-    appLanguage: AppLanguage = .automatic
+    appLanguage: AppLanguage = .automatic, cloudAccount: CloudAccount? = nil,
+    needsWelcome: Bool = false
   ) {
     self.lists = lists
     self.stores = stores
@@ -187,6 +206,8 @@ struct AppStateSnapshot: Codable, Sendable {
     self.lookupPreferences = lookupPreferences
     self.customBarcodes = customBarcodes
     self.appLanguage = appLanguage
+    self.cloudAccount = cloudAccount
+    self.needsWelcome = needsWelcome
   }
 
   init(from decoder: Decoder) throws {
@@ -205,5 +226,8 @@ struct AppStateSnapshot: Codable, Sendable {
       ?? .init()
     customBarcodes = try values.decodeIfPresent([CustomBarcode].self, forKey: .customBarcodes) ?? []
     appLanguage = try values.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .automatic
+    cloudAccount = try values.decodeIfPresent(CloudAccount.self, forKey: .cloudAccount)
+    // Existing installs already have their lists; only fresh installs see the welcome card.
+    needsWelcome = try values.decodeIfPresent(Bool.self, forKey: .needsWelcome) ?? false
   }
 }

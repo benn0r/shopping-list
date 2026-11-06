@@ -36,6 +36,11 @@ can synchronize individual lists without changing the core app.
 - Shopping List Server sync uses its URL and an API key from its web interface (Settings → API
   Tokens); the icon and category the server returns for an item replace the app's own label
   matching, and icons the server generated are downloaded once and cached
+- First launch shows a card to create a "Groceries" list either on the iPhone or in Shopping List
+  Cloud; adding an item instead keeps it local
+- Shopping List Cloud: an optional, free hosted Shopping List Server. Choosing it when creating a
+  list signs in with Apple; lists can also be moved to Cloud later. Settings shows the account with
+  sign out (Cloud lists stay local) and account deletion
 - Local JSON persistence with no React Native, Expo, JavaScript runtime, CocoaPods, or Android
   target
 
@@ -51,6 +56,8 @@ can synchronize individual lists without changing the core app.
 Copy `.env.example` to the ignored `.env` file and set `IOS_DEVELOPMENT_TEAM` to your Apple
 Developer Team ID. Project generation then applies automatic signing every time, so regenerating
 `ShoppingList.xcodeproj` does not lose the selected team.
+`CLOUD_SERVER_URL` sets the hosted Shopping List Server used by Shopping List Cloud (default
+`https://lists.benn0r.me`). Sign in with Apple needs the capability enabled for the app ID.
 Set `BRING_API_KEY` in the same file when using Bring synchronization. The value is embedded into
 the app at build time; the previous `EXPO_PUBLIC_BRING_API_KEY` name is accepted for migration.
 
@@ -85,6 +92,9 @@ tab instead of merely checking their settings controls.
 `npm run mock:providers` starts a dependency-free local server on port 8787. It implements the
 Bring authentication/list/item endpoints, Mealie shopping-list/item endpoints, and the Shopping
 List Server `/api/v1` list/item endpoints (API key `slt_mock`) used by the app.
+It also implements the Cloud endpoints (`POST /api/v1/auth/apple`, `POST /api/v1/lists`,
+`DELETE /api/v1/me`). Debug builds launched with `mockAppleSignIn: true` and
+`cloudServerURL: http://127.0.0.1:8787` replace the Apple sheet with a fixed mock credential.
 Maestro starts this server automatically, so E2E tests never contact live provider accounts.
 
 The mock data is fictional. Provider URLs and credentials are entered at runtime and must never be

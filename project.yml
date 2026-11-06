@@ -17,6 +17,10 @@ targets:
       - path: ShoppingListApp
       - path: assets/food-icons
         buildPhase: resources
+    entitlements:
+      path: ShoppingListApp/ShoppingList.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ch.benn0r.shoppinglist
@@ -26,6 +30,7 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ${IOS_DEVELOPMENT_TEAM}
         BRING_API_KEY: ${BRING_API_KEY}
+        CLOUD_SERVER_URL: ${CLOUD_SERVER_URL}
         MARKETING_VERSION: 1.0.0
         CURRENT_PROJECT_VERSION: 3
         GENERATE_INFOPLIST_FILE: NO

@@ -26,6 +26,8 @@
   <false/>
   <key>BringAPIKey</key>
   <string>$(BRING_API_KEY)</string>
+  <key>CloudServerURL</key>
+  <string>$(CLOUD_SERVER_URL)</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsLocalNetworking</key>

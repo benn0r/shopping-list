@@ -1,0 +1,87 @@
+appId: ch.benn0r.shoppinglist
+---
+# Fresh install: choose Shopping List Cloud on the welcome card. Debug builds replace the Apple
+# sheet with a fixed mock credential, which the mock server exchanges for a Cloud session.
+- launchApp:
+    clearState: true
+    arguments:
+      mockAppleSignIn: true
+      cloudServerURL: "http://127.0.0.1:8787"
+# A system "Sign in to your Apple Account" alert can survive from an earlier real sign-in attempt.
+- tapOn:
+    text: "Close"
+    optional: true
+- assertVisible: "Create your first list"
+- assertVisible:
+    id: "storage-local"
+- tapOn:
+    id: "storage-cloud"
+- assertVisible: "Generated icons for every item"
+- assertVisible: "Share lists with family and friends"
+- scrollUntilVisible:
+    element:
+      id: "cloud-info-button"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "cloud-info-button"
+- assertVisible: "What is stored"
+- tapOn: "Done"
+- tapOn:
+    id: "continue-with-apple"
+- extendedWaitUntil:
+    notVisible:
+      id: "welcome-card"
+    timeout: 8000
+- tapOn:
+    id: "add-item-field"
+- inputText: "Bread"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: ".*Bread.*"
+    timeout: 5000
+- takeScreenshot: artifacts/cloud-welcome-list
+# A second list created straight in Cloud from Settings, without a second sign-in.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "cloud-account-name"
+    direction: DOWN
+- assertVisible: ".*Alex.*"
+- scrollUntilVisible:
+    element:
+      id: "add-list-button"
+    direction: UP
+- tapOn:
+    id: "add-list-button"
+- tapOn:
+    id: "list-name-field"
+- inputText: "Party"
+- tapOn:
+    id: "storage-cloud"
+- tapOn:
+    id: "save-list-button"
+- extendedWaitUntil:
+    visible: "Party"
+    timeout: 5000
+- tapOn: "Party"
+- assertVisible:
+    id: "list-storage"
+- assertVisible: ".*Stored In.*Shopping List Cloud.*"
+- tapOn: "Cancel"
+# Signing out keeps both lists on the iPhone.
+- scrollUntilVisible:
+    element:
+      id: "cloud-sign-out"
+    direction: DOWN
+- tapOn:
+    id: "cloud-sign-out"
+- assertVisible: "Sign out of Shopping List Cloud?"
+- tapOn: "Sign Out"
+- scrollUntilVisible:
+    element:
+      id: "continue-with-apple"
+    direction: DOWN
+- scrollUntilVisible:
+    element: "Party"
+    direction: UP

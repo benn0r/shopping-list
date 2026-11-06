@@ -10,12 +10,20 @@ struct ShoppingListScreen: View {
   var body: some View {
     NavigationStack {
       ScrollView {
+        if store.needsWelcome {
+          WelcomeCard()
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
         ItemCollection(
           items: store.activeItems, mode: store.viewMode,
           showCategoryLabels: store.showCategoryLabels
         ) { selectedItem = $0 }
         .padding(.horizontal, 16)
       }
+      .scrollDismissesKeyboard(.interactively)
+      .animation(.snappy, value: store.needsWelcome)
       .refreshable { await store.sync() }
       .task {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {

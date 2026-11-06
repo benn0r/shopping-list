@@ -73,6 +73,7 @@ struct SettingsScreen: View {
           Text("Custom labels take priority over online product databases.")
         }
         .onChange(of: store.lookupPreferences) { store.save() }
+        CloudAccountSection()
         ProviderSection(kind: .bring)
         ProviderSection(kind: .mealie)
         ProviderSection(kind: .server)
@@ -229,7 +230,7 @@ private struct ProviderSection: View {
       .accessibilityIdentifier("enable-\(kind.rawValue)-sync")
       if config.wrappedValue.enabled {
         switch kind {
-        case .mealie, .server:
+        case .mealie, .server, .cloud:
           TextField("Server URL", text: config.serverURL).textInputAutocapitalization(.never)
             .keyboardType(.URL)
             .autocorrectionDisabled()
@@ -260,7 +261,7 @@ private struct ProviderSection: View {
     switch kind {
     case .bring: "Password"
     case .mealie: "API Token"
-    case .server: "API Key"
+    case .server, .cloud: "API Key"
     }
   }
 }
@@ -268,11 +269,28 @@ private struct ProviderSection: View {
 private struct ListEditor: View {
   @EnvironmentObject private var store: AppStore
   @Environment(\.dismiss) private var dismiss
-  @State var list: ShoppingListDefinition
-  var isNew = false
+  @State private var list: ShoppingListDefinition
+  let isNew: Bool
+  @State private var storage: ListStorage
   @State private var remoteLists: [ProviderList] = []
   @State private var loadingRemoteLists = false
   @State private var remoteListError: String?
+  @State private var isWorking = false
+  @State private var cloudFailure: String?
+  @State private var infoPresented = false
+
+  init(list: ShoppingListDefinition, isNew: Bool = false) {
+    _list = State(initialValue: list)
+    self.isNew = isNew
+    let storage: ListStorage =
+      switch list.syncTarget?.provider {
+      case nil: .local
+      case .cloud: .cloud
+      default: .connected
+      }
+    _storage = State(initialValue: storage)
+  }
+
   var body: some View {
     NavigationStack {
       Form {
@@ -280,48 +298,11 @@ private struct ListEditor: View {
           TextField("List name", text: $list.name)
             .accessibilityIdentifier("list-name-field")
         }
-        Section("Synced List") {
-          Picker(
-            "Provider",
-            selection: Binding(
-              get: { list.syncTarget?.provider },
-              set: { provider in
-                list.syncTarget = provider.map {
-                  SyncTarget(provider: $0, remoteListID: "", remoteListName: "")
-                }
-              })
-          ) {
-            Text("None").tag(nil as ProviderKind?)
-            ForEach(ProviderKind.allCases.filter { providerEnabled($0) }) {
-              Text($0.title).tag(Optional($0))
-            }
-          }
-          if let target = list.syncTarget, !remoteLists.isEmpty {
-            Picker(
-              "Provider List",
-              selection: Binding(
-                get: { target.remoteListID },
-                set: { id in
-                  list.syncTarget?.remoteListID = id
-                  list.syncTarget?.remoteListName =
-                    remoteLists.first(where: { $0.id == id })?.name ?? ""
-                })
-            ) {
-              ForEach(remoteLists) { Text($0.name).tag($0.id) }
-            }
-          } else if loadingRemoteLists {
-            HStack {
-              ProgressView()
-              Text("Loading provider lists…").foregroundStyle(.secondary)
-            }
-          } else if let remoteListError {
-            VStack(alignment: .leading, spacing: 8) {
-              Text(remoteListError).font(.footnote).foregroundStyle(.red)
-              Button("Try Again") { Task { await loadRemoteLists() } }
-            }
-          }
-        }
-        if !isNew {
+        if isNew {
+          newListStorage
+        } else {
+          existingListStorage
+          if list.syncTarget?.provider != .cloud { syncedListSection }
           Section {
             Button("Delete List", role: .destructive) {
               store.deleteList(list)
@@ -334,17 +315,190 @@ private struct ListEditor: View {
       .toolbar {
         ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
         ToolbarItem(placement: .confirmationAction) {
-          Button("Save") {
-            isNew
-              ? store.createList(name: list.name, target: list.syncTarget) : store.updateList(list)
-            dismiss()
-          }.disabled(list.name.trimmingCharacters(in: .whitespaces).isEmpty)
+          if isWorking {
+            ProgressView()
+          } else {
+            Button("Save") { Task { await save() } }
+              .disabled(!canSave)
+              .accessibilityIdentifier("save-list-button")
+          }
         }
+      }
+      .onChange(of: storage) { _, value in
+        if value != .connected { list.syncTarget = nil }
+        cloudFailure = nil
       }
       .task(id: list.syncTarget?.provider) {
         await loadRemoteLists()
       }
-    }.presentationDetents([.medium, .large])
+      .sheet(isPresented: $infoPresented) { CloudInfoSheet() }
+    }.presentationDetents([.large])
+  }
+
+  @ViewBuilder private var newListStorage: some View {
+    Section {
+      StoragePicker(selection: $storage, showsConnected: hasConnectedProviders)
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+    } header: {
+      Text("Stored In")
+    } footer: {
+      if storage == .cloud {
+        CloudFootnote { infoPresented = true }.padding(.top, 6)
+      }
+    }
+    if storage == .cloud && !store.isCloudSignedIn {
+      Section {
+        CloudContinueButton(isWorking: $isWorking, failure: $cloudFailure) { await save() }
+          .disabled(trimmedName.isEmpty)
+          .listRowInsets(EdgeInsets())
+          .listRowBackground(Color.clear)
+      } footer: {
+        cloudFailureText
+      }
+    } else if cloudFailure != nil {
+      Section { cloudFailureText }
+    }
+    if storage == .connected { syncedListSection }
+  }
+
+  @ViewBuilder private var existingListStorage: some View {
+    Section {
+      LabeledContent("Stored In") {
+        Text(storageTitle)
+      }
+      .accessibilityIdentifier("list-storage")
+      if list.syncTarget == nil {
+        if store.isCloudSignedIn {
+          Button("Move to Shopping List Cloud", systemImage: "icloud.and.arrow.up") {
+            Task { await moveToCloud() }
+          }
+          .disabled(isWorking)
+          .accessibilityIdentifier("move-to-cloud")
+        } else {
+          CloudContinueButton(isWorking: $isWorking, failure: $cloudFailure) {
+            await moveToCloud()
+          }
+          .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+        }
+      }
+    } footer: {
+      if list.syncTarget == nil {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("Move this list to Shopping List Cloud to get generated icons and share it.")
+          cloudFailureText
+        }
+      }
+    }
+  }
+
+  @ViewBuilder private var cloudFailureText: some View {
+    if let cloudFailure {
+      Text(cloudFailure).foregroundStyle(.red).accessibilityIdentifier("list-cloud-error")
+    }
+  }
+
+  private var syncedListSection: some View {
+    Section("Synced List") {
+      Picker(
+        "Provider",
+        selection: Binding(
+          get: { list.syncTarget?.provider },
+          set: { provider in
+            list.syncTarget = provider.map {
+              SyncTarget(provider: $0, remoteListID: "", remoteListName: "")
+            }
+          })
+      ) {
+        Text("None").tag(nil as ProviderKind?)
+        ForEach(ProviderKind.connectable.filter { providerEnabled($0) }) {
+          Text($0.title).tag(Optional($0))
+        }
+      }
+      if let target = list.syncTarget, !remoteLists.isEmpty {
+        Picker(
+          "Provider List",
+          selection: Binding(
+            get: { target.remoteListID },
+            set: { id in
+              list.syncTarget?.remoteListID = id
+              list.syncTarget?.remoteListName =
+                remoteLists.first(where: { $0.id == id })?.name ?? ""
+            })
+        ) {
+          ForEach(remoteLists) { Text($0.name).tag($0.id) }
+        }
+      } else if loadingRemoteLists {
+        HStack {
+          ProgressView()
+          Text("Loading provider lists…").foregroundStyle(.secondary)
+        }
+      } else if let remoteListError {
+        VStack(alignment: .leading, spacing: 8) {
+          Text(remoteListError).font(.footnote).foregroundStyle(.red)
+          Button("Try Again") { Task { await loadRemoteLists() } }
+        }
+      }
+    }
+  }
+
+  private var trimmedName: String { list.name.trimmingCharacters(in: .whitespaces) }
+
+  private var canSave: Bool {
+    !trimmedName.isEmpty && !(isNew && storage == .cloud && !store.isCloudSignedIn)
+  }
+
+  private var storageTitle: LocalizedStringKey {
+    switch list.syncTarget?.provider {
+    case nil: "On this iPhone"
+    case .cloud: "Shopping List Cloud"
+    case .bring: "Bring"
+    case .mealie: "Mealie"
+    case .server: "Shopping List Server"
+    }
+  }
+
+  private var hasConnectedProviders: Bool {
+    ProviderKind.connectable.contains { store.providerConfigurations[$0]?.enabled == true }
+  }
+
+  private func save() async {
+    guard !trimmedName.isEmpty else { return }
+    guard isNew else {
+      store.updateList(list)
+      dismiss()
+      return
+    }
+    switch storage {
+    case .local: store.createList(name: trimmedName)
+    case .connected: store.createList(name: trimmedName, target: list.syncTarget)
+    case .cloud:
+      isWorking = true
+      defer { isWorking = false }
+      do {
+        try await store.createCloudList(name: trimmedName)
+      } catch {
+        cloudFailure = String(
+          localized:
+            "Couldn't reach Shopping List Cloud. Try again, or keep the list on this iPhone.")
+        return
+      }
+    }
+    dismiss()
+  }
+
+  private func moveToCloud() async {
+    isWorking = true
+    defer { isWorking = false }
+    cloudFailure = nil
+    // Keep a rename the user typed before moving.
+    store.updateList(list)
+    do {
+      try await store.moveListToCloud(list.id)
+      if let updated = store.lists.first(where: { $0.id == list.id }) { list = updated }
+    } catch {
+      cloudFailure = String(localized: "Couldn't reach Shopping List Cloud. Please try again.")
+    }
   }
 
   private func providerEnabled(_ provider: ProviderKind) -> Bool {
@@ -353,11 +507,13 @@ private struct ListEditor: View {
   }
 
   private func loadRemoteLists() async {
-    guard let kind = list.syncTarget?.provider, let config = store.providerConfigurations[kind],
-      config.enabled
+    guard let kind = list.syncTarget?.provider, kind != .cloud,
+      let config = store.providerConfigurations[kind], config.enabled
     else {
       remoteLists = []
-      remoteListError = list.syncTarget == nil ? nil : "Enable and configure this provider first."
+      remoteListError =
+        list.syncTarget == nil || list.syncTarget?.provider == .cloud
+        ? nil : String(localized: "Enable and configure this provider first.")
       return
     }
     loadingRemoteLists = true

@@ -12,9 +12,12 @@ MOCK_PID=$!
 trap 'kill "$MOCK_PID" 2>/dev/null || true' EXIT
 npm run project:generate
 xcrun simctl boot "$SIMULATOR_NAME" 2>/dev/null || true
+# Target the named simulator explicitly: with several booted, "booted" is ambiguous.
+DEVICE_ID="$(xcrun simctl list devices booted | grep -F "    $SIMULATOR_NAME (" | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
+[[ -n "$DEVICE_ID" ]] || { echo "Simulator '$SIMULATOR_NAME' is not booted" >&2; exit 1; }
 xcodebuild -project ShoppingList.xcodeproj -scheme ShoppingList -configuration Debug \
   -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
   -derivedDataPath .build/DerivedData build
 APP_PATH=".build/DerivedData/Build/Products/Debug-iphonesimulator/Shopping List.app"
-xcrun simctl install booted "$APP_PATH"
-maestro test "$FLOW_PATH"
+xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+maestro --device "$DEVICE_ID" test "$FLOW_PATH"

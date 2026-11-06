@@ -38,17 +38,28 @@ http.createServer(async (req, res) => {
   if (match && req.method === 'PUT') { const value = JSON.parse(await body(req)); const idx = items.findIndex((item) => item.id === match[1]); if (idx >= 0) items[idx] = value; return json(res, value); }
   const generated = url.pathname.match(/^\/static\/icons\/(gen-[a-z0-9-]+)\.png$/);
   if (generated && generatedIcons[generated[1]]) { res.writeHead(200, { 'content-type': 'image/png' }); return res.end(readFileSync(generatedIcons[generated[1]])); }
+  if (url.pathname === '/api/v1/auth/apple' && req.method === 'POST') {
+    // Shopping List Cloud: the real server verifies Apple's identity token; the mock accepts the
+    // debug build's fixed mock credential only.
+    const value = JSON.parse(await body(req));
+    if (value.identityToken !== 'mock-identity-token') return json(res, { error: 'unauthorized', message: 'Invalid Apple identity token.' }, 401);
+    return json(res, { token: 'slt_cloud_mock', user: { id: 'cloud-user', name: value.givenName ?? null } });
+  }
   if (url.pathname.startsWith('/api/v1/')) {
-    if (req.headers.authorization !== 'Bearer slt_mock') return json(res, { error: 'unauthorized', message: 'Invalid API token.' }, 401);
+    if (!['Bearer slt_mock', 'Bearer slt_cloud_mock'].includes(req.headers.authorization)) return json(res, { error: 'unauthorized', message: 'Invalid API token.' }, 401);
     const serverItem = (item) => {
       const match = serverIcons[item.note?.toLowerCase()];
       const iconUrl = match ? `http://${req.headers.host}/static/icons/${match.icon}.png` : null;
       return { id: item.id, listId: item.shoppingListId, label: item.note, quantity: item.quantity ?? null, unit: item.unit?.name ?? null, barcode: item.extras?.barcode ?? null, note: null, checked: item.checked, icon: match?.icon ?? null, iconUrl, category: match?.category ?? null };
     };
+    if (url.pathname === '/api/v1/me' && req.method === 'DELETE') { res.writeHead(204); return res.end(); }
     if (url.pathname === '/api/v1/me') return json(res, { user: { name: 'Mock' } });
-    if (url.pathname === '/api/v1/lists') return json(res, { items: lists.map((list) => ({ ...list, openItems: items.filter((item) => !item.checked).length, checkedItems: 0 })) });
-    if (url.pathname === '/api/v1/lists/mock-list/items' && req.method === 'GET') return json(res, { items: items.filter((item) => url.searchParams.get('filter') !== 'open' || !item.checked).map(serverItem) });
-    if (url.pathname === '/api/v1/lists/mock-list/items' && req.method === 'POST') { const value = JSON.parse(await body(req)); const item = { id: `server-${Date.now()}`, shoppingListId: 'mock-list', checked: false, note: value.label, quantity: value.quantity ?? null, unit: value.unit ? { name: value.unit } : undefined, extras: { barcode: value.barcode } }; items.push(item); return json(res, serverItem(item), 201); }
+    if (url.pathname === '/api/v1/lists' && req.method === 'POST') { const value = JSON.parse(await body(req)); const list = { id: `cloud-list-${lists.length}`, name: value.name || 'List' }; lists.push(list); return json(res, list, 201); }
+    if (url.pathname === '/api/v1/lists') return json(res, { items: lists.map((list) => ({ ...list, openItems: items.filter((item) => item.shoppingListId === list.id && !item.checked).length, checkedItems: 0 })) });
+    const listItems = url.pathname.match(/^\/api\/v1\/lists\/([^/]+)\/items$/);
+    if (listItems && !lists.some((list) => list.id === listItems[1])) return json(res, { error: 'not_found', message: 'List not found.' }, 404);
+    if (listItems && req.method === 'GET') return json(res, { items: items.filter((item) => item.shoppingListId === listItems[1] && (url.searchParams.get('filter') !== 'open' || !item.checked)).map(serverItem) });
+    if (listItems && req.method === 'POST') { const value = JSON.parse(await body(req)); const item = { id: `server-${Date.now()}-${items.length}`, shoppingListId: listItems[1], checked: false, note: value.label, quantity: value.quantity ?? null, unit: value.unit ? { name: value.unit } : undefined, extras: { barcode: value.barcode } }; items.push(item); return json(res, serverItem(item), 201); }
     const itemMatch = url.pathname.match(/^\/api\/v1\/items\/([^/]+)$/);
     const item = itemMatch && items.find((candidate) => candidate.id === itemMatch[1]);
     if (itemMatch && req.method === 'PATCH') { if (!item) return json(res, { error: 'not_found', message: 'Item not found.' }, 404); Object.assign(item, { checked: JSON.parse(await body(req)).checked ?? item.checked }); return json(res, serverItem(item)); }

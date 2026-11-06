@@ -45,6 +45,7 @@ struct ContentView: View {
       guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
         return
       }
+      await store.verifyCloudCredential()
       await store.backgroundSync()
     }
   }

@@ -20,11 +20,16 @@ protocol ShoppingProvider: Sendable {
   func addItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem
   func removeItem(_ item: ShoppingItem, from listID: String) async throws
   func restoreItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem
+  /// Creates a remote list; only providers whose lists the app can create support this.
+  func createList(named name: String) async throws -> ProviderList
 }
 
 extension ShoppingProvider {
   func restoreItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem {
     try await addItem(item, to: listID)
+  }
+  func createList(named name: String) async throws -> ProviderList {
+    throw ProviderError.notConfigured
   }
 }
 
@@ -33,7 +38,7 @@ enum ProviderFactory {
     switch kind {
     case .bring: BringProvider(configuration: configuration)
     case .mealie: MealieProvider(configuration: configuration)
-    case .server: ShoppingListServerProvider(configuration: configuration)
+    case .server, .cloud: ShoppingListServerProvider(configuration: configuration)
     }
   }
 }
@@ -194,10 +199,16 @@ struct ShoppingListServerProvider: ShoppingProvider {
     let data = try await client.request(try request("lists"))
     return try decodeCollection(data, as: ProviderList.self)
   }
+  func createList(named name: String) async throws -> ProviderList {
+    var request = try request("lists", method: "POST")
+    try request.jsonBody(["name": name])
+    return try JSONDecoder().decode(ProviderList.self, from: await client.request(request))
+  }
   func items(in listID: String) async throws -> [ProviderItem] {
     let data = try await client.request(
       try request("lists/\(listID)/items", query: [URLQueryItem(name: "filter", value: "open")]))
-    return try decodeCollection(data, as: ServerItem.self).filter { !$0.checked }.map(\.providerItem)
+    return try decodeCollection(data, as: ServerItem.self).filter { !$0.checked }.map(
+      \.providerItem)
   }
   func addItem(_ item: ShoppingItem, to listID: String) async throws -> ProviderItem {
     var request = try request("lists/\(listID)/items", method: "POST")

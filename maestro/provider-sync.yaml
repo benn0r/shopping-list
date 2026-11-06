@@ -7,6 +7,8 @@ appId: ch.benn0r.shoppinglist
     element:
       id: "enable-mealie-sync"
     direction: DOWN
+    centerElement: true
+- waitForAnimationToEnd
 - tapOn:
     id: "enable-mealie-sync"
     point: "90%,50%"
@@ -28,6 +30,10 @@ appId: ch.benn0r.shoppinglist
 - tapOn:
     id: "list-name-field"
 - inputText: "Synced"
+# The keyboard would cover the storage options.
+- pressKey: Enter
+- tapOn:
+    id: "storage-connected"
 - tapOn: "Provider"
 - tapOn: "Mealie"
 - extendedWaitUntil:

@@ -118,7 +118,7 @@ final class ShoppingListServerProviderTests: XCTestCase {
   }
 }
 
-private final class StubURLProtocol: URLProtocol, @unchecked Sendable {
+final class StubURLProtocol: URLProtocol, @unchecked Sendable {
   private static let lock = NSLock()
   nonisolated(unsafe) private static var responses: [(status: Int, body: String)] = []
   nonisolated(unsafe) private(set) static var requests: [URLRequest] = []

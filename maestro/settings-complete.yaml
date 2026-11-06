@@ -81,6 +81,8 @@ appId: ch.benn0r.shoppinglist
     element:
       id: "enable-bring-sync"
     direction: DOWN
+    centerElement: true
+- waitForAnimationToEnd
 - tapOn:
     id: "enable-bring-sync"
     point: "90%,50%"
@@ -91,6 +93,12 @@ appId: ch.benn0r.shoppinglist
     id: "enable-bring-sync"
     point: "90%,50%"
 - assertNotVisible: "API URL (optional)"
+- scrollUntilVisible:
+    element:
+      id: "enable-mealie-sync"
+    direction: DOWN
+    centerElement: true
+- waitForAnimationToEnd
 - tapOn:
     id: "enable-mealie-sync"
     point: "90%,50%"

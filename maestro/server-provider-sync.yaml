@@ -7,6 +7,8 @@ appId: ch.benn0r.shoppinglist
     element:
       id: "enable-server-sync"
     direction: DOWN
+    centerElement: true
+- waitForAnimationToEnd
 - tapOn:
     id: "enable-server-sync"
     point: "90%,50%"
@@ -32,6 +34,10 @@ appId: ch.benn0r.shoppinglist
 - tapOn:
     id: "list-name-field"
 - inputText: "Server"
+# The keyboard would cover the storage options.
+- pressKey: Enter
+- tapOn:
+    id: "storage-connected"
 - tapOn: "Provider"
 - tapOn: "Shopping List Server"
 - extendedWaitUntil:
