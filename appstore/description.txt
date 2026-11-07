@@ -1,4 +1,4 @@
-Grocery List - Scan & Shop keeps your shopping in one place: add items by typing or scanning a barcode, see them sorted by aisle, and shop together with your family.
+Shopping List - Scan & Shop keeps your shopping in one place: add items by typing or scanning a barcode, see them sorted by aisle, and shop together with your family.
 
 YOUR CHOICE: ONLINE OR OFFLINE
 • Offline: your lists stay on this iPhone. No account needed.
@@ -32,4 +32,4 @@ PRIVATE
 
 Available in English, German, French, Italian, Spanish, Portuguese, Dutch, Danish, Swedish, Norwegian, Finnish, Polish and Japanese.
 
-Grocery List - Scan & Shop is independent and not affiliated with Bring! Labs AG or the Mealie project.
+Shopping List - Scan & Shop is independent and not affiliated with Bring! Labs AG or the Mealie project.

@@ -1,4 +1,4 @@
-"""Small App Store Connect API client for Grocery List - Scan & Shop (official API only).
+"""Small App Store Connect API client for Shopping List - Scan & Shop (official API only).
 
 Adapted from Off-hours' scripts/appstore.py.
 
@@ -32,7 +32,7 @@ from pathlib import Path
 import jwt
 
 ROOT = Path(__file__).resolve().parent.parent
-APP_ID = "6806826182"  # Grocery List - Scan & Shop (ch.benn0r.shoppinglist)
+APP_ID = "6806826182"  # Shopping List - Scan & Shop (ch.benn0r.shoppinglist)
 API = "https://api.appstoreconnect.apple.com/v1"
 # 1206×2622 screenshots belong to the 6.1"/6.3" iPhone slot ("iPhone with Dynamic Island").
 DISPLAY_TYPE = "APP_IPHONE_61"
@@ -407,6 +407,41 @@ def create_version(version_string: str) -> None:
     print(f"Version {version_string} created: {created['attributes']['appStoreState']}")
 
 
+def attach_build(build_number: str) -> None:
+    """Waits for an uploaded build to finish processing and attaches it to the editable version."""
+    version = editable_version()
+    version_string = version["attributes"]["versionString"]
+    for _ in range(120):
+        builds = call(
+            "GET",
+            f"/builds?filter[app]={APP_ID}&filter[version]={build_number}"
+            f"&filter[preReleaseVersion.version]={version_string}&limit=5",
+        )["data"]
+        state = builds[0]["attributes"]["processingState"] if builds else "NOT_FOUND"
+        if state == "VALID":
+            break
+        if state in {"FAILED", "INVALID"}:
+            raise SystemExit(f"Build {build_number} is {state}")
+        print(f"Build {build_number}: {state}, waiting…", flush=True)
+        time.sleep(30)
+    else:
+        raise SystemExit(f"Build {build_number} was not processed in time")
+    build = builds[0]
+    # The app only uses HTTPS and Apple's frameworks: exempt from export compliance documentation.
+    if build["attributes"].get("usesNonExemptEncryption") is None:
+        call(
+            "PATCH",
+            f"/builds/{build['id']}",
+            {"data": {"type": "builds", "id": build["id"], "attributes": {"usesNonExemptEncryption": False}}},
+        )
+    call(
+        "PATCH",
+        f"/appStoreVersions/{version['id']}/relationships/build",
+        {"data": {"type": "builds", "id": build["id"]}},
+    )
+    print(f"Build {build_number} attached to version {version_string}")
+
+
 def submit() -> None:
     version = editable_version()
     build = call("GET", f"/appStoreVersions/{version['id']}/build").get("data")
@@ -480,6 +515,8 @@ if __name__ == "__main__":
         status()
     elif command == "assets":
         assets([a for a in args if not a.startswith("--")], replace="--replace" in args)
+    elif command == "attach-build":
+        attach_build(args[0])
     elif command == "version":
         create_version(args[0])
     elif command == "submit":

@@ -18,7 +18,17 @@ if [[ -z "${PYTHON:-}" ]]; then
   PYTHON=.build/appstore-venv/bin/python
 fi
 PY="$PYTHON"
+# `appstore-upload.sh attach-build [build]`: attach an uploaded build (default: the one in
+# project.yml) to the editable version, after it has been processed.
+if [[ "${1:-}" == "attach-build" ]]; then
+  build="${2:-$(sed -n 's/.*CURRENT_PROJECT_VERSION: *//p' project.yml | head -1)}"
+  exec "$PY" scripts/appstore.py attach-build "$build"
+fi
 ALL=(en de fr it es nl pt-PT pt-BR sv da nb fi ja pl)
+# `appstore-upload.sh listing`: only the texts (name, subtitle, description, keywords, …).
+if [[ "${1:-}" == "listing" ]]; then
+  exec "$PY" scripts/appstore.py listing "${ALL[@]}"
+fi
 "$PY" scripts/appstore.py listing "${ALL[@]}"
 "$PY" scripts/appstore.py screenshots "${ALL[@]}" --replace
 "$PY" scripts/appstore.py screenshots "${ALL[@]}" --replace --size=6.9
