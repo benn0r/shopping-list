@@ -4,6 +4,8 @@
 #                                               App Store Connect's "iPhone with Dynamic Island" size)
 #   LANGUAGE=de LOCALE=de_CH scripts/screenshots.sh → screenshots/appstore/de/
 #   scripts/screenshots.sh all                → every App Store language
+#   SIZE=6.9 scripts/screenshots.sh all       → screenshots/appstore-6.9/ (iPhone 17 Pro Max,
+#                                               1320×2868: the 6.9" slot, shown on the largest iPhones)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -16,7 +18,7 @@ LANGUAGES=(
 if [[ "${1:-}" == "all" ]]; then
   for entry in "${LANGUAGES[@]}"; do
     IFS=: read -r folder language locale <<<"$entry"
-    LANGUAGE="$language" LOCALE="$locale" FOLDER="$folder" SKIP_BUILD="${SKIP_BUILD:-}" bash "$0"
+    LANGUAGE="$language" LOCALE="$locale" FOLDER="$folder" SKIP_BUILD="${SKIP_BUILD:-}" SIZE="${SIZE:-}" bash "$0"
     SKIP_BUILD=1
   done
   exit 0
@@ -25,9 +27,14 @@ fi
 language="${LANGUAGE:-en}"
 locale="${LOCALE:-en_US}"
 folder="${FOLDER:-$language}"
-out="${OUT:-screenshots/appstore$([[ "$folder" == en ]] || echo "/$folder")}"
+if [[ "${SIZE:-}" == "6.9" ]]; then
+  root=screenshots/appstore-6.9 device="Shopping List Screenshots 6.9" model="iPhone 17 Pro Max"
+else
+  root=screenshots/appstore device="Shopping List Screenshots" model="iPhone 17 Pro"
+fi
+out="${OUT:-$root$([[ "$folder" == en ]] || echo "/$folder")}"
 bundle_id=ch.benn0r.shoppinglist
-udid="$(bash scripts/simulator.sh "Shopping List Screenshots" "${SIMULATOR:-iPhone 17 Pro}")"
+udid="$(bash scripts/simulator.sh "$device" "${SIMULATOR:-$model}")"
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
   npm run -s project:generate >/dev/null

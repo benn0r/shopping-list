@@ -36,3 +36,6 @@ yarn-error.*
 .env*.local
 .env
 bring-shopping-*.tgz
+
+# Personal Claude Code settings
+.claude/settings.local.json

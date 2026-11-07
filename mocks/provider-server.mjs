@@ -31,8 +31,8 @@ const broadcast = (event, data) => {
 const serverIcons = {
   bread: { icon: 'gen-sourdough', category: 'bakery' },
   kombucha: { icon: 'gen-kombucha', category: 'beverages', generateMs: Number(process.env.MOCK_GENERATE_MS ?? 4000) },
-  // Unknown to the app's own catalog, so it moves from "Other" to Beverages once its icon is ready.
-  zaubertrank: { icon: 'gen-kombucha', category: 'beverages', generateMs: Number(process.env.MOCK_GENERATE_MS ?? 4000) },
+  // Unknown to the app's own catalog, so it moves from "Other" up to Fruits & Vegetables once its icon is ready.
+  zaubertrank: { icon: 'gen-kombucha', category: 'fruitsVegetables', generateMs: Number(process.env.MOCK_GENERATE_MS ?? 4000) },
 };
 const generatedIcons = {
   'gen-sourdough': new URL('../assets/food-icons/pancakes.png', import.meta.url),

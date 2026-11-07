@@ -7,6 +7,9 @@ struct ItemCollection: View {
   let mode: ListViewMode
   let showCategoryLabels: Bool
   let action: (ShoppingItem) -> Void
+  /// Ties each tile or row to its item across sections, so an item whose category arrives later
+  /// glides from Other to its section instead of jumping.
+  @Namespace private var itemSpace
 
   private var sections: [(category: GroceryCategory, items: [ShoppingItem])] {
     let grouped = Dictionary(grouping: items) { GroceryCategoryCatalog.category(for: $0) }
@@ -45,6 +48,7 @@ struct ItemCollection: View {
                 }
                 .buttonStyle(.plain)
                 .aspectRatio(1, contentMode: .fit)
+                .matchedGeometryEffect(id: item.id, in: itemSpace)
               }
             } header: {
               categoryHeader(section.category, count: section.items.count)
@@ -65,7 +69,9 @@ struct ItemCollection: View {
         itemLayout(categorySortedItems)
       }
     }
-    .animation(.snappy(duration: 0.32, extraBounce: 0.12), value: items.map(\.id))
+    // Any change animates, not only added and removed items: a new category moves the item to
+    // another section, and the move should be visible.
+    .animation(.snappy(duration: 0.45, extraBounce: 0.1), value: items)
   }
 
   private func categoryHeader(_ category: GroceryCategory, count: Int) -> some View {
@@ -108,6 +114,7 @@ struct ItemCollection: View {
           }
           .buttonStyle(.plain)
           .aspectRatio(1, contentMode: .fit)
+          .matchedGeometryEffect(id: item.id, in: itemSpace)
         }
       }
     } else {
@@ -118,6 +125,7 @@ struct ItemCollection: View {
           } label: {
             ItemRow(item: item)
           }.buttonStyle(.plain)
+            .matchedGeometryEffect(id: item.id, in: itemSpace)
           Divider().padding(.leading, 58)
         }
       }
