@@ -14,6 +14,7 @@
     "ios:release": "npm run project:generate && xcodebuild -project ShoppingList.xcodeproj -scheme ShoppingList -configuration Release -destination 'generic/platform=iOS' -derivedDataPath .build/DerivedData -allowProvisioningUpdates build",
     "deploy": "bash scripts/deploy-ios.sh",
     "screenshots": "bash scripts/screenshots.sh all",
+    "upload": "bash scripts/upload.sh",
     "lint": "swiftc -parse ShoppingListApp/*.swift ShoppingListTests/*.swift",
     "format:check": "xcrun swift-format lint --recursive --strict ShoppingListApp ShoppingListTests",
     "format": "xcrun swift-format format --recursive --in-place ShoppingListApp ShoppingListTests"
