@@ -1,0 +1,1 @@
+inköpslista,handla,familj,delad,streckkod,skanner,AI,MCP,mataffär,livsmedel,skafferi

@@ -1,0 +1,1 @@
+lista della spesa,spesa,famiglia,condivisa,codice a barre,scanner,IA,MCP,supermercato,dispensa

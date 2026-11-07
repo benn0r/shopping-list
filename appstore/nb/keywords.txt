@@ -1,0 +1,1 @@
+handleliste,handle,familie,delt,strekkode,skanner,AI,MCP,matbutikk,dagligvarer

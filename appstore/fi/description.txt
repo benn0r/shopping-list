@@ -1,0 +1,35 @@
+Ostoslista - Scan & Shop pitää ostokset yhdessä paikassa: kirjoita tuotteet tai skannaa viivakoodi, näe ne hyllyjärjestyksessä ja käy kaupassa yhdessä perheen kanssa.
+
+SINÄ VALITSET: ONLINE TAI OFFLINE
+• Offline: listasi pysyvät tässä iPhonessa. Tiliä ei tarvita.
+• Online: ilmainen Shopping List Cloud ja Kirjaudu Applella. Sähköpostiosoitettasi ei pyydetä.
+
+JAA PERHEEN KANSSA
+• Kutsu perhe ja ystävät talouteesi linkillä
+• Kaikki näkevät ja muokkaavat samoja listoja, ja muutokset näkyvät heti
+• Poista jäseniä tai poistu taloudesta milloin tahansa
+
+KERRO TEKOÄLYLLE
+• Yhdistä tekoälyavustajat MCP:n kautta lukemaan listoja ja lisäämään ja kuittaamaan tuotteita
+• ”Lisää kaikki lasagneen” muuttuu tuotteiksi listallasi
+
+SKANNAA JA JÄRJESTÄ
+• Skannaa EAN- ja UPC-viivakoodit; tuotenimet tulevat Open Food Factsista ja sen sisartietokannoista
+• Tuotteet järjestetään hyllyjä seuraaviin kategorioihin
+• Luodut kuvakkeet jokaiselle tuotteelle pilvessä
+• Omat nimet viivakoodeille, joita ei löydy mistään tietokannasta
+
+OSTOKSILLE
+• Valitse kauppa ja listat ja kuittaa tuotteet ostosten aikana
+• Peru osto ja katso aiemmat ostoskerrat
+
+TOIMII SEN KANSSA, MITÄ JO KÄYTÄT
+• Synkronoi listoja Bring!-, Mealie- tai omaan Shopping List Serveriin
+
+YKSITYINEN
+• Ei mainoksia, ei seurantaa, ei analytiikkaa
+• Poista Cloud-tilisi Asetuksissa milloin tahansa; kopiot listoistasi jäävät iPhoneen
+
+Saatavilla suomeksi, englanniksi, saksaksi, ranskaksi, italiaksi, espanjaksi, portugaliksi, hollanniksi, tanskaksi, ruotsiksi, norjaksi, puolaksi ja japaniksi.
+
+Ostoslista - Scan & Shop on itsenäinen eikä liity Bring! Labs AG:hen tai Mealie-projektiin.

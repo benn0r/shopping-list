@@ -1,0 +1,35 @@
+Einkaufsliste - Scan & Shop hält deinen Einkauf an einem Ort: Artikel eintippen oder Barcode scannen, nach Regal sortiert sehen und gemeinsam mit deiner Familie einkaufen.
+
+DU WÄHLST: ONLINE ODER OFFLINE
+• Offline: Deine Listen bleiben auf diesem iPhone. Kein Konto nötig.
+• Online: die kostenlose Shopping List Cloud mit „Mit Apple anmelden“. Deine E-Mail-Adresse wird nicht abgefragt.
+
+MIT DER FAMILIE TEILEN
+• Lade Familie und Freunde per Link in deinen Haushalt ein
+• Alle sehen und bearbeiten dieselben Listen, Änderungen erscheinen sofort
+• Mitglieder entfernen oder einen Haushalt verlassen, jederzeit
+
+SAG ES DEINER KI
+• Verbinde KI-Assistenten über MCP und lass sie Listen lesen, Artikel hinzufügen und abhaken
+• „Füg alles für eine Lasagne hinzu“ wird zu Artikeln auf deiner Liste
+
+SCANNEN UND SORTIEREN
+• EAN- und UPC-Barcodes scannen; Produktnamen kommen von Open Food Facts und seinen Schwesterdatenbanken
+• Artikel werden in Kategorien sortiert, die den Regalen folgen
+• Generierte Symbole für jeden Artikel in der Cloud
+• Eigene Bezeichnungen für Barcodes, die in keiner Datenbank stehen
+
+EINKAUFEN
+• Geschäft und Listen wählen, dann unterwegs abhaken
+• Einkäufe rückgängig machen und frühere Einkäufe ansehen
+
+PASST ZU DEM, WAS DU SCHON NUTZT
+• Einzelne Listen mit Bring!, Mealie oder deinem eigenen Shopping List Server synchronisieren
+
+PRIVAT
+• Keine Werbung, kein Tracking, keine Analyse
+• Cloud-Konto jederzeit in den Einstellungen löschen; Kopien deiner Listen bleiben auf deinem iPhone
+
+Verfügbar auf Deutsch, Englisch, Französisch, Italienisch, Spanisch, Portugiesisch, Niederländisch, Dänisch, Schwedisch, Norwegisch, Finnisch, Polnisch und Japanisch.
+
+Einkaufsliste - Scan & Shop ist unabhängig und steht in keiner Verbindung zur Bring! Labs AG oder zum Mealie-Projekt.

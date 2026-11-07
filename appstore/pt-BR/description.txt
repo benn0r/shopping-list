@@ -1,0 +1,35 @@
+Lista de compras - Scan & Shop reúne suas compras em um só lugar: adicione itens digitando ou escaneando um código de barras, veja tudo organizado por corredor e faça compras em família.
+
+VOCÊ ESCOLHE: ONLINE OU OFFLINE
+• Offline: suas listas ficam neste iPhone. Não precisa de conta.
+• Online: o Shopping List Cloud, grátis, com "Iniciar sessão com a Apple". Seu e-mail não é solicitado.
+
+COMPARTILHE COM A FAMÍLIA
+• Convide família e amigos para sua família no app com um link
+• Todos veem e editam as mesmas listas, com alterações na hora
+• Remova membros ou saia de uma família quando quiser
+
+FALE PARA SUA IA
+• Conecte assistentes de IA via MCP para ler listas, adicionar e marcar itens
+• "Adicione tudo para uma lasanha" vira itens na sua lista
+
+ESCANEIE E ORGANIZE
+• Escaneie códigos EAN e UPC; os nomes dos produtos vêm do Open Food Facts e bases irmãs
+• Os itens são organizados em categorias que seguem os corredores
+• Ícones gerados para cada item na nuvem
+• Nomes próprios para códigos que não estão em nenhum banco de dados
+
+FAÇA COMPRAS
+• Escolha uma loja e as listas e vá marcando enquanto compra
+• Desfaça uma compra e veja compras anteriores
+
+FUNCIONA COM O QUE VOCÊ JÁ USA
+• Sincronize listas com o Bring!, o Mealie ou seu próprio Shopping List Server
+
+PRIVADO
+• Sem anúncios, sem rastreamento, sem análises
+• Apague sua conta Cloud em Configurações quando quiser; cópias das listas ficam no seu iPhone
+
+Disponível em português, inglês, alemão, francês, italiano, espanhol, holandês, dinamarquês, sueco, norueguês, finlandês, polonês e japonês.
+
+Lista de compras - Scan & Shop é independente e não tem afiliação com a Bring! Labs AG nem com o projeto Mealie.

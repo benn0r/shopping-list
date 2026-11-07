@@ -1,0 +1,1 @@
+liste de courses,courses,famille,partagée,code-barres,scanner,IA,MCP,supermarché,épicerie

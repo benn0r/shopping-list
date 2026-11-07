@@ -1,0 +1,35 @@
+Handleliste - Scan & Shop samler handlingen på ett sted: skriv inn varer eller skann en strekkode, se dem sortert etter hylle og handle sammen med familien.
+
+DU VELGER: PÅ NETT ELLER UTEN NETT
+• Uten nett: listene dine blir på denne iPhonen. Ingen konto nødvendig.
+• På nett: gratis Shopping List Cloud med «Logg på med Apple». E-postadressen din blir ikke etterspurt.
+
+DEL MED FAMILIEN
+• Inviter familie og venner til husstanden din med en lenke
+• Alle ser og redigerer de samme listene, og endringer vises med en gang
+• Fjern medlemmer eller forlat en husstand når du vil
+
+SI DET TIL AI-EN DIN
+• Koble til AI-assistenter via MCP, så de kan lese lister, legge til varer og krysse dem av
+• «Legg til alt til en lasagne» blir varer på listen din
+
+SKANN OG SORTER
+• Skann EAN- og UPC-strekkoder; produktnavn kommer fra Open Food Facts og søsterdatabasene
+• Varer sorteres i kategorier som følger hyllene
+• Genererte symboler for hver vare i skyen
+• Egne navn for strekkoder som ikke finnes i noen database
+
+HANDLE
+• Velg en butikk og listene dine, og kryss av underveis
+• Angre et kjøp og se tidligere handleturer
+
+VIRKER MED DET DU BRUKER
+• Synkroniser lister med Bring!, Mealie eller din egen Shopping List Server
+
+PRIVAT
+• Ingen reklame, ingen sporing, ingen analyse
+• Slett Cloud-kontoen din i Innstillinger når du vil; kopier av listene blir på iPhonen
+
+Tilgjengelig på norsk, engelsk, tysk, fransk, italiensk, spansk, portugisisk, nederlandsk, dansk, svensk, finsk, polsk og japansk.
+
+Handleliste - Scan & Shop er uavhengig og ikke tilknyttet Bring! Labs AG eller Mealie-prosjektet.

@@ -1,0 +1,1 @@
+boodschappenlijst,boodschappen,gezin,gedeeld,barcode,scanner,AI,MCP,supermarkt,voorraad

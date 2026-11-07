@@ -1,0 +1,1 @@
+einkaufsliste,einkaufen,familie,geteilt,barcode,scanner,KI,MCP,supermarkt,vorrat,lebensmittel

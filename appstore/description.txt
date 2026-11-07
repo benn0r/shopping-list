@@ -1,0 +1,35 @@
+Grocery List - Scan & Shop keeps your shopping in one place: add items by typing or scanning a barcode, see them sorted by aisle, and shop together with your family.
+
+YOUR CHOICE: ONLINE OR OFFLINE
+• Offline: your lists stay on this iPhone. No account needed.
+• Online: the free Shopping List Cloud with Sign in with Apple. Your email address is not requested.
+
+SHARE WITH FAMILY
+• Invite family and friends to your household with a link
+• Everyone sees and edits the same lists, with changes appearing live
+• Remove members or leave a household at any time
+
+TELL YOUR AI
+• Connect AI assistants through MCP and let them add, check off and read your lists
+• "Add everything for lasagne" turns into items on your list
+
+SCAN AND SORT
+• Scan EAN and UPC barcodes; product names come from Open Food Facts and its sister databases
+• Items are sorted into categories that follow the aisles
+• Generated icons for every item in Cloud
+• Custom labels for barcodes that aren't in any database
+
+SHOP
+• Choose a store and the lists you need, then tick items off as you go
+• Undo a purchase and look back at past shopping trips
+
+WORKS WITH WHAT YOU USE
+• Sync individual lists with Bring!, Mealie or your own Shopping List Server
+
+PRIVATE
+• No ads, no tracking, no analytics
+• Delete your Cloud account in Settings at any time; copies of your lists stay on your iPhone
+
+Available in English, German, French, Italian, Spanish, Portuguese, Dutch, Danish, Swedish, Norwegian, Finnish, Polish and Japanese.
+
+Grocery List - Scan & Shop is independent and not affiliated with Bring! Labs AG or the Mealie project.

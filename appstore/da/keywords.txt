@@ -1,0 +1,1 @@
+indkøbsliste,indkøb,familie,delt,stregkode,scanner,AI,MCP,supermarked,dagligvarer
