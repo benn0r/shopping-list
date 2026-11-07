@@ -25,6 +25,10 @@ if [[ "${1:-}" == "attach-build" ]]; then
   exec "$PY" scripts/appstore.py attach-build "$build"
 fi
 ALL=(en de fr it es nl pt-PT pt-BR sv da nb fi ja pl)
+# `appstore-upload.sh submit`: submit the editable version (with its attached build) for review.
+if [[ "${1:-}" == "submit" ]]; then
+  exec "$PY" scripts/appstore.py submit
+fi
 # `appstore-upload.sh listing`: only the texts (name, subtitle, description, keywords, …).
 if [[ "${1:-}" == "listing" ]]; then
   exec "$PY" scripts/appstore.py listing "${ALL[@]}"
