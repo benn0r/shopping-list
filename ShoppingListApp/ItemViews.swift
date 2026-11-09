@@ -6,6 +6,8 @@ struct ItemCollection: View {
   let items: [ShoppingItem]
   let mode: ListViewMode
   let showCategoryLabels: Bool
+  /// When set (one-tap shopping), holding an item offers its details, since a tap checks it off.
+  var details: ((ShoppingItem) -> Void)? = nil
   let action: (ShoppingItem) -> Void
   /// Ties each tile or row to its item across sections, so an item whose category arrives later
   /// glides from Other to its section instead of jumping.
@@ -49,6 +51,7 @@ struct ItemCollection: View {
                 .buttonStyle(.plain)
                 .aspectRatio(1, contentMode: .fit)
                 .matchedGeometryEffect(id: item.id, in: itemSpace)
+                .modifier(DetailsMenu(item: item, details: details))
               }
             } header: {
               categoryHeader(section.category, count: section.items.count)
@@ -115,6 +118,7 @@ struct ItemCollection: View {
           .buttonStyle(.plain)
           .aspectRatio(1, contentMode: .fit)
           .matchedGeometryEffect(id: item.id, in: itemSpace)
+          .modifier(DetailsMenu(item: item, details: details))
         }
       }
     } else {
@@ -126,6 +130,7 @@ struct ItemCollection: View {
             ItemRow(item: item)
           }.buttonStyle(.plain)
             .matchedGeometryEffect(id: item.id, in: itemSpace)
+            .modifier(DetailsMenu(item: item, details: details))
           Divider().padding(.leading, 58)
         }
       }
@@ -459,6 +464,22 @@ extension GroceryCategory {
     case .carBike: .gray
     case .booksMagazines: .brown
     case .kitchenHome, .checkout, .other: .secondary
+    }
+  }
+}
+
+/// "Details" on long press, for one-tap shopping where a tap checks the item off.
+private struct DetailsMenu: ViewModifier {
+  let item: ShoppingItem
+  let details: ((ShoppingItem) -> Void)?
+
+  func body(content: Content) -> some View {
+    if let details {
+      content.contextMenu {
+        Button("Details", systemImage: "info.circle") { details(item) }
+      }
+    } else {
+      content
     }
   }
 }

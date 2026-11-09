@@ -216,5 +216,10 @@
  "This invitation has expired or was already used.",
  "This is your only household, so you can't leave it.",
  "You joined %@",
- "You were invited to share shopping lists. After joining, this iPhone shows the household's lists; your own lists stay in your account."
+ "You were invited to share shopping lists. After joining, this iPhone shows the household's lists; your own lists stay in your account.",
+ "One-Tap Shopping",
+ "Tap an item to check it off. Hold it for details.",
+ "Details",
+ "%@ checked off",
+ "Undo"
 ]

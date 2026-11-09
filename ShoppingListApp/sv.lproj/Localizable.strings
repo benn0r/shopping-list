@@ -216,3 +216,8 @@
 "This is your only household, so you can't leave it." = "Det här är ditt enda hushåll, så du kan inte lämna det.";
 "You joined %@" = "Du gick med i %@";
 "You were invited to share shopping lists. After joining, this iPhone shows the household's lists; your own lists stay in your account." = "Du har bjudits in att dela inköpslistor. När du har gått med visar den här iPhonen hushållets listor; dina egna listor finns kvar på ditt konto.";
+"One-Tap Shopping" = "Handla med ett tryck";
+"Tap an item to check it off. Hold it for details." = "Tryck på en vara för att bocka av den. Håll kvar för detaljer.";
+"Details" = "Detaljer";
+"%@ checked off" = "%@ avbockad";
+"Undo" = "Ångra";

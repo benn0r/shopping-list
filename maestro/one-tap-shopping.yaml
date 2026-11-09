@@ -1,0 +1,40 @@
+appId: ch.benn0r.shoppinglist
+---
+# One-tap shopping: with the setting on, a tap checks an item off, Undo brings it back, and
+# holding an item still opens its details.
+- launchApp:
+    clearState: true
+- tapOn:
+    id: "mode-offline"
+- tapOn:
+    id: "mode-continue"
+- tapOn: "Settings"
+- tapOn:
+    id: "one-tap-shopping"
+    point: "90%,50%"
+- tapOn: "Shopping List"
+- tapOn:
+    id: "add-item-field"
+- inputText: "Bread"
+- pressKey: Enter
+- tapOn:
+    id: "add-item-field"
+- inputText: "Milk"
+- pressKey: Enter
+- hideKeyboard
+- tapOn: "Bread"
+- extendedWaitUntil:
+    visible:
+      id: "check-off-banner"
+    timeout: 3000
+- assertNotVisible: "^Bread$"
+- assertVisible: "Milk"
+- tapOn:
+    id: "undo-check-off"
+- extendedWaitUntil:
+    visible: "Bread"
+    timeout: 3000
+- longPressOn: "Milk"
+- assertVisible: "Details"
+- tapOn: "Details"
+- assertVisible: ".*Added.*"

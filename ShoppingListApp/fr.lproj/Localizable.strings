@@ -216,3 +216,8 @@
 "This is your only household, so you can't leave it." = "C'est votre seul foyer, vous ne pouvez donc pas le quitter.";
 "You joined %@" = "Vous avez rejoint %@";
 "You were invited to share shopping lists. After joining, this iPhone shows the household's lists; your own lists stay in your account." = "Vous êtes invité à partager des listes de courses. Après avoir rejoint le foyer, cet iPhone affiche ses listes ; les vôtres restent dans votre compte.";
+"One-Tap Shopping" = "Courses en un geste";
+"Tap an item to check it off. Hold it for details." = "Touchez un article pour le cocher. Maintenez-le pour voir les détails.";
+"Details" = "Détails";
+"%@ checked off" = "%@ coché";
+"Undo" = "Annuler";

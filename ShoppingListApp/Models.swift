@@ -193,6 +193,8 @@ struct AppStateSnapshot: Codable, Sendable {
   var activeListID: UUID
   var viewMode: ListViewMode
   var showCategoryLabels: Bool = true
+  /// Tapping an item checks it off instead of opening its details.
+  var oneTapShopping = false
   var providerConfigurations: [ProviderKind: ProviderConfiguration]
   var lookupPreferences: ProductLookupPreferences = .init()
   var customBarcodes: [CustomBarcode] = []
@@ -203,7 +205,7 @@ struct AppStateSnapshot: Codable, Sendable {
   var storageMode: StorageMode?
 
   enum CodingKeys: String, CodingKey {
-    case lists, stores, items, sessions, activeListID, viewMode, showCategoryLabels
+    case lists, stores, items, sessions, activeListID, viewMode, showCategoryLabels, oneTapShopping
     case providerConfigurations
     case lookupPreferences, customBarcodes, appLanguage, cloudAccount, storageMode
   }
@@ -211,7 +213,7 @@ struct AppStateSnapshot: Codable, Sendable {
   init(
     lists: [ShoppingListDefinition], stores: [StoreDefinition], items: [UUID: [ShoppingItem]],
     sessions: [ShoppingSession], activeListID: UUID, viewMode: ListViewMode,
-    showCategoryLabels: Bool = true,
+    showCategoryLabels: Bool = true, oneTapShopping: Bool = false,
     providerConfigurations: [ProviderKind: ProviderConfiguration],
     lookupPreferences: ProductLookupPreferences = .init(), customBarcodes: [CustomBarcode] = [],
     appLanguage: AppLanguage = .automatic, cloudAccount: CloudAccount? = nil,
@@ -224,6 +226,7 @@ struct AppStateSnapshot: Codable, Sendable {
     self.activeListID = activeListID
     self.viewMode = viewMode
     self.showCategoryLabels = showCategoryLabels
+    self.oneTapShopping = oneTapShopping
     self.providerConfigurations = providerConfigurations
     self.lookupPreferences = lookupPreferences
     self.customBarcodes = customBarcodes
@@ -241,6 +244,7 @@ struct AppStateSnapshot: Codable, Sendable {
     activeListID = try values.decode(UUID.self, forKey: .activeListID)
     viewMode = try values.decode(ListViewMode.self, forKey: .viewMode)
     showCategoryLabels = try values.decodeIfPresent(Bool.self, forKey: .showCategoryLabels) ?? true
+    oneTapShopping = try values.decodeIfPresent(Bool.self, forKey: .oneTapShopping) ?? false
     providerConfigurations = try values.decode(
       [ProviderKind: ProviderConfiguration].self, forKey: .providerConfigurations)
     lookupPreferences =

@@ -216,3 +216,8 @@
 "This is your only household, so you can't leave it." = "これは唯一の世帯なので、退出できません。";
 "You joined %@" = "%@に参加しました";
 "You were invited to share shopping lists. After joining, this iPhone shows the household's lists; your own lists stay in your account." = "買い物リストの共有に招待されました。参加すると、このiPhoneには世帯のリストが表示されます。自分のリストはアカウントに残ります。";
+"One-Tap Shopping" = "ワンタップで買い物";
+"Tap an item to check it off. Hold it for details." = "品目をタップしてチェック。長押しで詳細を表示。";
+"Details" = "詳細";
+"%@ checked off" = "%@をチェックしました";
+"Undo" = "取り消す";

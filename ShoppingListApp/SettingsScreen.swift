@@ -21,6 +21,15 @@ struct SettingsScreen: View {
           Toggle("Show Category Labels", isOn: $store.showCategoryLabels)
             .accessibilityIdentifier("show-category-labels")
             .onChange(of: store.showCategoryLabels) { store.save() }
+          Toggle(isOn: $store.oneTapShopping) {
+            VStack(alignment: .leading, spacing: 2) {
+              Text("One-Tap Shopping")
+              Text("Tap an item to check it off. Hold it for details.")
+                .font(.footnote).foregroundStyle(.secondary)
+            }
+          }
+          .accessibilityIdentifier("one-tap-shopping")
+          .onChange(of: store.oneTapShopping) { store.save() }
           Picker("App Language", selection: $store.appLanguage) {
             ForEach(AppLanguage.allCases) {
               language in

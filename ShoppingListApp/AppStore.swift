@@ -10,6 +10,7 @@ final class AppStore: ObservableObject {
   @Published var activeListID: UUID
   @Published var viewMode: ListViewMode
   @Published var showCategoryLabels: Bool
+  @Published var oneTapShopping: Bool
   @Published var providerConfigurations: [ProviderKind: ProviderConfiguration]
   @Published var lookupPreferences: ProductLookupPreferences
   @Published var customBarcodes: [CustomBarcode]
@@ -54,6 +55,7 @@ final class AppStore: ObservableObject {
       activeListID = snapshot.activeListID
       viewMode = snapshot.viewMode
       showCategoryLabels = snapshot.showCategoryLabels
+      oneTapShopping = snapshot.oneTapShopping
       providerConfigurations = snapshot.providerConfigurations.mapValues { $0 }
       lookupPreferences = snapshot.lookupPreferences
       customBarcodes = snapshot.customBarcodes
@@ -72,6 +74,7 @@ final class AppStore: ObservableObject {
       activeListID = initial.id
       viewMode = .list
       showCategoryLabels = true
+      oneTapShopping = false
       providerConfigurations = [
         .bring: .init(), .mealie: .init(), .server: .init(), .cloud: .init(),
       ]
@@ -145,6 +148,7 @@ final class AppStore: ObservableObject {
     let snapshot = AppStateSnapshot(
       lists: lists, stores: stores, items: items, sessions: sessions,
       activeListID: activeListID, viewMode: viewMode, showCategoryLabels: showCategoryLabels,
+      oneTapShopping: oneTapShopping,
       providerConfigurations: publicConfigurations, lookupPreferences: lookupPreferences,
       customBarcodes: customBarcodes, appLanguage: appLanguage, cloudAccount: cloudAccount,
       storageMode: storageMode
@@ -717,15 +721,38 @@ final class AppStore: ObservableObject {
       ))
     save()
   }
+  /// One-tap shopping: the item leaves the list (checked off on a synced list). During a shopping
+  /// trip it counts as bought.
+  func checkOff(_ item: ShoppingItem) async {
+    if activeSession != nil {
+      await purchase(item)
+    } else {
+      await remove(item)
+    }
+  }
+
+  /// Undoes `checkOff`: puts the item back, on its server too, and out of the trip's basket.
+  func undoCheckOff(_ item: ShoppingItem) async {
+    if let index = sessions.firstIndex(where: { $0.completedAt == nil }),
+      let purchase = sessions[index].purchasedItems.last(where: { $0.item.id == item.id })
+    {
+      await restore(purchase)
+      return
+    }
+    await restore(PurchasedItem(item: item), fromSession: false)
+  }
+
   func purchase(_ item: ShoppingItem) async {
     guard let index = sessions.firstIndex(where: { $0.completedAt == nil }) else { return }
     sessions[index].purchasedItems.append(PurchasedItem(item: item))
     save()
     await remove(item)
   }
-  func restore(_ purchase: PurchasedItem) async {
-    guard let index = sessions.firstIndex(where: { $0.completedAt == nil }) else { return }
-    sessions[index].purchasedItems.removeAll(where: { $0.id == purchase.id })
+  func restore(_ purchase: PurchasedItem, fromSession: Bool = true) async {
+    if fromSession {
+      guard let index = sessions.firstIndex(where: { $0.completedAt == nil }) else { return }
+      sessions[index].purchasedItems.removeAll(where: { $0.id == purchase.id })
+    }
     var restoredItem = purchase.item
     items[purchase.item.sourceListID, default: []].append(restoredItem)
     save()

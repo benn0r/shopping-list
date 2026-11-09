@@ -6,14 +6,20 @@ struct ShoppingListScreen: View {
   @State private var newItem = ""
   @State private var selectedItem: ShoppingItem?
   @State private var scannerPresented = false
+  /// The item one-tap shopping just checked off, offered for undo for a few seconds.
+  @State private var checkedOff: ShoppingItem?
+  @State private var undoTimer: Task<Void, Never>?
 
   var body: some View {
     NavigationStack {
       ScrollView {
         ItemCollection(
           items: store.activeItems, mode: store.viewMode,
-          showCategoryLabels: store.showCategoryLabels
-        ) { selectedItem = $0 }
+          showCategoryLabels: store.showCategoryLabels,
+          details: store.oneTapShopping ? { selectedItem = $0 } : nil
+        ) { item in
+          if store.oneTapShopping { checkOff(item) } else { selectedItem = item }
+        }
         .padding(.horizontal, 16)
       }
       .scrollDismissesKeyboard(.interactively)
@@ -43,7 +49,12 @@ struct ShoppingListScreen: View {
           if !store.activeListHasPendingIcons { return }
         }
       }
-      .safeAreaInset(edge: .bottom) { composer }
+      .safeAreaInset(edge: .bottom) {
+        VStack(spacing: 8) {
+          if let checkedOff { undoBanner(checkedOff) }
+          composer
+        }
+      }
       .navigationTitle(store.activeList.name)
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
@@ -83,6 +94,40 @@ struct ShoppingListScreen: View {
         Text(store.errorMessage ?? "")
       }
     }
+  }
+
+  private func checkOff(_ item: ShoppingItem) {
+    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    withAnimation(.snappy) { checkedOff = item }
+    Task { await store.checkOff(item) }
+    undoTimer?.cancel()
+    undoTimer = Task {
+      try? await Task.sleep(for: .seconds(4))
+      guard !Task.isCancelled else { return }
+      withAnimation(.snappy) { checkedOff = nil }
+    }
+  }
+
+  private func undoBanner(_ item: ShoppingItem) -> some View {
+    HStack(spacing: 12) {
+      Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.shoppingAccent)
+      Text("\(item.label) checked off").lineLimit(1)
+      Spacer(minLength: 8)
+      Button("Undo") {
+        undoTimer?.cancel()
+        withAnimation(.snappy) { checkedOff = nil }
+        Task { await store.undoCheckOff(item) }
+      }
+      .fontWeight(.semibold)
+      .accessibilityIdentifier("undo-check-off")
+    }
+    .font(.subheadline)
+    .padding(.horizontal, 16).padding(.vertical, 12)
+    .background(.regularMaterial, in: Capsule())
+    .padding(.horizontal, 16)
+    .transition(.move(edge: .bottom).combined(with: .opacity))
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("check-off-banner")
   }
 
   private var composer: some View {

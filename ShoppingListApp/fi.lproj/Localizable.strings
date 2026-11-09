@@ -216,3 +216,8 @@
 "This is your only household, so you can't leave it." = "Tämä on ainoa taloutesi, joten et voi poistua siitä.";
 "You joined %@" = "Liityit: %@";
 "You were invited to share shopping lists. After joining, this iPhone shows the household's lists; your own lists stay in your account." = "Sinut on kutsuttu jakamaan ostoslistoja. Liittymisen jälkeen tämä iPhone näyttää talouden listat; omat listasi jäävät tilillesi.";
+"One-Tap Shopping" = "Ostokset yhdellä napautuksella";
+"Tap an item to check it off. Hold it for details." = "Napauta tuotetta kuitataksesi sen. Paina pitkään nähdäksesi tiedot.";
+"Details" = "Tiedot";
+"%@ checked off" = "%@ kuitattu";
+"Undo" = "Kumoa";

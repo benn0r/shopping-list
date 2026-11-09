@@ -216,3 +216,8 @@
 "This is your only household, so you can't leave it." = "Esta é sua única família, então você não pode sair dela.";
 "You joined %@" = "Você entrou em %@";
 "You were invited to share shopping lists. After joining, this iPhone shows the household's lists; your own lists stay in your account." = "Você foi convidado a compartilhar listas de compras. Depois de entrar, este iPhone mostra as listas da família; as suas continuam na sua conta.";
+"One-Tap Shopping" = "Compras com um toque";
+"Tap an item to check it off. Hold it for details." = "Toque em um item para marcá-lo. Mantenha pressionado para ver detalhes.";
+"Details" = "Detalhes";
+"%@ checked off" = "%@ marcado";
+"Undo" = "Desfazer";
