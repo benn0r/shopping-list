@@ -29,15 +29,24 @@ enum AppLanguage: String, Codable, CaseIterable, Identifiable, Sendable {
   }
 }
 enum ProductLanguage: String, Codable, CaseIterable, Identifiable, Sendable {
-  case automatic, de, en, fr, it
+  case automatic, da, de, en, es, fr, it, nl, nb, pl, pt, fi, sv, ja
   var id: String { rawValue }
   var title: String {
     switch self {
     case .automatic: "Automatic"
+    case .da: "Danish"
     case .de: "German"
     case .en: "English"
+    case .es: "Spanish"
     case .fr: "French"
     case .it: "Italian"
+    case .nl: "Dutch"
+    case .nb: "Norwegian"
+    case .pl: "Polish"
+    case .pt: "Portuguese"
+    case .fi: "Finnish"
+    case .sv: "Swedish"
+    case .ja: "Japanese"
     }
   }
 }

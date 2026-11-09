@@ -73,6 +73,14 @@ final class AppStoreTests: XCTestCase {
     XCTAssertEqual(product?.source, "Custom barcode")
   }
 
+  func testAutomaticProductLanguageFollowsAppLanguage() {
+    let lookup = ProductLookup()
+    XCTAssertEqual(lookup.resolvedLanguage(.automatic, appLanguage: .ja), "ja")
+    XCTAssertEqual(lookup.resolvedLanguage(.automatic, appLanguage: .ptBR), "pt")
+    XCTAssertEqual(lookup.resolvedLanguage(.automatic, appLanguage: .nb), "nb")
+    XCTAssertEqual(lookup.resolvedLanguage(.sv, appLanguage: .ja), "sv")
+  }
+
   func testShoppingPurchaseAndRestoreKeepsSourceList() async {
     let store = AppStore(storageURL: fileURL)
     store.createStore(name: "Market")
@@ -518,7 +526,10 @@ final class AppStoreTests: XCTestCase {
     XCTAssertEqual(AppLanguage.allCases.map(\.title).count, 15)
     XCTAssertEqual(
       ProductLanguage.allCases.map(\.title),
-      ["Automatic", "German", "English", "French", "Italian"])
+      [
+        "Automatic", "Danish", "German", "English", "Spanish", "French", "Italian", "Dutch",
+        "Norwegian", "Polish", "Portuguese", "Finnish", "Swedish", "Japanese",
+      ])
     XCTAssertEqual(
       ProductLabelStyle.allCases.map(\.title), ["Generic name", "Exact product", "Ask every time"])
     XCTAssertEqual(

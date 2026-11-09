@@ -278,7 +278,8 @@ final class AppStore: ObservableObject {
         item.adoptPresentation(of: remoteItem)
         if let barcode = remoteItem.barcode,
           let metadata = try? await ProductLookup().find(
-            barcode: barcode, preferences: lookupPreferences, customBarcodes: customBarcodes)
+            barcode: barcode, preferences: lookupPreferences, customBarcodes: customBarcodes,
+            appLanguage: appLanguage)
         {
           item.label = metadata.label
           item.brand = metadata.brand
@@ -331,7 +332,8 @@ final class AppStore: ObservableObject {
         }
         guard
           let metadata = try? await ProductLookup().find(
-            barcode: barcode, preferences: lookupPreferences, customBarcodes: customBarcodes)
+            barcode: barcode, preferences: lookupPreferences, customBarcodes: customBarcodes,
+            appLanguage: appLanguage)
         else { continue }
         // Write into the item as it is now: syncs may have changed the list during the lookup.
         let itemID = listItems[index].id

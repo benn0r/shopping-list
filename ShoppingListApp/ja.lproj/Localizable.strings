@@ -21,6 +21,15 @@
 "English" = "英語";
 "French" = "フランス語";
 "Italian" = "イタリア語";
+"Danish" = "デンマーク語";
+"Dutch" = "オランダ語";
+"Finnish" = "フィンランド語";
+"Japanese" = "日本語";
+"Norwegian" = "ノルウェー語";
+"Polish" = "ポーランド語";
+"Portuguese" = "ポルトガル語";
+"Spanish" = "スペイン語";
+"Swedish" = "スウェーデン語";
 "Generic name" = "一般名";
 "Exact product" = "正確な商品名";
 "Ask every time" = "毎回確認";

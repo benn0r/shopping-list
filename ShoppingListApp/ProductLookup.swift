@@ -13,7 +13,8 @@ struct ProductMetadata: Codable, Hashable, Sendable {
 }
 
 struct ProductLookup: Sendable {
-  private static let supportedLanguages = ["de", "en", "fr", "it"]
+  private static let supportedLanguages = ProductLanguage.allCases.filter { $0 != .automatic }
+    .map(\.rawValue)
   private let cache: ProductMetadataCache
 
   init(cache: ProductMetadataCache = .shared) {
@@ -96,7 +97,7 @@ struct ProductLookup: Sendable {
 
   func find(
     barcode: String, preferences: ProductLookupPreferences = .init(),
-    customBarcodes: [CustomBarcode] = []
+    customBarcodes: [CustomBarcode] = [], appLanguage: AppLanguage = .automatic
   ) async throws -> ProductMetadata? {
     let normalizedBarcode = barcode.filter(\.isNumber)
     if let custom = customBarcodes.first(where: { $0.barcode == normalizedBarcode }) {
@@ -105,7 +106,7 @@ struct ProductLookup: Sendable {
         imageURL: nil, stores: [], source: "Custom barcode", productType: "custom",
         categoryHints: [])
     }
-    let language = resolvedLanguage(preferences.language)
+    let language = resolvedLanguage(preferences.language, appLanguage: appLanguage)
     let cacheKey = "\(normalizedBarcode)|\(language)|\(preferences.labelStyle.rawValue)"
     if let cached = await cache.value(for: cacheKey) { return cached }
     let localizedFields = Self.supportedLanguages.flatMap {
@@ -165,9 +166,16 @@ struct ProductLookup: Sendable {
     return metadata
   }
 
-  private func resolvedLanguage(_ preference: ProductLanguage) -> String {
+  /// "Automatic" follows the app language, then the device language, then English.
+  func resolvedLanguage(_ preference: ProductLanguage, appLanguage: AppLanguage = .automatic)
+    -> String
+  {
     if preference != .automatic { return preference.rawValue }
-    let language = Locale.current.language.languageCode?.identifier ?? "en"
+    let identifier =
+      appLanguage == .automatic
+      ? Locale.current.language.languageCode?.identifier ?? "en" : appLanguage.rawValue
+    var language = String(identifier.prefix { $0 != "-" && $0 != "_" }).lowercased()
+    if language == "no" || language == "nn" { language = "nb" }
     return Self.supportedLanguages.contains(language) ? language : "en"
   }
 
