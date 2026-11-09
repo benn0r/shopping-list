@@ -25,6 +25,12 @@ if [[ "${1:-}" == "attach-build" ]]; then
   exec "$PY" scripts/appstore.py attach-build "$build"
 fi
 ALL=(en de fr it es nl pt-PT pt-BR sv da nb fi ja pl)
+# `appstore-upload.sh version [x.y]`: create the next App Store version (default: MARKETING_VERSION
+# in project.yml without a trailing .0); App Store Connect copies the previous listing.
+if [[ "${1:-}" == "version" ]]; then
+  version="${2:-$(sed -n 's/.*MARKETING_VERSION: *//p' project.yml | head -1 | sed 's/\.0$//')}"
+  exec "$PY" scripts/appstore.py version "$version"
+fi
 # `appstore-upload.sh submit`: submit the editable version (with its attached build) for review.
 if [[ "${1:-}" == "submit" ]]; then
   exec "$PY" scripts/appstore.py submit
