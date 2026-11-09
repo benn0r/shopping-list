@@ -38,6 +38,12 @@ appId: ch.benn0r.shoppinglist
 - tapOn:
     id: "product-language-picker"
 - tapOn: "French"
+# The One-Tap Shopping row makes Appearance taller: bring the picker out from behind the tab bar.
+- scrollUntilVisible:
+    element:
+      id: "item-label-picker"
+    direction: DOWN
+    centerElement: true
 - tapOn:
     id: "item-label-picker"
 - tapOn: "Exact product"
@@ -53,6 +59,11 @@ appId: ch.benn0r.shoppinglist
     id: "save-custom-barcode"
 - assertVisible: "Fantasy Product"
 - tapOn: "Done"
+- scrollUntilVisible:
+    element:
+      id: "add-list-button"
+    direction: UP
+    centerElement: true
 - tapOn:
     id: "add-list-button"
 - tapOn:
