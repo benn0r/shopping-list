@@ -2,6 +2,7 @@
 # Takes the Mac App Store screenshots (2880×1800) with fictional data (`-demo`):
 #   scripts/mac-screenshots.sh        → screenshots/appstore-mac/ (English)
 #   scripts/mac-screenshots.sh all    → every App Store language, in screenshots/appstore-mac/<folder>
+#   scripts/mac-screenshots.sh pl     → one language, by its folder name
 # The app draws its own windows into PNGs (`-snapshot`, DEBUG builds only), and
 # scripts/mac-frame.swift puts them on a background.
 set -euo pipefail
@@ -59,6 +60,13 @@ if [[ "${1:-}" == "all" ]]; then
     IFS=: read -r folder language locale <<<"$entry"
     run "$folder" "$language" "$locale"
   done
+elif [[ -n "${1:-}" ]]; then
+  for entry in "${LANGUAGES[@]}"; do
+    IFS=: read -r folder language locale <<<"$entry"
+    [[ "$folder" == "$1" ]] && run "$folder" "$language" "$locale" && exit 0
+  done
+  echo "Unknown language: $1" >&2
+  exit 1
 else
   run en en en_US
 fi
