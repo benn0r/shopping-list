@@ -82,9 +82,12 @@ appId: ch.benn0r.shoppinglist
 - extendedWaitUntil:
     visible: "Party"
     timeout: 5000
+- waitForAnimationToEnd
 - tapOn: "Party"
-- assertVisible:
-    id: "list-storage"
+- extendedWaitUntil:
+    visible:
+      id: "list-storage"
+    timeout: 5000
 - assertVisible: ".*Stored In.*Shopping List Cloud.*"
 - tapOn: "Cancel"
 # Signing out switches to offline and keeps both lists on the iPhone.
@@ -118,8 +121,13 @@ appId: ch.benn0r.shoppinglist
 - scrollUntilVisible:
     element: "Party"
     direction: UP
+    centerElement: true
+- waitForAnimationToEnd
 - tapOn: "Party"
-- assertVisible: ".*Stored In.*Shopping List Cloud.*"
+# The editor sheet slides in: give it time instead of checking at once.
+- extendedWaitUntil:
+    visible: ".*Stored In.*Shopping List Cloud.*"
+    timeout: 5000
 - tapOn: "Cancel"
 - scrollUntilVisible:
     element: ".*Lists in Cloud.*2.*"
