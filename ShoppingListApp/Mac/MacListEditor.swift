@@ -16,7 +16,8 @@ struct MacListEditor: View {
 
   /// Online stores new lists in Cloud, offline on this Mac; both can use connected services.
   private var storageOptions: [ListStorage] {
-    [store.storageMode == .online ? .cloud : .local] + (connectedProviders.isEmpty ? [] : [.connected])
+    [store.storageMode == .online ? .cloud : .local]
+      + (connectedProviders.isEmpty ? [] : [.connected])
   }
 
   private var connectedProviders: [ProviderKind] {
@@ -124,7 +125,8 @@ struct MacListEditor: View {
       let remoteName = remoteLists.first { $0.id == remoteListID }?.name ?? ""
       list = store.createList(
         name: trimmedName,
-        target: SyncTarget(provider: provider, remoteListID: remoteListID, remoteListName: remoteName))
+        target: SyncTarget(
+          provider: provider, remoteListID: remoteListID, remoteListName: remoteName))
       Task { await store.sync(list) }
     case .cloud:
       isWorking = true

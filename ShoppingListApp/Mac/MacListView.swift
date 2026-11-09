@@ -44,7 +44,11 @@ struct MacListView: View {
       // Dropped in very narrow windows, where it would push the toolbar buttons into overflow.
       .navigationSubtitle(isCompact ? Text(verbatim: "") : subtitle)
       .toolbar { toolbar }
-      .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { contentWidth = $0 }
+      .onGeometryChange(for: CGFloat.self) {
+        $0.size.width
+      } action: {
+        contentWidth = $0
+      }
       .focusedSceneValue(\.macWindowActions, windowActions)
       #if DEBUG
         .onAppear {

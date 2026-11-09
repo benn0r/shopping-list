@@ -201,7 +201,9 @@ struct ItemImage: View {
 
   /// The label matched against the bundled icons, or its initial.
   @ViewBuilder private var localIcon: some View {
-    if let image = GroceryIconCatalog.imageName(for: item.label).flatMap({ PlatformImage(named: $0) }) {
+    if let image = GroceryIconCatalog.imageName(for: item.label).flatMap({
+      PlatformImage(named: $0)
+    }) {
       icon(image)
     } else {
       Text(initial)

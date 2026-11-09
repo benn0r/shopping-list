@@ -145,7 +145,8 @@
         let household = ShoppingListDefinition(name: text(householdName))
         let pharmacy = ShoppingListDefinition(
           name: text(pharmacyName),
-          syncTarget: SyncTarget(provider: .bring, remoteListID: "demo-2", remoteListName: "Pharmacy"))
+          syncTarget: SyncTarget(
+            provider: .bring, remoteListID: "demo-2", remoteListName: "Pharmacy"))
         store.lists += [household, pharmacy]
         store.providerConfigurations[.bring] = ProviderConfiguration(
           enabled: true, username: "alex@example.com", secret: "demo-password")

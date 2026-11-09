@@ -26,7 +26,9 @@ struct MacWelcomeSheet: View {
       VStack(spacing: 0) {
         option(
           .online, symbol: "icloud", title: "Online",
-          detail: "Shopping List Cloud with your Apple ID. Share lists with family, use them on iPhone and Mac, and connect AI assistants.")
+          detail:
+            "Shopping List Cloud with your Apple ID. Share lists with family, use them on iPhone and Mac, and connect AI assistants."
+        )
         Divider().padding(.leading, 44)
         option(
           .offline, symbol: "laptopcomputer", title: "Offline",
