@@ -64,8 +64,14 @@ appId: ch.benn0r.shoppinglist
       id: "add-list-button"
     direction: UP
     centerElement: true
+- waitForAnimationToEnd
 - tapOn:
     id: "add-list-button"
+# The editor sheet slides in: wait for it instead of tapping at once.
+- extendedWaitUntil:
+    visible:
+      id: "list-name-field"
+    timeout: 5000
 - tapOn:
     id: "list-name-field"
 - inputText: "Weekend"
