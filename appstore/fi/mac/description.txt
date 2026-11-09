@@ -1,0 +1,35 @@
+Ostoslista - Scan & Shop Macilla: suunnittele ostokset työpöydän ääressä, näe tuotteet hyllyjärjestyksessä ja ota samat listat mukaan iPhonella.
+
+SINÄ VALITSET: ONLINE TAI OFFLINE
+• Offline: listasi pysyvät tässä Macissa. Tiliä ei tarvita.
+• Online: ilmainen Shopping List Cloud ja Kirjaudu Applella. Sähköpostiosoitettasi ei pyydetä.
+
+TEHTY MACILLE
+• Tuotteet ruutuina luokittain, ja tietopaneelissa lisätiedot
+• Kaikki listasi sivupalkissa
+• Näppäinoikotiet: ⌘N lisää tuotteen, ⌘R synkronoi, ⌘⌫ poistaa valinnan
+• Vaalea ja tumma tila
+
+JAA PERHEEN KANSSA
+• Kutsu perhe ja ystävät talouteesi linkillä
+• Kaikki näkevät ja muokkaavat samoja listoja, ja muutokset näkyvät heti
+• Poista jäseniä tai poistu taloudesta milloin tahansa
+
+KERRO TEKOÄLYLLE
+• Yhdistä tekoälyavustajat MCP:n kautta lukemaan listoja ja lisäämään ja kuittaamaan tuotteita
+• ”Lisää kaikki lasagneen” muuttuu tuotteiksi listallasi
+
+IPHONE JA MAC
+• Sama appi iPhonella, viivakoodinlukijan ja kauppaan sopivan ostostilan kanssa
+• Shopping List Cloudilla listasi pysyvät synkronoituina kaikilla laitteillasi
+
+TOIMII SEN KANSSA, MITÄ JO KÄYTÄT
+• Synkronoi listoja Bring!-, Mealie- tai omaan Shopping List Serveriin
+
+YKSITYINEN
+• Ei mainoksia, ei seurantaa, ei analytiikkaa
+• Poista Cloud-tilisi Asetuksissa milloin tahansa; kopiot listoistasi jäävät Maciin
+
+Saatavilla suomeksi, englanniksi, saksaksi, ranskaksi, italiaksi, espanjaksi, portugaliksi, hollanniksi, tanskaksi, ruotsiksi, norjaksi, puolaksi ja japaniksi.
+
+Ostoslista - Scan & Shop on itsenäinen eikä liity Bring! Labs AG:hen tai Mealie-projektiin.

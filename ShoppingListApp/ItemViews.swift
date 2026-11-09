@@ -1,6 +1,23 @@
 import CryptoKit
 import SwiftUI
-import UIKit
+
+#if canImport(UIKit)
+  import UIKit
+  typealias PlatformImage = UIImage
+#else
+  import AppKit
+  typealias PlatformImage = NSImage
+#endif
+
+extension Image {
+  init(platformImage: PlatformImage) {
+    #if canImport(UIKit)
+      self.init(uiImage: platformImage)
+    #else
+      self.init(nsImage: platformImage)
+    #endif
+  }
+}
 
 struct ItemCollection: View {
   let items: [ShoppingItem]
@@ -138,7 +155,7 @@ struct ItemCollection: View {
   }
 }
 
-private struct ItemImage: View {
+struct ItemImage: View {
   let item: ShoppingItem
   var size: CGFloat
   private var accent: Color { GroceryCategoryCatalog.category(for: item).accent }
@@ -167,7 +184,7 @@ private struct ItemImage: View {
     ZStack {
       PendingGlow(accent: accent, isPending: isPending)
       Group {
-        if let name = item.iconName, let image = UIImage(named: name) {
+        if let name = item.iconName, let image = PlatformImage(named: name) {
           icon(image)
         } else if let url = item.iconURL {
           RemoteIcon(url: url, render: icon, fallback: localIcon)
@@ -184,7 +201,7 @@ private struct ItemImage: View {
 
   /// The label matched against the bundled icons, or its initial.
   @ViewBuilder private var localIcon: some View {
-    if let image = GroceryIconCatalog.imageName(for: item.label).flatMap({ UIImage(named: $0) }) {
+    if let image = GroceryIconCatalog.imageName(for: item.label).flatMap({ PlatformImage(named: $0) }) {
       icon(image)
     } else {
       Text(initial)
@@ -194,8 +211,9 @@ private struct ItemImage: View {
     }
   }
 
-  private func icon(_ image: UIImage) -> some View {
-    Image(uiImage: image.withRenderingMode(.alwaysTemplate))
+  private func icon(_ image: PlatformImage) -> some View {
+    Image(platformImage: image)
+      .renderingMode(.template)
       .resizable()
       .scaledToFit()
       .foregroundStyle(accent)
@@ -217,7 +235,7 @@ private struct CachedRemoteImage<Fallback: View>: View {
   var body: some View {
     Group {
       if let image = loader.image {
-        Image(uiImage: image).resizable().scaledToFit()
+        Image(platformImage: image).resizable().scaledToFit()
       } else {
         fallback
       }
@@ -271,7 +289,7 @@ private struct IconSparkle: View {
 /// A provider icon that is not bundled with the app (e.g. one the server generated), cached on disk.
 private struct RemoteIcon<Icon: View, Fallback: View>: View {
   let url: URL
-  let render: (UIImage) -> Icon
+  let render: (PlatformImage) -> Icon
   let fallback: Fallback
   @StateObject private var loader = ProductImageLoader()
 
@@ -290,8 +308,8 @@ private struct RemoteIcon<Icon: View, Fallback: View>: View {
 
 @MainActor
 private final class ProductImageLoader: ObservableObject {
-  @Published private(set) var image: UIImage?
-  private static let memoryCache = NSCache<NSURL, UIImage>()
+  @Published private(set) var image: PlatformImage?
+  private static let memoryCache = NSCache<NSURL, PlatformImage>()
 
   func load(_ url: URL) async {
     if let cached = Self.memoryCache.object(forKey: url as NSURL) {
@@ -299,20 +317,20 @@ private final class ProductImageLoader: ObservableObject {
       return
     }
     let fileURL = Self.fileURL(for: url)
-    if let cached = UIImage(contentsOfFile: fileURL.path) {
+    if let cached = PlatformImage(contentsOfFile: fileURL.path) {
       Self.memoryCache.setObject(cached, forKey: url as NSURL)
       image = cached
       return
     }
     // A failed download (offline, server restarting) is retried instead of leaving the icon
     // blank until the view is recreated.
-    var download: (Data, UIImage)?
+    var download: (Data, PlatformImage)?
     for attempt in 0..<4 where download == nil {
       if attempt > 0 { try? await Task.sleep(for: .seconds(2 << attempt)) }
       guard !Task.isCancelled else { return }
       if let (data, response) = try? await URLSession.shared.data(from: url),
         (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true,
-        let image = UIImage(data: data)
+        let image = PlatformImage(data: data)
       {
         download = (data, image)
       }

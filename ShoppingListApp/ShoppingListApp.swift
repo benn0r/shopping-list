@@ -6,6 +6,7 @@ extension Color {
   static let shoppingWarm = Color(red: 0.96, green: 0.62, blue: 0.35)
 }
 
+#if os(iOS)
 @main
 struct ShoppingListApp: App {
   @StateObject private var store = AppStore()
@@ -99,3 +100,4 @@ private struct PendingInvite: Identifiable {
   let token: String
   var id: String { token }
 }
+#endif

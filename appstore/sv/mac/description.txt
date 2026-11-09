@@ -1,0 +1,35 @@
+Inköpslista - Scan & Shop på Mac: planera inköpen vid skrivbordet, se varorna sorterade efter gång och ta med samma listor på din iPhone.
+
+DU VÄLJER: ONLINE ELLER OFFLINE
+• Offline: dina listor stannar på den här datorn. Inget konto behövs.
+• Online: gratis Shopping List Cloud med ”Logga in med Apple”. Din e-postadress efterfrågas inte.
+
+GJORD FÖR MAC
+• Varor som rutor sorterade efter kategori, med en infopanel för detaljerna
+• Alla dina listor i sidofältet
+• Kortkommandon: ⌘N lägger till en vara, ⌘R synkar, ⌘⌫ tar bort det markerade
+• Ljust och mörkt läge
+
+DELA MED FAMILJEN
+• Bjud in familj och vänner till ditt hushåll med en länk
+• Alla ser och redigerar samma listor, ändringar syns direkt
+• Ta bort medlemmar eller lämna ett hushåll när du vill
+
+SÄG DET TILL DIN AI
+• Anslut AI-assistenter via MCP så att de kan läsa listor, lägga till och bocka av varor
+• ”Lägg till allt till en lasagne” blir varor på din lista
+
+IPHONE OCH MAC
+• Samma app på iPhone, med streckkodsläsare och ett handlingsläge för butiken
+• Med Shopping List Cloud hålls dina listor synkade på alla dina enheter
+
+FUNGERAR MED DET DU ANVÄNDER
+• Synka listor med Bring!, Mealie eller din egen Shopping List Server
+
+PRIVAT
+• Ingen reklam, ingen spårning, ingen analys
+• Radera ditt Cloud-konto i Inställningar när du vill; kopior av dina listor stannar på din Mac
+
+Finns på svenska, engelska, tyska, franska, italienska, spanska, portugisiska, nederländska, danska, norska, finska, polska och japanska.
+
+Inköpslista - Scan & Shop är fristående och inte knuten till Bring! Labs AG eller Mealie-projektet.

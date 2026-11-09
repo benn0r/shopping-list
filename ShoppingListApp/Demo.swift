@@ -101,6 +101,19 @@
 
     static var storeTitle: String { text(storeName) }
 
+    // swift-format-ignore
+    private static let householdName = [
+      "en": "Household", "de": "Haushalt", "fr": "Maison", "it": "Casa", "es": "Hogar",
+      "pt": "Casa", "pt-BR": "Casa", "nl": "Huishouden", "da": "Husholdning", "sv": "Hushåll",
+      "nb": "Husholdning", "fi": "Kotitalous", "pl": "Dom", "ja": "日用品",
+    ]
+    // swift-format-ignore
+    private static let pharmacyName = [
+      "en": "Pharmacy", "de": "Apotheke", "fr": "Pharmacie", "it": "Farmacia", "es": "Farmacia",
+      "pt": "Farmácia", "pt-BR": "Farmácia", "nl": "Apotheek", "da": "Apotek", "sv": "Apotek",
+      "nb": "Apotek", "fi": "Apteekki", "pl": "Apteka", "ja": "薬局",
+    ]
+
     static var productLabel: String {
       text([
         "en": "Raspberry Oat Yogurt", "de": "Himbeer-Hafer-Joghurt",
@@ -127,6 +140,16 @@
         return value
       }
       store.lists = [groceries]
+      #if os(macOS)
+        // More lists for the Mac sidebar: one on this Mac, one linked to Bring.
+        let household = ShoppingListDefinition(name: text(householdName))
+        let pharmacy = ShoppingListDefinition(
+          name: text(pharmacyName),
+          syncTarget: SyncTarget(provider: .bring, remoteListID: "demo-2", remoteListName: "Pharmacy"))
+        store.lists += [household, pharmacy]
+        store.providerConfigurations[.bring] = ProviderConfiguration(
+          enabled: true, username: "alex@example.com", secret: "demo-password")
+      #endif
       store.activeListID = groceries.id
       store.stores = [shop]
       store.viewMode = .tiles
@@ -151,6 +174,13 @@
         store.sessions = [session]
       } else {
         store.items = [groceries.id: listItems]
+        #if os(macOS)
+          for (list, count) in zip(store.lists.dropFirst(), [5, 2]) {
+            store.items[list.id] = (1...count).map {
+              ShoppingItem(label: "\(list.name) \($0)", sourceListID: list.id)
+            }
+          }
+        #endif
         store.sessions = []
       }
     }

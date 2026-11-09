@@ -275,7 +275,7 @@ struct CloudInfoSheet: View {
         }
       }
       .navigationTitle("Shopping List Cloud")
-      .navigationBarTitleDisplayMode(.inline)
+      .inlineNavigationTitle()
       .toolbar {
         ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
       }
@@ -503,7 +503,7 @@ struct ModeChoiceScreen: View {
       .padding(.bottom, 8)
       .background(.bar)
     }
-    .background(Color(.systemGroupedBackground))
+    .background(Color.groupedBackground)
     .animation(.snappy, value: choice)
     .interactiveDismissDisabled()
     .sheet(isPresented: $infoPresented) { CloudInfoSheet() }
@@ -654,19 +654,27 @@ enum InviteShare {
   static var message: String { String(localized: "Join my shopping list in Shopping List:") }
 }
 
-/// The iOS share sheet, presented by UIKit from the topmost screen. Wrapped in a SwiftUI sheet
-/// it could not be closed after Messages or Mail had opened on top of it.
+/// The system share sheet. On iPhone it is presented by UIKit from the topmost screen: wrapped
+/// in a SwiftUI sheet it could not be closed after Messages or Mail had opened on top of it.
 @MainActor enum ShareSheet {
   static func present(items: [Any]) {
-    let scene = UIApplication.shared.connectedScenes
-      .compactMap { $0 as? UIWindowScene }
-      .first { $0.activationState == .foregroundActive }
-    guard var top = scene?.keyWindow?.rootViewController else { return }
-    while let presented = top.presentedViewController { top = presented }
-    // No popover anchor: the app is iPhone-only, and an anchor turns the sheet into a small
-    // popover without a close button.
-    let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
-    top.present(controller, animated: true)
+    #if os(iOS)
+      let scene = UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }
+        .first { $0.activationState == .foregroundActive }
+      guard var top = scene?.keyWindow?.rootViewController else { return }
+      while let presented = top.presentedViewController { top = presented }
+      // No popover anchor: the app is iPhone-only, and an anchor turns the sheet into a small
+      // popover without a close button.
+      let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+      top.present(controller, animated: true)
+    #else
+      // The Mac's sharing menu, shown under the mouse pointer in the frontmost window.
+      guard let window = NSApp.keyWindow, let view = window.contentView else { return }
+      let point = view.convert(window.mouseLocationOutsideOfEventStream, from: nil)
+      NSSharingServicePicker(items: items).show(
+        relativeTo: NSRect(origin: point, size: .zero), of: view, preferredEdge: .minY)
+    #endif
   }
 }
 
