@@ -7,9 +7,23 @@ struct MacListView: View {
   @EnvironmentObject private var store: AppStore
   @Binding var newListPresented: Bool
   @State private var newItem = ""
-  @State private var selection: Set<UUID> = []
-  @State private var inspectorPresented = false
+  // Owned by the window: the inspector is a column of the whole window, next to the split view.
+  @Binding var selection: Set<UUID>
+  @Binding var inspectorPresented: Bool
+  /// With the sidebar hidden the window controls take up the start of this view's toolbar.
+  var sidebarShown = true
   @State private var isSyncing = false
+  @State private var contentWidth: CGFloat = 1000
+  @State private var addPopoverPresented = false
+
+  /// Room left for the Add Item field next to the title, subtitle and buttons. The inspector takes
+  /// the Info button into its own toolbar; a hidden sidebar leaves the window controls here.
+  private var addFieldWidth: CGFloat {
+    contentWidth - 340 - (sidebarShown ? 0 : 150) + (inspectorPresented ? 50 : 0)
+  }
+
+  /// Too narrow for the field: a button that opens it in a popover instead.
+  private var isCompact: Bool { addFieldWidth < 120 }
   @FocusState private var addFieldFocused: Bool
   @FocusState private var gridFocused: Bool
 
@@ -27,12 +41,10 @@ struct MacListView: View {
   var body: some View {
     content
       .navigationTitle(store.activeList.name)
-      .navigationSubtitle(subtitle)
+      // Dropped in very narrow windows, where it would push the toolbar buttons into overflow.
+      .navigationSubtitle(isCompact ? Text(verbatim: "") : subtitle)
       .toolbar { toolbar }
-      .inspector(isPresented: $inspectorPresented) {
-        MacItemInspector(items: selectedItems) { remove($0) }
-          .inspectorColumnWidth(min: 250, ideal: 290, max: 380)
-      }
+      .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { contentWidth = $0 }
       .focusedSceneValue(\.macWindowActions, windowActions)
       #if DEBUG
         .onAppear {
@@ -40,8 +52,11 @@ struct MacListView: View {
           if ProcessInfo.processInfo.arguments.contains("-snapshot-inspector"),
             let first = sections.first?.items.first
           {
-            selection = [first.id]
-            inspectorPresented = true
+            Task {
+              try? await Task.sleep(for: .seconds(1))
+              selection = [first.id]
+              inspectorPresented = true
+            }
           }
         }
       #endif
@@ -134,12 +149,6 @@ struct MacListView: View {
           remove([item])
         }
         .onTapGesture { select(item) }
-        .simultaneousGesture(
-          TapGesture(count: 2).onEnded {
-            selection = [item.id]
-            inspectorPresented = true
-          }
-        )
         .contextMenu { contextMenu(for: item) }
       }
     }
@@ -153,6 +162,9 @@ struct MacListView: View {
     Button("Show Info") {
       selection = [item.id]
       inspectorPresented = true
+    }
+    Button(targets.count > 1 ? "Delete \(targets.count) Items" : "Delete", role: .destructive) {
+      remove(targets)
     }
     Divider()
     Button("Copy") {
@@ -168,12 +180,42 @@ struct MacListView: View {
 
   @ToolbarContentBuilder private var toolbar: some ToolbarContent {
     ToolbarItem(placement: .primaryAction) {
-      TextField("Add Item", text: $newItem)
-        .textFieldStyle(.roundedBorder)
-        .frame(width: 240)
-        .focused($addFieldFocused)
-        .onSubmit(addItem)
+      if isCompact {
+        // No room for a field: a button with the field in a popover, like Reminders.
+        Button {
+          addPopoverPresented = true
+        } label: {
+          Label("Add Item", systemImage: "plus")
+        }
         .help("Add an item to \(store.activeList.name) (⌘N)")
+        .popover(isPresented: $addPopoverPresented, arrowEdge: .bottom) {
+          TextField("Add Item", text: $newItem)
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 240)
+            .focused($addFieldFocused)
+            .onSubmit(addItem)
+            .padding(12)
+            .onAppear { addFieldFocused = true }
+        }
+      } else {
+        // A plain field inside the toolbar's own capsule, like the search field: a bordered field
+        // draws its rectangular focus ring inside the capsule and gets clipped.
+        HStack(spacing: 6) {
+          Image(systemName: "plus")
+            .foregroundStyle(.secondary)
+            .imageScale(.medium)
+          TextField("Add Item", text: $newItem)
+            .textFieldStyle(.plain)
+            .focused($addFieldFocused)
+            .onSubmit(addItem)
+        }
+        .padding(.horizontal, 8)
+        // Toolbar items keep their ideal width, so the field is sized by hand.
+        .frame(width: min(240, addFieldWidth))
+        .contentShape(Rectangle())
+        .onTapGesture { addFieldFocused = true }
+        .help("Add an item to \(store.activeList.name) (⌘N)")
+      }
     }
     if store.activeList.syncTarget != nil {
       ToolbarItem(placement: .primaryAction) {
@@ -186,14 +228,19 @@ struct MacListView: View {
         .help("Sync with \(store.activeList.storageDescription) (⌘R)")
       }
     }
-    ToolbarItem(placement: .primaryAction) {
-      Button {
-        inspectorPresented.toggle()
-      } label: {
-        Label("Show Info", systemImage: "info.circle")
-      }
-      .help("Show item info (⌥⌘I)")
+    // While the inspector is open, its own toolbar has the button.
+    if !inspectorPresented {
+      ToolbarItem(placement: .primaryAction) { infoButton }
     }
+  }
+
+  private var infoButton: some View {
+    Button {
+      inspectorPresented.toggle()
+    } label: {
+      Label(inspectorPresented ? "Hide Info" : "Show Info", systemImage: "info.circle")
+    }
+    .help(inspectorPresented ? "Hide item info (⌥⌘I)" : "Show item info (⌥⌘I)")
   }
 
   private var subtitle: Text {
@@ -203,7 +250,7 @@ struct MacListView: View {
 
   private var windowActions: MacWindowActions {
     MacWindowActions(
-      newItem: { addFieldFocused = true },
+      newItem: { if isCompact { addPopoverPresented = true } else { addFieldFocused = true } },
       newList: { newListPresented = true },
       sync: store.activeList.syncTarget == nil ? nil : { sync() },
       toggleInspector: { inspectorPresented.toggle() },
@@ -224,6 +271,8 @@ struct MacListView: View {
     } else {
       selection = [item.id]
     }
+    // Selecting an item shows its details.
+    if !selection.isEmpty { inspectorPresented = true }
   }
 
   private func addItem() {

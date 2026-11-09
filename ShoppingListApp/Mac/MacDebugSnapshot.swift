@@ -27,6 +27,14 @@
           ? NSApp.windows.first { $0.isVisible && $0.frame.width < 700 && $0.frame.height > 100 }
           : NSApp.windows.first { $0.isVisible && $0.contentView != nil && $0.frame.width > 400 }
         guard let window else { exit(1) }
+        // `-snapshot-width <points>[,<points>…]` resizes the window first, one width after another.
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-snapshot-width"), index + 1 < arguments.count {
+          for width in arguments[index + 1].split(separator: ",").compactMap({ Double($0) }) {
+            window.setContentSize(NSSize(width: width, height: window.contentLayoutRect.height))
+            try? await Task.sleep(for: .seconds(1.5))
+          }
+        }
         write(window, to: path)
         // A sheet is a window of its own: saved next to the main window as "<name>-sheet.png".
         if let sheet = window.attachedSheet {

@@ -5,6 +5,7 @@ struct MacItemInspector: View {
   @EnvironmentObject private var store: AppStore
   let items: [ShoppingItem]
   let markBought: ([ShoppingItem]) -> Void
+  let delete: ([ShoppingItem]) -> Void
 
   var body: some View {
     if items.count == 1, let item = items.first {
@@ -13,7 +14,10 @@ struct MacItemInspector: View {
       ContentUnavailableView {
         Label("^[\(items.count) item](inflect: true) Selected", systemImage: "square.grid.2x2")
       } actions: {
-        Button("Mark as Bought") { markBought(items) }
+        HStack {
+          Button("Mark as Bought") { markBought(items) }
+          Button("Delete", role: .destructive) { delete(items) }
+        }
       }
     } else {
       ContentUnavailableView(
@@ -81,8 +85,12 @@ struct MacItemInspector: View {
         Section("Note") { Text(specification).textSelection(.enabled) }
       }
       Section {
-        Button("Mark as Bought") { markBought([item]) }
-          .frame(maxWidth: .infinity)
+        HStack {
+          Button("Mark as Bought") { markBought([item]) }
+            .frame(maxWidth: .infinity)
+          Button("Delete", role: .destructive) { delete([item]) }
+            .frame(maxWidth: .infinity)
+        }
       }
     }
     .formStyle(.grouped)

@@ -11,7 +11,7 @@ struct ShoppingListMacApp: App {
         .environmentObject(store)
         .tint(.shoppingAccent)
         .environment(\.locale, Locale(identifier: store.appLanguage.localeIdentifier))
-        .frame(minWidth: 640, minHeight: 420)
+        .frame(minWidth: 500, minHeight: 400)
     }
     .defaultSize(width: 1040, height: 720)
     .commands { MacCommands() }
