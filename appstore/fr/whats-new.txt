@@ -1,6 +1,2 @@
-• En ligne ou hors ligne : vous choisissez à l'ouverture de l'app. En ligne, c'est Shopping List Cloud, gratuit, avec « Se connecter avec Apple ».
-• Partager en famille : invitez des proches dans votre foyer et faites vos courses avec les mêmes listes, mises à jour en direct.
-• Dites-le à votre IA : les assistants IA ajoutent et cochent des articles via MCP.
-• Icônes générées pour chaque article dans le cloud, et les articles glissent vers leur catégorie.
-• Nouvelles catégories : vêtements, jardin & bricolage, électronique, bureau, jouets, sport, auto & vélo, livres.
-• 13 langues : désormais aussi l'espagnol, le néerlandais, le danois, le suédois, le norvégien, le finnois, le polonais et le japonais.
+• Courses en un geste : touchez un article pour le cocher, maintenez-le pour les détails. Changé d’avis ? Touchez Annuler.
+• Noms de produits dans votre langue : les produits scannés s’affichent désormais dans les 13 langues de l’app.

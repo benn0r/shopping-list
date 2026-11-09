@@ -1,6 +1,2 @@
-• Online of offline: je kiest bij het openen van de app. Online gebruikt de gratis Shopping List Cloud met 'Log in met Apple'.
-• Delen met je gezin: nodig mensen uit voor je huishouden en doe boodschappen met dezelfde lijsten, live bijgewerkt.
-• Zeg het je AI: AI-assistenten voegen via MCP artikelen toe en vinken ze af.
-• Gegenereerde symbolen voor elk artikel in de cloud, en artikelen glijden naar hun categorie.
-• Nieuwe categorieën: kleding, tuin & klussen, elektronica, kantoor, speelgoed, sport, auto & fiets, boeken.
-• 13 talen: nu ook Spaans, Nederlands, Deens, Zweeds, Noors, Fins, Pools en Japans.
+• Boodschappen met één tik: tik op een artikel om het af te vinken, houd het vast voor details. Toch niet? Tik op Herstel.
+• Productnamen in je eigen taal: gescande producten tonen hun naam nu in alle 13 talen van de app.

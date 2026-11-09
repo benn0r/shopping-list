@@ -1,6 +1,2 @@
-• Online tai offline: valitset avatessasi apin. Online käyttää ilmaista Shopping List Cloudia ja Kirjaudu Applella -toimintoa.
-• Jaa perheen kanssa: kutsu ihmisiä talouteesi ja käykää kaupassa samoilla, heti päivittyvillä listoilla.
-• Kerro tekoälylle: tekoälyavustajat lisäävät ja kuittaavat tuotteita MCP:n kautta.
-• Luodut kuvakkeet jokaiselle tuotteelle pilvessä, ja tuotteet liukuvat omaan kategoriaansa.
-• Uudet kategoriat: vaatteet, puutarha ja rakentaminen, elektroniikka, toimisto, lelut, urheilu, auto ja pyörä sekä kirjat.
-• 13 kieltä: nyt myös espanja, hollanti, tanska, ruotsi, norja, suomi, puola ja japani.
+• Ostokset yhdellä napautuksella: napauta tuotetta merkitäksesi sen, pidä painettuna nähdäksesi tiedot. Muutitko mielesi? Napauta Kumoa.
+• Tuotenimet omalla kielelläsi: skannatut tuotteet näyttävät nyt nimensä kaikilla sovelluksen 13 kielellä.

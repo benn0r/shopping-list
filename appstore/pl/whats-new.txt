@@ -1,6 +1,2 @@
-• Online lub offline: wybierasz przy otwarciu aplikacji. Online korzysta z bezpłatnego Shopping List Cloud z „Zaloguj się przez Apple”.
-• Udostępniaj rodzinie: zaproś osoby do gospodarstwa domowego i róbcie zakupy z tych samych list, aktualizowanych na żywo.
-• Powiedz swojej AI: asystenci AI dodają i odhaczają produkty przez MCP.
-• Generowane ikony dla każdego produktu w chmurze, a produkty płynnie przechodzą do swojej kategorii.
-• Nowe kategorie: odzież, ogród i majsterkowanie, elektronika, biuro, zabawki, sport, samochód i rower oraz książki.
-• 13 języków: teraz także hiszpański, niderlandzki, duński, szwedzki, norweski, fiński, polski i japoński.
+• Zakupy jednym dotknięciem: stuknij produkt, aby go odhaczyć, przytrzymaj, aby zobaczyć szczegóły. Pomyłka? Stuknij Cofnij.
+• Nazwy produktów w Twoim języku: zeskanowane produkty pokazują teraz nazwy we wszystkich 13 językach aplikacji.
