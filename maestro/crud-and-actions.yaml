@@ -56,7 +56,9 @@ appId: ch.benn0r.shoppinglist
 - inputText: "Milk"
 - pressKey: Enter
 - assertVisible: "Milk"
-- tapOn: "Milk"
+# New installs have one-tap shopping on: details open from the long-press menu.
+- longPressOn: "Milk"
+- tapOn: "Details"
 - assertVisible: "Added"
 - assertVisible: "Stores"
 - tapOn: "Remove"

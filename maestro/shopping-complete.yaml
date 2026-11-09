@@ -18,7 +18,9 @@ appId: ch.benn0r.shoppinglist
 - inputText: "Apples"
 - pressKey: Enter
 - assertVisible: "Bread"
-- tapOn: "Bread"
+# New installs have one-tap shopping on: details open from the long-press menu.
+- longPressOn: "Bread"
+- tapOn: "Details"
 - assertVisible: "Category"
 - assertVisible: "Bakery"
 - tapOn: "Done"

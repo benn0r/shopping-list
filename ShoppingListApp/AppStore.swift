@@ -74,7 +74,8 @@ final class AppStore: ObservableObject {
       activeListID = initial.id
       viewMode = .list
       showCategoryLabels = true
-      oneTapShopping = false
+      // New installs start with one-tap shopping; saved data without the setting keeps it off.
+      oneTapShopping = true
       providerConfigurations = [
         .bring: .init(), .mealie: .init(), .server: .init(), .cloud: .init(),
       ]

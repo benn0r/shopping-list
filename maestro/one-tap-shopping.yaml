@@ -1,6 +1,6 @@
 appId: ch.benn0r.shoppinglist
 ---
-# One-tap shopping: with the setting on, a tap checks an item off, Undo brings it back, and
+# One-tap shopping (on for new installs): a tap checks an item off, Undo brings it back, and
 # holding an item still opens its details.
 - launchApp:
     clearState: true
@@ -8,11 +8,7 @@ appId: ch.benn0r.shoppinglist
     id: "mode-offline"
 - tapOn:
     id: "mode-continue"
-- tapOn: "Settings"
-- tapOn:
-    id: "one-tap-shopping"
-    point: "90%,50%"
-- tapOn: "Shopping List"
+# New installs start with one-tap shopping on.
 - tapOn:
     id: "add-item-field"
 - inputText: "Bread"

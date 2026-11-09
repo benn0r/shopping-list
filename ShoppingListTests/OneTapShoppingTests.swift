@@ -41,11 +41,18 @@ final class OneTapShoppingTests: XCTestCase {
     XCTAssertEqual(store.activeSession?.purchasedItems.count, 0)
   }
 
-  func testOneTapSettingPersists() async {
+  func testNewInstallsStartWithOneTapAndUpdatesKeepItOff() async throws {
     let store = AppStore(storageURL: fileURL)
-    XCTAssertFalse(store.oneTapShopping)
-    store.oneTapShopping = true
+    XCTAssertTrue(store.oneTapShopping, "New installs start with one-tap shopping")
+    store.oneTapShopping = false
     await store.flushPersistence()
-    XCTAssertTrue(AppStore(storageURL: fileURL).oneTapShopping)
+    XCTAssertFalse(AppStore(storageURL: fileURL).oneTapShopping)
+
+    // Data saved before the setting existed keeps the old behaviour: tap opens details.
+    var json = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: fileURL)) as? [String: Any])
+    json["oneTapShopping"] = nil
+    try JSONSerialization.data(withJSONObject: json).write(to: fileURL)
+    XCTAssertFalse(AppStore(storageURL: fileURL).oneTapShopping)
   }
 }
