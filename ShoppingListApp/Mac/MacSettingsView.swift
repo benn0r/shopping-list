@@ -2,18 +2,34 @@ import SwiftUI
 
 /// The Settings window (⌘,).
 struct MacSettingsView: View {
+  @State private var tab = Self.initialTab
+
   var body: some View {
-    TabView {
+    TabView(selection: $tab) {
       MacGeneralSettings()
         .tabItem { Label("General", systemImage: "gearshape") }
+        .tag(0)
       MacAccountSettings()
         .tabItem { Label("Account", systemImage: "person.crop.circle") }
+        .tag(1)
       MacServicesSettings()
         .tabItem { Label("Services", systemImage: "link") }
+        .tag(2)
       MacAboutSettings()
         .tabItem { Label("About", systemImage: "info.circle") }
+        .tag(3)
     }
     .frame(width: 520)
+  }
+
+  /// `-snapshot-settings=<tab index>` opens a tab other than General (screenshots).
+  private static var initialTab: Int {
+    #if DEBUG
+      let argument = ProcessInfo.processInfo.arguments.first { $0.hasPrefix("-snapshot-settings=") }
+      return argument.flatMap { Int($0.split(separator: "=")[1]) } ?? 0
+    #else
+      return 0
+    #endif
   }
 }
 

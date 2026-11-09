@@ -1,0 +1,35 @@
+Lista zakupów - Scan & Shop na Macu: planuj zakupy przy biurku, oglądaj produkty według alejek i zabieraj te same listy na iPhonie.
+
+TY WYBIERASZ: ONLINE LUB OFFLINE
+• Offline: Twoje listy zostają na tym Macu. Konto nie jest potrzebne.
+• Online: bezpłatny Shopping List Cloud z „Zaloguj się przez Apple”. Nie prosimy o Twój adres e-mail.
+
+STWORZONA DLA MACA
+• Produkty jako kafelki według kategorii, z panelem informacji ze szczegółami
+• Wszystkie listy na pasku bocznym
+• Skróty klawiszowe: ⌘N dodaje produkt, ⌘R synchronizuje, ⌘⌫ usuwa zaznaczenie
+• Tryb jasny i ciemny
+
+UDOSTĘPNIAJ RODZINIE
+• Zaproś rodzinę i znajomych do swojego gospodarstwa domowego linkiem
+• Wszyscy widzą i edytują te same listy, a zmiany pojawiają się od razu
+• Usuwaj członków lub opuść gospodarstwo w dowolnej chwili
+
+POWIEDZ SWOJEJ AI
+• Połącz asystentów AI przez MCP, aby czytali listy, dodawali i odhaczali produkty
+• „Dodaj wszystko do lasagne” zamienia się w produkty na Twojej liście
+
+IPHONE I MAC
+• Ta sama aplikacja na iPhonie, ze skanerem kodów kreskowych i trybem zakupów w sklepie
+• Dzięki Shopping List Cloud listy są zsynchronizowane na wszystkich Twoich urządzeniach
+
+DZIAŁA Z TYM, CZEGO JUŻ UŻYWASZ
+• Synchronizuj listy z Bring!, Mealie lub własnym Shopping List Server
+
+PRYWATNIE
+• Bez reklam, bez śledzenia, bez analityki
+• Usuń konto Cloud w Ustawieniach w dowolnej chwili; kopie list zostają na Twoim Macu
+
+Dostępna po polsku, angielsku, niemiecku, francusku, włosku, hiszpańsku, portugalsku, niderlandzku, duńsku, szwedzku, norwesku, fińsku i japońsku.
+
+Lista zakupów - Scan & Shop jest niezależną aplikacją i nie jest powiązana z Bring! Labs AG ani z projektem Mealie.

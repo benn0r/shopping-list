@@ -85,11 +85,20 @@ struct MacItemInspector: View {
         Section("Note") { Text(specification).textSelection(.enabled) }
       }
       Section {
-        HStack {
-          Button("Mark as Bought") { markBought([item]) }
-            .frame(maxWidth: .infinity)
-          Button("Delete", role: .destructive) { delete([item]) }
-            .frame(maxWidth: .infinity)
+        // Side by side, or stacked when a translation is too long for one row.
+        ViewThatFits(in: .horizontal) {
+          HStack {
+            Button("Mark as Bought") { markBought([item]) }
+              .frame(maxWidth: .infinity)
+            Button("Delete", role: .destructive) { delete([item]) }
+              .frame(maxWidth: .infinity)
+          }
+          .fixedSize(horizontal: true, vertical: false)
+          VStack {
+            Button("Mark as Bought") { markBought([item]) }
+            Button("Delete", role: .destructive) { delete([item]) }
+          }
+          .frame(maxWidth: .infinity)
         }
       }
     }

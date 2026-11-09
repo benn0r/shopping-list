@@ -16,6 +16,10 @@ The key is only read to sign requests; it is never printed.
     python3 scripts/appstore.py assets de pt-PT pt-BR               # header + search results images
     python3 scripts/appstore.py listing sv da                        # name, subtitle, description, keywords, …
     python3 scripts/appstore.py submit                               # submit the editable version for review
+
+Add --mac to work on the macOS version instead: its screenshots come from
+screenshots/appstore-mac (scripts/mac-screenshots.sh), and its listing texts from
+appstore/<folder>/mac/*.txt where present (otherwise the iPhone texts).
 """
 
 from __future__ import annotations
@@ -37,8 +41,16 @@ API = "https://api.appstoreconnect.apple.com/v1"
 # 1206×2622 screenshots belong to the 6.1"/6.3" iPhone slot ("iPhone with Dynamic Island").
 DISPLAY_TYPE = "APP_IPHONE_61"
 # 1320×2868 screenshots (iPhone 17 Pro Max, `SIZE=6.9 scripts/screenshots.sh all`) fill the 6.9" slot.
-DISPLAY_TYPES = {"6.1": ("APP_IPHONE_61", "screenshots/appstore"), "6.9": ("APP_IPHONE_67", "screenshots/appstore-6.9")}
+DISPLAY_TYPES = {
+    "6.1": ("APP_IPHONE_61", "screenshots/appstore"),
+    "6.9": ("APP_IPHONE_67", "screenshots/appstore-6.9"),
+    # 2880×1800 (scripts/mac-screenshots.sh).
+    "mac": ("APP_DESKTOP", "screenshots/appstore-mac"),
+}
 SCREENS = ["1-list", "2-online", "3-scanner", "4-product", "5-shopping"]  # scripts/screenshots.sh
+MAC_SCREENS = ["1-list", "2-dark", "3-welcome", "4-settings"]  # scripts/mac-screenshots.sh
+# IOS, or MAC_OS with --mac.
+PLATFORM = "IOS"
 # Folder name in screenshots/appstore → App Store Connect locale.
 LOCALES = {
     "en": "en-US",
@@ -95,7 +107,7 @@ def call(method: str, path: str, body: dict | None = None) -> dict:
 
 
 def editable_version() -> dict:
-    versions = call("GET", f"/apps/{APP_ID}/appStoreVersions?filter[platform]=IOS&limit=10")["data"]
+    versions = call("GET", f"/apps/{APP_ID}/appStoreVersions?filter[platform]={PLATFORM}&limit=10")["data"]
     for version in versions:
         if version["attributes"]["appStoreState"] in {
             "PREPARE_FOR_SUBMISSION",
@@ -203,7 +215,7 @@ def screenshots(folders: list[str], replace: bool, size: str = "6.1") -> None:
         for shot_id in existing:
             call("DELETE", f"/appScreenshots/{shot_id}")
         source = ROOT / root / ("" if folder == "en" else folder)
-        ids = [upload(set_id, source / f"{name}.png") for name in SCREENS]
+        ids = [upload(set_id, source / f"{name}.png") for name in (MAC_SCREENS if size == "mac" else SCREENS)]
         states = wait_until_processed(ids)
         call(
             "PATCH",
@@ -333,7 +345,13 @@ def listing_one(folder: str, app_info: str, info_locs: dict[str, str], version: 
     if True:
         locale = LOCALES[folder]
         source = ROOT / "appstore" / ("" if folder == "en" else folder)
-        read = lambda name: (source / f"{name}.txt").read_text().strip()  # noqa: E731
+
+        def read(name: str) -> str:
+            # The Mac listing has its own texts where they differ from the iPhone ones.
+            mac = source / "mac" / f"{name}.txt"
+            path = mac if PLATFORM == "MAC_OS" and mac.exists() else source / f"{name}.txt"
+            return path.read_text().strip()
+
         info = {"name": read("name"), "subtitle": read("subtitle"), "privacyPolicyUrl": site_url(folder, "privacy-policy")}
         if locale in info_locs:
             call(
@@ -360,8 +378,11 @@ def listing_one(folder: str, app_info: str, info_locs: dict[str, str], version: 
             "supportUrl": site_url(folder, "support"),
             "marketingUrl": site_url(folder),
         }
-        # A first version has no "What's New".
-        if version["attributes"]["versionString"] != "1.0":
+        # A first version has no "What's New" (on the Mac: no mac/whats-new.txt yet).
+        first = version["attributes"]["versionString"] == "1.0" or (
+            PLATFORM == "MAC_OS" and not (source / "mac/whats-new.txt").exists()
+        )
+        if not first:
             attributes["whatsNew"] = read("whats-new")
         # Creating the app info localization usually creates the version localization too.
         locs = localizations(version["id"])
@@ -388,7 +409,7 @@ def listing_one(folder: str, app_info: str, info_locs: dict[str, str], version: 
 
 def create_version(version_string: str) -> None:
     """Creates the next App Store version; App Store Connect copies the previous version's listing."""
-    versions = call("GET", f"/apps/{APP_ID}/appStoreVersions?filter[platform]=IOS&limit=10")["data"]
+    versions = call("GET", f"/apps/{APP_ID}/appStoreVersions?filter[platform]={PLATFORM}&limit=10")["data"]
     for version in versions:
         if version["attributes"]["versionString"] == version_string:
             print(f"Version {version_string} already exists: {version['attributes']['appStoreState']}")
@@ -399,7 +420,7 @@ def create_version(version_string: str) -> None:
         {
             "data": {
                 "type": "appStoreVersions",
-                "attributes": {"platform": "IOS", "versionString": version_string, "releaseType": "MANUAL"},
+                "attributes": {"platform": PLATFORM, "versionString": version_string, "releaseType": "MANUAL"},
                 "relationships": {"app": {"data": {"type": "apps", "id": APP_ID}}},
             }
         },
@@ -415,7 +436,8 @@ def attach_build(build_number: str) -> None:
         builds = call(
             "GET",
             f"/builds?filter[app]={APP_ID}&filter[version]={build_number}"
-            f"&filter[preReleaseVersion.version]={version_string}&limit=5",
+            f"&filter[preReleaseVersion.version]={version_string}"
+            f"&filter[preReleaseVersion.platform]={PLATFORM}&limit=5",
         )["data"]
         state = builds[0]["attributes"]["processingState"] if builds else "NOT_FOUND"
         if state == "VALID":
@@ -450,7 +472,7 @@ def submit() -> None:
     open_states = {"READY_FOR_REVIEW", "WAITING_FOR_REVIEW", "IN_REVIEW", "UNRESOLVED_ISSUES"}
     existing = [
         s
-        for s in call("GET", f"/reviewSubmissions?filter[app]={APP_ID}&filter[platform]=IOS&limit=20")["data"]
+        for s in call("GET", f"/reviewSubmissions?filter[app]={APP_ID}&filter[platform]={PLATFORM}&limit=20")["data"]
         if s["attributes"]["state"] in open_states
     ]
     if existing and existing[0]["attributes"]["state"] != "READY_FOR_REVIEW":
@@ -464,7 +486,7 @@ def submit() -> None:
             {
                 "data": {
                     "type": "reviewSubmissions",
-                    "attributes": {"platform": "IOS"},
+                    "attributes": {"platform": PLATFORM},
                     "relationships": {"app": {"data": {"type": "apps", "id": APP_ID}}},
                 }
             },
@@ -495,7 +517,7 @@ def submit() -> None:
 
 def status() -> None:
     version = editable_version()
-    print(f"Version {version['attributes']['versionString']}: {version['attributes']['appStoreState']}")
+    print(f"{PLATFORM} version {version['attributes']['versionString']}: {version['attributes']['appStoreState']}")
     for locale, localization_id in sorted(localizations(version["id"]).items()):
         sets = call(
             "GET",
@@ -511,6 +533,11 @@ def status() -> None:
 
 if __name__ == "__main__":
     command, *args = sys.argv[1:] or ["status"]
+    if "--mac" in args or command == "--mac":
+        PLATFORM = "MAC_OS"
+        args = [a for a in args if a != "--mac"]
+        if command == "--mac":
+            command, *args = args or ["status"]
     if command == "status":
         status()
     elif command == "assets":
@@ -524,7 +551,8 @@ if __name__ == "__main__":
     elif command == "listing":
         listing(args)
     elif command == "screenshots":
-        size = next((a.split("=", 1)[1] for a in args if a.startswith("--size=")), "6.1")
+        default = "mac" if PLATFORM == "MAC_OS" else "6.1"
+        size = next((a.split("=", 1)[1] for a in args if a.startswith("--size=")), default)
         screenshots([a for a in args if not a.startswith("--")], replace="--replace" in args, size=size)
     elif command == "remove-screenshots":
         remove_screenshots(args[0])

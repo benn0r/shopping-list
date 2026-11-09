@@ -8,6 +8,12 @@ Artwork for the Shopping List App Store record, made the same way as Off-hours.
 | Search results (1920×1280) | `marketing/search-results-1920x1280.png` |
 
 | iPhone screenshots (1206×2622, "iPhone with Dynamic Island") | `../screenshots/appstore/<language>/` |
+| Mac screenshots (2880×1800) | `../screenshots/appstore-mac/<language>/` |
+
+The Mac listing has its own texts in `<language>/mac/` (description, promotional text) and
+`mac/review-notes.txt`; the other texts are shared with the iPhone. The Mac screenshots come from
+`scripts/mac-screenshots.sh [all]` and need an unlocked screen (a locked screen captures blank
+windows). Upload with `scripts/appstore.py listing|screenshots|attach-build --mac …`.
 
 The screenshots show fictional, translated data (`-demo`, Debug builds only) and are taken on a
 dedicated "Shopping List Screenshots" simulator: `npm run screenshots` (all languages) or

@@ -1,0 +1,35 @@
+Shopping List - Scan & Shop on the Mac: plan your shopping at your desk, see items sorted by aisle, and take the same lists with you on your iPhone.
+
+YOUR CHOICE: ONLINE OR OFFLINE
+• Offline: your lists stay on this Mac. No account needed.
+• Online: the free Shopping List Cloud with Sign in with Apple. Your email address is not requested.
+
+MADE FOR THE MAC
+• Items as tiles sorted by category, with an info pane for the details
+• All your lists in the sidebar
+• Keyboard shortcuts: ⌘N adds an item, ⌘R syncs, ⌘⌫ removes the selection
+• Light and dark mode
+
+SHARE WITH FAMILY
+• Invite family and friends to your household with a link
+• Everyone sees and edits the same lists, with changes appearing live
+• Remove members or leave a household at any time
+
+TELL YOUR AI
+• Connect AI assistants through MCP and let them add, check off and read your lists
+• "Add everything for lasagne" turns into items on your list
+
+IPHONE AND MAC
+• The same app on iPhone, with barcode scanning and a shopping mode for the store
+• With Shopping List Cloud, your lists stay in sync on all your devices
+
+WORKS WITH WHAT YOU USE
+• Sync individual lists with Bring!, Mealie or your own Shopping List Server
+
+PRIVATE
+• No ads, no tracking, no analytics
+• Delete your Cloud account in Settings at any time; copies of your lists stay on your Mac
+
+Available in English, German, French, Italian, Spanish, Portuguese, Dutch, Danish, Swedish, Norwegian, Finnish, Polish and Japanese.
+
+Shopping List - Scan & Shop is independent and not affiliated with Bring! Labs AG or the Mealie project.

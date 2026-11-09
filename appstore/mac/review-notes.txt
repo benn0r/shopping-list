@@ -1,0 +1,26 @@
+Hello App Review,
+
+This is the first macOS version of Shopping List - Scan & Shop (Universal Purchase with the iPhone app, same bundle ID).
+
+1. Setup and access
+No account is needed. On first launch the app asks how it should be used:
+- Offline: lists are stored on this Mac only. Choose Offline and Continue.
+- Online: Shopping List Cloud with Sign in with Apple. Any Apple ID works; no separate account or demo credentials are needed.
+The mode can be changed later in Settings (⌘,) → Account.
+
+2. Using the app
+- Type an item into the "Add Item" field in the toolbar and press Return (⌘N focuses the field).
+- Click an item to see its details in the info pane on the right; Mark as Bought or Delete it there, from the toolbar, or with ⌘⌫.
+- Lists are in the sidebar; "New List" creates one, and right-clicking a list renames or deletes it.
+- Barcode scanning is only available in the iPhone app; items scanned there appear on the Mac when signed in to Shopping List Cloud.
+
+3. Account deletion
+Signed-in users can delete their Shopping List Cloud account in Settings → Account → Delete Account. This removes their data from our server; copies of their lists stay on the Mac.
+
+4. External services
+- Shopping List Cloud (shopping-list.tueftli.com) is our own server for syncing lists and sharing them with a household. It is only used in online mode.
+- Bring, Mealie and Shopping List Server sync is optional, off by default (Settings → Services), and uses accounts or servers the user controls.
+- Open Food Facts and its sister databases provide product names for barcodes.
+The app has no advertising, analytics or tracking.
+
+The app is independent and not affiliated with or endorsed by Bring! Labs AG, the Mealie project or the Open Facts projects.

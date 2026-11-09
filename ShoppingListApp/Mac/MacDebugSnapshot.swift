@@ -27,8 +27,18 @@
           ? NSApp.windows.first { $0.isVisible && $0.frame.width < 700 && $0.frame.height > 100 }
           : NSApp.windows.first { $0.isVisible && $0.contentView != nil && $0.frame.width > 400 }
         guard let window else { exit(1) }
-        // `-snapshot-width <points>[,<points>…]` resizes the window first, one width after another.
         let arguments = ProcessInfo.processInfo.arguments
+        // `-snapshot-size <width>x<height>` sets the window's size first (App Store screenshots).
+        if settings == nil, let index = arguments.firstIndex(of: "-snapshot-size"),
+          index + 1 < arguments.count
+        {
+          let parts = arguments[index + 1].split(separator: "x").compactMap { Double($0) }
+          if parts.count == 2 {
+            window.setContentSize(NSSize(width: parts[0], height: parts[1]))
+            try? await Task.sleep(for: .seconds(1.5))
+          }
+        }
+        // `-snapshot-width <points>[,<points>…]` resizes the window first, one width after another.
         if let index = arguments.firstIndex(of: "-snapshot-width"), index + 1 < arguments.count {
           for width in arguments[index + 1].split(separator: ",").compactMap({ Double($0) }) {
             window.setContentSize(NSSize(width: width, height: window.contentLayoutRect.height))

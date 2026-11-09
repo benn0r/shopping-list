@@ -119,7 +119,9 @@ struct MacRootView: View {
     .task {
       #if DEBUG
         MacDebugSnapshot.scheduleIfRequested()
-        if ProcessInfo.processInfo.arguments.contains("-snapshot-settings") { openSettings() }
+        if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("-snapshot-settings") }) {
+          openSettings()
+        }
       #endif
       guard !MacEnvironment.isRunningTests else { return }
       await store.verifyCloudCredential()
